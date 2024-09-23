@@ -5,32 +5,72 @@
 
 .section ".text.boot"
 
+// リンカスクリプトで .text.boot セクションが 0 番地に置かれる
+// ここが OS のスタートポイントになる
+// raspberry pi 3 では？(a53 では？) 0 番地から実行が始まる？
 .globl _start
 _start:
+    // コア 0 以外のコアは無限ループさせる
 	mrs	x0, mpidr_el1		
 	and	x0, x0,#0xFF		// Check processor id
 	cbz	x0, master		// Hang for all non-primary CPU
 	b	proc_hang
 
+// コア 0 以外のコアを無限ループさせて止める
 proc_hang: 
 	b proc_hang
 
+// これ以降はコア 0 だけで実行される
 master:
+	// sysregs.h にて定義されている
+	// #define SCTLR_VALUE_MMU_DISABLED	
+	//   (SCTLR_RESERVED | SCTLR_EE_LITTLE_ENDIAN | 
+	//    SCTLR_I_CACHE_DISABLED | SCTLR_D_CACHE_DISABLED |
+	//    SCTLR_MMU_DISABLED)
+	// MMU を無効にした状態の規定値を x0 レジスタにロードする
+	// 命令キャッシュ・データキャッシュも無効化される
 	ldr	x0, =SCTLR_VALUE_MMU_DISABLED
+	// EL1 用に設定を登録
 	msr	sctlr_el1, x0		
 
+	// #define HCR_RW	    			(1 << 31)
+	// #define HCR_VALUE			HCR_RW
 	ldr	x0, =HCR_VALUE
+	// ハイパーバイザ機能は使わないが、マニュアルによると
+	// RW ビットが 0 だと
+	// Lower levels are all AArch32. This is the reset value.
+	// となるようなので 1 にする
 	msr	hcr_el2, x0
 
+	// #define SCR_VALUE (SCR_RESERVED | SCR_RW | SCR_NS)
+	// RW は hcr_el2 と同じく 1 にしておかないと 32 ビットになる様子
+	// NS は non-secure bit で、1 にすると
+	//   Indicates that Exception levels lower than EL3 are
+	//   in Non-secure state, so memory accesses 
+	//   from those Exception levels cannot access Secure memory.
 	ldr	x0, =SCR_VALUE
 	msr	scr_el3, x0
 
+	// #define SPSR_MASK_ALL (7 << 6)
+	// #define SPSR_EL1h (5 << 0)
+	// #define SPSR_VALUE (SPSR_MASK_ALL | SPSR_EL1h)
+	// MASK_ALL は A,I,F ビットをセットする
+	// EL1h は M ビットに EL1h(0b0101) を指定する
+	//   EL1h は handler mode を表すらしい
+	//   handler mode はいわゆる特権モード
+	// EL3 から eret で復帰する(起動後の EL3 から EL1 へ遷移する)ときの
+	// 状態を調整している
+	// カーネルの処理に遷移するので特権が必要かつ、EL1 で動く必要がある
+	// よって EL1h をセットする
 	ldr	x0, =SPSR_VALUE
 	msr	spsr_el3, x0
 
+	// boot.S 内にある el1_entry のアドレスを elr_el3 に入れる
+	// elr_el3 は EL3 から eret するときに使われるアドレスを入れる
 	adr	x0, el1_entry		
 	msr	elr_el3, x0
 
+	// 指定した状態(EL1h)で、指定したアドレス(el1_entry)に復帰
 	eret				
 
 el1_entry:
