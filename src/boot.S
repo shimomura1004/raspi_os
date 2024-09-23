@@ -73,10 +73,14 @@ master:
 	// 指定した状態(EL1h)で、指定したアドレス(el1_entry)に復帰
 	eret				
 
+// ここから EL1 として実行される
 el1_entry:
+	// リンカスクリプトで設定される bss 領域の先頭/末尾を x0/x1 に入れる
 	adr	x0, bss_begin
 	adr	x1, bss_end
+	// bss 領域のサイズ(x1 - x0)を計算し x1 に入れる
 	sub	x1, x1, x0
+	// bss 領域を 0 クリア
 	bl 	memzero
 
 	bl 	__create_page_tables
@@ -131,14 +135,26 @@ el1_entry:
 	.endm
 
 __create_page_tables:
+	// x30 はリンクレジスタで、bl 命令でジャンプしたときの戻り先を保存している
 	mov	x29, x30						// save return address
 
+	// pg_dir(リンカスクリプトで指定)のベースアドレスを x0 に代入
 	adrp	x0, pg_dir
+	// x1 にページサイズを代入
 	mov	x1, #PG_DIR_SIZE
+	// pg_dir が指す位置から1ページ分を 0 クリアする
 	bl 	memzero
+	// ここでは1ページ分しかクリアしていないが、リンカスクリプトでは
+	// 3ページ分の領域が確保されている
 
+	// memzero で x0 の値は更新されるので改めて設定
 	adrp	x0, pg_dir
-	mov	x1, #VA_START 
+	// #define VA_START 0xffff000000000000
+	mov	x1, #VA_START
+	// create_pgd_entry は以下のように定義されたマクロ
+	// 	.macro	create_pgd_entry, tbl, virt, tmp1, tmp2
+	// x0 で指定したページテーブルに、x1 のアドレス以降を使ったマッピングを作る
+	// x2, x3 は作業用に自由に使っていいレジスタ
 	create_pgd_entry x0, x1, x2, x3
 
 	/* Mapping kernel and init stack*/
