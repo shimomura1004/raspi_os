@@ -83,6 +83,7 @@ el1_entry:
 	// bss 領域を 0 クリア
 	bl 	memzero
 
+	// ページテーブルを準備
 	bl 	__create_page_tables
 
 	mov	x0, #VA_START			
@@ -100,9 +101,11 @@ el1_entry:
 
 	ldr	x2, =kernel_main
 
+	// MMU を有効にする
 	mov	x0, #SCTLR_MMU_ENABLED				
 	msr	sctlr_el1, x0
 
+	// kernel_main 関数にジャンプ
 	br 	x2
 
 	.macro	create_pgd_entry, tbl, virt, tmp1, tmp2
