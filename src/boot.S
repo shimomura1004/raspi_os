@@ -11,7 +11,7 @@
 .globl _start
 _start:
     // コア 0 以外のコアは無限ループさせる
-	mrs	x0, mpidr_el1		
+	mrs	x0, mpidr_el1
 	and	x0, x0,#0xFF		// Check processor id
 	cbz	x0, master		// Hang for all non-primary CPU
 	b	proc_hang
@@ -23,7 +23,7 @@ proc_hang:
 // これ以降はコア 0 だけで実行される
 master:
 	// sysregs.h にて定義されている
-	// #define SCTLR_VALUE_MMU_DISABLED	
+	// #define SCTLR_VALUE_MMU_DISABLED
 	//   (SCTLR_RESERVED | SCTLR_EE_LITTLE_ENDIAN | 
 	//    SCTLR_I_CACHE_DISABLED | SCTLR_D_CACHE_DISABLED |
 	//    SCTLR_MMU_DISABLED)
@@ -31,7 +31,7 @@ master:
 	// 命令キャッシュ・データキャッシュも無効化される
 	ldr	x0, =SCTLR_VALUE_MMU_DISABLED
 	// EL1 用に設定を登録
-	msr	sctlr_el1, x0		
+	msr	sctlr_el1, x0
 
 	// #define HCR_RW	    			(1 << 31)
 	// #define HCR_VALUE			HCR_RW
@@ -67,11 +67,11 @@ master:
 
 	// boot.S 内にある el1_entry のアドレスを elr_el3 に入れる
 	// elr_el3 は EL3 から eret するときに使われるアドレスを入れる
-	adr	x0, el1_entry		
+	adr	x0, el1_entry
 	msr	elr_el3, x0
 
 	// 指定した状態(EL1h)で、指定したアドレス(el1_entry)に復帰
-	eret				
+	eret
 
 // ここから EL1 として実行される
 el1_entry:
@@ -86,13 +86,29 @@ el1_entry:
 	// ページテーブルを準備
 	bl 	__create_page_tables
 
-	mov	x0, #VA_START			
+	// #define VA_START 			0xffff000000000000
+	// VA_START は TTBR1 のほうで使うための定数
+	mov	x0, #VA_START
+	// #define PAGE_SHIFT	 	12
+	// #define TABLE_SHIFT 		9
+	// #define SECTION_SHIFT	(PAGE_SHIFT + TABLE_SHIFT)
+	// #define PAGE_SIZE   		(1 << PAGE_SHIFT)	
+	// #define SECTION_SIZE		(1 << SECTION_SHIFT)	
+	// #define LOW_MEMORY      	(2 * SECTION_SIZE)
+	// Arm では少し大きなセクションという単位でメモリを扱うこともできる
+	// スタックは 2 * 2MB で 4MB にしている
 	add	sp, x0, #LOW_MEMORY
 
-	adrp	x0, pg_dir				
+	// TTBR(translate table base register)は複数ある: TTBR{0,1}_el{0,1} + TTBR0_el{2,3}
+	// TTBR は x86 の cr3 に相当する(risc-v のsatp)
+	// TTBR0は 0~256TB までの48-bitの仮想アドレス空間を保持
+	// TTBR1のほうは 0xFFFF0000_00000000 から 0xFFFF_FFFFFFFF までの 256TB を保持
+	// TTBR0 と TTBR1 で仮想アドレスを分離し、それぞれにユーザアプリとカーネルを置く
+	adrp	x0, pg_dir
 	msr	ttbr1_el1, x0
 
-	ldr	x0, =(TCR_VALUE)		
+	// TCR レジスタは MMU を設定するためのレジスタ
+	ldr	x0, =(TCR_VALUE)
 	msr	tcr_el1, x0
 
 	ldr	x0, =(MAIR_VALUE)
@@ -102,7 +118,7 @@ el1_entry:
 	ldr	x2, =kernel_main
 
 	// MMU を有効にする
-	mov	x0, #SCTLR_MMU_ENABLED				
+	mov	x0, #SCTLR_MMU_ENABLED
 	msr	sctlr_el1, x0
 
 	// kernel_main 関数にジャンプ
@@ -117,7 +133,7 @@ el1_entry:
 	lsr	\tmp1, \virt, #\shift
 	and	\tmp1, \tmp1, #PTRS_PER_TABLE - 1			// table index
 	add	\tmp2, \tbl, #PAGE_SIZE
-	orr	\tmp2, \tmp2, #MM_TYPE_PAGE_TABLE	
+	orr	\tmp2, \tmp2, #MM_TYPE_PAGE_TABLE
 	str	\tmp2, [\tbl, \tmp1, lsl #3]
 	add	\tbl, \tbl, #PAGE_SIZE					// next level table page
 	.endm
@@ -161,8 +177,13 @@ __create_page_tables:
 	create_pgd_entry x0, x1, x2, x3
 
 	/* Mapping kernel and init stack*/
+	// xzr はゼロレジスタ
 	mov 	x1, xzr							// start mapping from physical offset 0
 	mov 	x2, #VA_START						// first virtual address
+	// #define DEVICE_BASE 		0x3F000000
+	// SECTION_SIZE は 1<<21 なので、2MB
+	// todo: なぜこれで仮想アドレスの終端になるのかわからない
+	// メモリマップがあるといいけど
 	ldr	x3, =(VA_START + DEVICE_BASE - SECTION_SIZE)		// last virtual address
 	create_block_map x0, x1, x2, x3, MMU_FLAGS, x4
 
