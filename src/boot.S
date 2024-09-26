@@ -96,7 +96,7 @@ el1_entry:
 	// #define SECTION_SIZE		(1 << SECTION_SHIFT)	
 	// #define LOW_MEMORY      	(2 * SECTION_SIZE)
 	// Arm では少し大きなセクションという単位でメモリを扱うこともできる
-	// スタックは 2 * 2MB で 4MB にしている
+	// aarch64 もスタックは下方向に伸びるので、スタックは 2 * 2MB で 4MB 確保されている
 	add	sp, x0, #LOW_MEMORY
 
 	// TTBR(translate table base register)は複数ある: TTBR{0,1}_el{0,1} + TTBR0_el{2,3}
@@ -104,13 +104,31 @@ el1_entry:
 	// TTBR0は 0~256TB までの48-bitの仮想アドレス空間を保持
 	// TTBR1のほうは 0xFFFF0000_00000000 から 0xFFFF_FFFFFFFF までの 256TB を保持
 	// TTBR0 と TTBR1 で仮想アドレスを分離し、それぞれにユーザアプリとカーネルを置く
+
+	// pg_dir はリンカスクリプトで設定されている
+	// pg_dir にはアドレス変換テーブルの最上位のページのアドレスが入っている
+	// __create_page_tables でテーブルの構造を作っているはず
 	adrp	x0, pg_dir
 	msr	ttbr1_el1, x0
 
 	// TCR レジスタは MMU を設定するためのレジスタ
+	// #define TCR_T0SZ		(64 - 48) 
+	// #define TCR_T1SZ		((64 - 48) << 16)
+	// #define TCR_TG0_4K	(0 << 14)
+	// #define TCR_TG1_4K	(2 << 30)
+	// #define TCR_VALUE	(TCR_T0SZ | TCR_T1SZ | TCR_TG0_4K | TCR_TG1_4K)
+	// TCR_TG0_4K は、TTBR0_EL1 のページのサイズ
+	// TCR_TG0_4K は、TTBR1_EL1 のページのサイズ
 	ldr	x0, =(TCR_VALUE)
 	msr	tcr_el1, x0
 
+	// MAIR: memory attribute indirection register
+	// #define MT_DEVICE_nGnRnE 		0x0
+	// #define MT_NORMAL_NC				0x1
+	// #define MT_DEVICE_nGnRnE_FLAGS	0x00
+	// #define MT_NORMAL_NC_FLAGS  		0x44
+	// #define MAIR_VALUE	(MT_DEVICE_nGnRnE_FLAGS << (8 * MT_DEVICE_nGnRnE))
+	//                    | (MT_NORMAL_NC_FLAGS << (8 * MT_NORMAL_NC))
 	ldr	x0, =(MAIR_VALUE)
 	msr	mair_el1, x0
 
