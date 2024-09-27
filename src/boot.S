@@ -142,19 +142,55 @@ el1_entry:
 	// kernel_main 関数にジャンプ
 	br 	x2
 
+	//-------- ここからマクロ定義 --------
+
+	// create_pgd_entry を実行すると、3ページ分確保したメモリ領域に、前から順番に
+	//   page global directory, page upper directory, 通常のメモリ領域
+	// が確保される
+	// todo: pmd はない？
+
+	// #define PAGE_SHIFT	 		12
+	// #define TABLE_SHIFT 			9
+	// #define PGD_SHIFT			PAGE_SHIFT + 3*TABLE_SHIFT
+	// #define PUD_SHIFT			PAGE_SHIFT + 2*TABLE_SHIFT
+	// #define PMD_SHIFT			PAGE_SHIFT + TABLE_SHIFT
+
+	// 仮想アドレスをページグローバルディレクトリのエントリに変換する
 	.macro	create_pgd_entry, tbl, virt, tmp1, tmp2
+	// page global directory を作る
 	create_table_entry \tbl, \virt, PGD_SHIFT, \tmp1, \tmp2
+	// page upper directory を作る
 	create_table_entry \tbl, \virt, PUD_SHIFT, \tmp1, \tmp2
 	.endm
 
+	// #define PTRS_PER_TABLE	(1 << TABLE_SHIFT) ページ1つあたりのエントリ数(512個)
+	// #define PAGE_SIZE   		(1 << PAGE_SHIFT)	
+	// #define MM_TYPE_PAGE_TABLE		0x3
+
+	//======== create_table_entry ===============================================
+
 	.macro	create_table_entry, tbl, virt, shift, tmp1, tmp2
+	// logical shift right
 	lsr	\tmp1, \virt, #\shift
+	// テーブルインデックスの部分だけマスクして tmp1 に取り出す
 	and	\tmp1, \tmp1, #PTRS_PER_TABLE - 1			// table index
+	// tmp2 に次のページのアドレスを入れる
 	add	\tmp2, \tbl, #PAGE_SIZE
+	// アドレスの下位2ビットにフラグを設定し、これがページテーブルであると宣言
 	orr	\tmp2, \tmp2, #MM_TYPE_PAGE_TABLE
+	// str はストア命令
+	//   STR   Xt, [base, Xm {,LSL|SXTX {#0 | #3}} ]   // レジスタオフセット
+	//     Xt: メモリに保存する値を保持するレジスタ
+	//     base: 書き込み先のベースとなるアドレスを保持するレジスタ
+	//     Xm: ベースに対するオフセットを保持するレジスタ
+	//     lsl #3: オフセットを左に3ビットシフト(8倍)することを指示している
+	// tmp1 にはエントリの位置が入っているので、アドレスにするために8倍する必要がある
+	// つまり、ここでページエントリを書き込んでいる
 	str	\tmp2, [\tbl, \tmp1, lsl #3]
+	// このあと page upper directory の処理も行うので1ページ分アドレスを進めておく
 	add	\tbl, \tbl, #PAGE_SIZE					// next level table page
 	.endm
+	//=============================================================================
 
 	.macro	create_block_map, tbl, phys, start, end, flags, tmp1
 	lsr	\start, \start, #SECTION_SHIFT
@@ -177,12 +213,15 @@ __create_page_tables:
 
 	// pg_dir(リンカスクリプトで指定)のベースアドレスを x0 に代入
 	adrp	x0, pg_dir
-	// x1 にページサイズを代入
+
+	// x1 にページディレクトリのサイズ(4KB x 3)を代入
+	// #define PAGE_SHIFT	 		12
+	// #define PAGE_SIZE   			(1 << PAGE_SHIFT)	
+	// #define PG_DIR_SIZE			(3 * PAGE_SIZE)
 	mov	x1, #PG_DIR_SIZE
-	// pg_dir が指す位置から1ページ分を 0 クリアする
+
+	// pg_dir が指す位置から3ページ分を 0 クリアする
 	bl 	memzero
-	// ここでは1ページ分しかクリアしていないが、リンカスクリプトでは
-	// 3ページ分の領域が確保されている
 
 	// memzero で x0 の値は更新されるので改めて設定
 	adrp	x0, pg_dir
