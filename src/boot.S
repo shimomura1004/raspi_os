@@ -206,17 +206,31 @@ el1_entry:
 	// flags - エントリの下位2ビットにセットするフラグ
 
 	.macro	create_block_map, tbl, phys, start, end, flags, tmp1
+	// start のアドレスから PUD のインデックスを取り出す
 	lsr	\start, \start, #SECTION_SHIFT
 	and	\start, \start, #PTRS_PER_TABLE - 1			// table index
+	// end のアドレスから PUD のインデックスを取り出す
 	lsr	\end, \end, #SECTION_SHIFT
 	and	\end, \end, #PTRS_PER_TABLE - 1				// table end index
+	// 対象の物理アドレスを右シフトし、orr 命令で再度左シフトする
+	// これにより2MB(21ビット)の境界にそろっていないアドレスでも端数を捨てて変換できるようにしている
 	lsr	\phys, \phys, #SECTION_SHIFT
 	mov	\tmp1, #\flags
 	orr	\phys, \tmp1, \phys, lsl #SECTION_SHIFT			// table entry
-9999:	str	\phys, [\tbl, \start, lsl #3]				// store the entry
+	// この段階で、phys は2MBでアラインされ、かつ適切なフラグも設定されている状態になる
+
+9999:
+	// エントリをメモリに書き込み
+	// create_table_entry と同じで、インデックスをアドレスに変換しつつ格納する
+	str	\phys, [\tbl, \start, lsl #3]				// store the entry
+	// start を進める(start はアドレスではなくインデックスなので1を足せばいい)
 	add	\start, \start, #1					// next entry
+	// 物理アドレスも進める
 	add	\phys, \phys, #SECTION_SIZE				// next block
+	// phys ではなくインデックスで比較するのは、phys の下位ビットにはフラグが設定されているため
 	cmp	\start, \end
+	// b.ls は less than or same なので、start と end が同じときも 9999 にジャンプする
+	// なので end は SECTION_SIZE 分小さい値にしておかないとオーバーランする
 	b.ls	9999b
 	.endm
 	
@@ -252,17 +266,41 @@ __create_page_tables:
 	// xzr はゼロレジスタ
 	mov 	x1, xzr							// start mapping from physical offset 0
 	mov 	x2, #VA_START						// first virtual address
+
+	// BCM2837 ARM Peripherals manual, section 1.2.3 ARM physical addresses
+	//   Physical addresses range from 0x3F000000 to 0x3FFFFFFF for peripherals.
+	// https://cs140e.sergio.bz/docs/BCM2837-ARM-Peripherals.pdf
 	// #define DEVICE_BASE 		0x3F000000
 	// SECTION_SIZE は 1<<21 なので、2MB
-	// todo: なぜこれで仮想アドレスの終端になるのかわからない
-	//       メモリマップがあるといいけど
 	ldr	x3, =(VA_START + DEVICE_BASE - SECTION_SIZE)		// last virtual address
+
+	// create_block_map, tbl, phys, start, end, flags, tmp1
+	// tbl = x0 = pg_dir
+	// phys = x1 = 0
+	// start = x2 = VA_START
+	// end = x3 = VA_START + DEVICE_BASE - SECTION_SIZE
+	            = 0xffff_0000_0000_0000 + 0x3F00_0000 - 0x0020_0000
+	// flags = MMU_FLAGS
+	// BCM2837 では RAM が物理アドレスの 0 番地から 1GB 搭載される
+	// そのうち 0x0000_0000 から 0x3F00_0000 までは DRAM
+	// 残りの 0x3F00_0000 から 0x4000_0000 まではデバイス
+	// それらを仮想アドレス VA_START から始めて DEVICE_BASE までの範囲をマッピング
+	// todo: これだと DRAM は 1GB ないのではないか？
 	create_block_map x0, x1, x2, x3, MMU_FLAGS, x4
 
 	/* Mapping device memory*/
 	mov 	x1, #DEVICE_BASE					// start mapping from device base address 
 	ldr 	x2, =(VA_START + DEVICE_BASE)				// first virtual address
+	// #define PHYS_MEMORY_SIZE		0x4000_0000 = 1GB	
 	ldr	x3, =(VA_START + PHYS_MEMORY_SIZE - SECTION_SIZE)	// last virtual address
+
+	// tbl = x0 = pg_dir
+	// phys = x1 = DEVICE_BASE
+	// start = x2 = VA_START + DEVICE_BASE
+	//            = 0xffff_0000_0000_0000 + 0x3F00_0000
+	// end = x3 = VA_START + PHYS_MEMORY_SIZE - SECTION_SIZE
+	//          = 0xffff_0000_0000_0000 + 0x4000_0000 - 0x0020_0000
+	// デバイス部分をマップ(フラグが違う)
 	create_block_map x0, x1, x2, x3, MMU_DEVICE_FLAGS, x4
 
 	mov	x30, x29						// restore return address
