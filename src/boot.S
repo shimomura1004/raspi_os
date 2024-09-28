@@ -142,12 +142,14 @@ el1_entry:
 	// kernel_main 関数にジャンプ
 	br 	x2
 
-	//-------- ここからマクロ定義 --------
+	//-------- ここからマクロ定義 ------------------------------------------------
+
+	// RPi3 の RAM は 1GB しかないので、PGD と PUD は1つずつで十分である
 
 	// create_pgd_entry を実行すると、3ページ分確保したメモリ領域に、前から順番に
-	//   page global directory, page upper directory, 通常のメモリ領域
+	//   PGD, PUD, まだ初期化していない PMD
 	// が確保される
-	// todo: pmd はない？
+	// またセクションマッピングを使うので PTE は不要
 
 	// #define PAGE_SHIFT	 		12
 	// #define TABLE_SHIFT 			9
@@ -155,7 +157,9 @@ el1_entry:
 	// #define PUD_SHIFT			PAGE_SHIFT + 2*TABLE_SHIFT
 	// #define PMD_SHIFT			PAGE_SHIFT + TABLE_SHIFT
 
-	// 仮想アドレスをページグローバルディレクトリのエントリに変換する
+	//======== create_table_entry ===============================================
+
+	// ページグローバルディレクトリを作る
 	.macro	create_pgd_entry, tbl, virt, tmp1, tmp2
 	// page global directory を作る
 	create_table_entry \tbl, \virt, PGD_SHIFT, \tmp1, \tmp2
@@ -190,7 +194,16 @@ el1_entry:
 	// このあと page upper directory の処理も行うので1ページ分アドレスを進めておく
 	add	\tbl, \tbl, #PAGE_SIZE					// next level table page
 	.endm
-	//=============================================================================
+
+	//======== create_block_map ===============================================
+
+	// PMD テーブルのエントリを準備する
+
+	// tbl - PMD テーブルへのポインタ
+	// phys - マップ対象の物理アドレスの開始位置
+	// start - マップ先の仮想アドレスの先頭
+	// end - マップ先の仮想アドレスの末尾
+	// flags - エントリの下位2ビットにセットするフラグ
 
 	.macro	create_block_map, tbl, phys, start, end, flags, tmp1
 	lsr	\start, \start, #SECTION_SHIFT
@@ -206,6 +219,8 @@ el1_entry:
 	cmp	\start, \end
 	b.ls	9999b
 	.endm
+	
+	//=============================================================================
 
 __create_page_tables:
 	// x30 はリンクレジスタで、bl 命令でジャンプしたときの戻り先を保存している
@@ -240,7 +255,7 @@ __create_page_tables:
 	// #define DEVICE_BASE 		0x3F000000
 	// SECTION_SIZE は 1<<21 なので、2MB
 	// todo: なぜこれで仮想アドレスの終端になるのかわからない
-	// メモリマップがあるといいけど
+	//       メモリマップがあるといいけど
 	ldr	x3, =(VA_START + DEVICE_BASE - SECTION_SIZE)		// last virtual address
 	create_block_map x0, x1, x2, x3, MMU_FLAGS, x4
 
