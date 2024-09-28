@@ -132,7 +132,11 @@ el1_entry:
 	ldr	x0, =(MAIR_VALUE)
 	msr	mair_el1, x0
 
-
+	// MMU を有効にする前にアドレスを控えておく
+	// 単に br kernel_main とすると、PC に対する kernel_main のアドレスへの相対値でジャンプするが、
+	// MMU が無効であった場合の相対位置にジャンプしてしまうのでずれる
+	// 一度 ldr でアドレスをレジスタに入れると絶対値になり、これであれば MMU 有効化後に適切な値となる
+	// todo: 詳細はよくわからない
 	ldr	x2, =kernel_main
 
 	// MMU を有効にする
