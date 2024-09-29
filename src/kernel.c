@@ -23,7 +23,7 @@ void kernel_process(){
 	} 
 }
 
-
+// HLOS としてのスタート地点
 void kernel_main()
 {
 	uart_init();
