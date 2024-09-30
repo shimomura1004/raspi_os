@@ -2,16 +2,20 @@
 #include "entry.h"
 #include "sys.h"
 
+	// 無効な割込みハンドラを表現するためのマクロ
 	.macro handle_invalid_entry el, type
 	kernel_entry \el
 	mov	x0, #\type
 	mrs	x1, esr_el1
 	mrs	x2, elr_el1
 	bl	show_invalid_entry_message
+	// err_hang に飛ぶと無限ループする
 	b	err_hang
 	.endm
 
 	.macro	ventry	label
+	// Arm の割込みハンドラは 0x80=128byte ごとに配置されなくてはいけないので
+	// .align 7 で 2^7=128byte にアドレスをそろえるよう指示
 	.align	7
 	b	\label
 	.endm
