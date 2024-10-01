@@ -4,7 +4,9 @@
 
 	// 無効な割込みハンドラを表現するためのマクロ
 	.macro handle_invalid_entry el, type
+	// レジスタを退避
 	kernel_entry \el
+	// show_invalid_entry_message 用の3つの引数を準備する
 	mov	x0, #\type
 	mrs	x1, esr_el1
 	mrs	x2, elr_el1
@@ -20,8 +22,14 @@
 	b	\label
 	.endm
 
+	//-------- kernel_entry --------------------------------------------------
+	// #define S_FRAME_SIZE	272	// size of all saved registers 
+
+	// ハンドラが呼ばれた直後にやることをまとめたマクロ
 	.macro	kernel_entry, el
+	// 控えるレジスタの容量分 sp をずらしてメモリ上に領域を確保する
 	sub	sp, sp, #S_FRAME_SIZE
+	// x0-x29 レジスタをスタックに控える (stp は2つのレジスタを一気にメモリに書き込む命令)
 	stp	x0, x1, [sp, #16 * 0]
 	stp	x2, x3, [sp, #16 * 1]
 	stp	x4, x5, [sp, #16 * 2]
@@ -38,18 +46,28 @@
 	stp	x26, x27, [sp, #16 * 13]
 	stp	x28, x29, [sp, #16 * 14]
 
+	// 割込みが発生した時の EL の値に応じて分岐
 	.if	\el == 0
+	// EL0 で割込みが発生した場合は sp_el0 に元の sp の値が保存されるのでそれを控える
 	mrs	x21, sp_el0
 	.else
+	// EL1 で割込みが発生した場合はスタックは再利用するので
+	// 単純に先ほどレジスタを控えるために動かした分を戻した値を控えればいい
 	add	x21, sp, #S_FRAME_SIZE
 	.endif /* \el == 0 */
 
+	// elr_el1 は、例外が発生し EL1 にきたときに、戻り先アドレスが入っているレジスタ
 	mrs	x22, elr_el1
+	// spsr_el1 は、例外が発生し EL1 にきたときに、元のステータスを保存しているレジスタ
+	// たとえば条件フラグとか、割込みのマスク状態など
 	mrs	x23, spsr_el1
 
+	// これらもメモリ上に保存 (x30 はリンクレジスタ)
 	stp	x30, x21, [sp, #16 * 15] 
 	stp	x22, x23, [sp, #16 * 16]
 	.endm
+
+	//-------- kernel_exit --------------------------------------------------
 
 	.macro	kernel_exit, el
 	ldp	x22, x23, [sp, #16 * 16]
@@ -81,11 +99,13 @@
 	add	sp, sp, #S_FRAME_SIZE		
 	eret
 	.endm
-
+	
+	//-----------------------------------------------------------------------
 
 /*
  * Exception vectors.
  */
+ // invalid つきのものは通常は呼ばれないハンドラで、エラー出力して無限ループする
 .align	11
 .globl vectors 
 vectors:
