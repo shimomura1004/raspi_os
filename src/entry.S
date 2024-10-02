@@ -2,7 +2,9 @@
 #include "entry.h"
 #include "sys.h"
 
+	//-------- handle_invalid_entry -------------------------------------------
 	// 無効な割込みハンドラを表現するためのマクロ
+
 	.macro handle_invalid_entry el, type
 	// レジスタを退避
 	kernel_entry \el
@@ -26,6 +28,7 @@
 	// #define S_FRAME_SIZE	272	// size of all saved registers 
 
 	// ハンドラが呼ばれた直後にやることをまとめたマクロ
+	// 具体的にはレジスタの保全を行う
 	.macro	kernel_entry, el
 	// 控えるレジスタの容量分 sp をずらしてメモリ上に領域を確保する
 	sub	sp, sp, #S_FRAME_SIZE
@@ -180,35 +183,61 @@ el0_irq:
 	bl	handle_irq
 	kernel_exit 0 
 
+// 同期割込みハンドラ
+// #define ESR_ELx_EC_SHIFT		26
+// #define ESR_ELx_EC_SVC64		0x15
+// #define ESR_ELx_EC_DABT_LOW	0x24
 el0_sync:
 	kernel_entry 0
+	// exception class を調べるために esr_el1 の ESR_ELx_EC_SHIFT ビット目を確認
 	mrs	x25, esr_el1				// read the syndrome register
 	lsr	x24, x25, #ESR_ELx_EC_SHIFT		// exception class
+	// svc 命令によって発生した割込みか？
 	cmp	x24, #ESR_ELx_EC_SVC64			// SVC in 64-bit state
 	b.eq	el0_svc
+	// データアボートによって発生した割込みか？
 	cmp	x24, #ESR_ELx_EC_DABT_LOW		// data abort in EL0
 	b.eq	el0_da
+	// それ以外の場合は invalid
 	handle_invalid_entry 0, SYNC_ERROR
 
+// レジスタのエイリアスの定義
 sc_nr	.req	x25					// number of system calls
 scno	.req	x26					// syscall number
 stbl	.req	x27					// syscall table pointer
 
+// #define __NR_syscalls	 3
 el0_svc:
+	// stbl は x27 のエイリアス
 	adr	stbl, sys_call_table			// load syscall table pointer
+	// uxtw は32ビットデータを64ビットにゼロ拡張する命令
+	// scno は x26 のエイリアス
 	uxtw	scno, w8				// syscall number in w8
+	// sc_nr は x25 のエイリアス
 	mov	sc_nr, #__NR_syscalls
+	// bl: branch with link
+	// 割込みを有効にする
 	bl	enable_irq
+	// システムコール番号がシステムコールの数より小さいかを確認
 	cmp     scno, sc_nr                     	// check upper syscall limit
+	// システムコール番号が無効なら ni_sys に飛んで invalid とする
 	b.hs	ni_sys
 
+	// テーブルのアドレス(stbl)をベースに、
+	// インデックス(scno)を8倍(lsl #3)したオフセットを足したところのデータを x16 に入れる
 	ldr	x16, [stbl, scno, lsl #3]		// address in the syscall table
+	// 指定されたシステムコールを呼び出し
 	blr	x16					// call sys_* routine
 	b	ret_from_syscall
 ni_sys:
 	handle_invalid_entry 0, SYSCALL_ERROR
 ret_from_syscall:
-	bl	disable_irq				
+	// システムコールから戻る処理
+	// 割込みを無効にする
+	bl	disable_irq
+	// ABI に従いシステムコールの戻り値を x0 レジスタに入れたいので
+	// kernel_exit が x0 に値を復帰させるメモリ位置に直接今の x0 の値を入れる
+	// #define S_X0		0		// offset of x0 register in saved stack frame
 	str	x0, [sp, #S_X0]				// returned x0
 	kernel_exit 0
 
