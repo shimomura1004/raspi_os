@@ -241,15 +241,24 @@ ret_from_syscall:
 	str	x0, [sp, #S_X0]				// returned x0
 	kernel_exit 0
 
+// todo: 割込みを有効・無効にするタイミングがよくわからない
+// データアボートしたときのハンドラ
 el0_da:
+	// すぐに割込みを有効にする
 	bl	enable_irq
+	// far = fault address regiter: データアボートなどが発生した場合に、その仮想アドレスを保持
 	mrs	x0, far_el1
-	mrs	x1, esr_el1			
+	// esr = exception syndrome register: 例外が発生した要因を保持
+	mrs	x1, esr_el1
+	// mm.c の関数を呼び出し			
 	bl	do_mem_abort
+	// 戻り値が 0 ならジャンプ
 	cmp x0, 0
 	b.eq 1f
+	// do_mem_abort が失敗した場合は invalid とする
 	handle_invalid_entry 0, DATA_ABORT_ERROR
 1:
+	// 割込みを無効にして戻る
 	bl disable_irq				
 	kernel_exit 0
 
