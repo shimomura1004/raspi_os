@@ -22,9 +22,14 @@ delay:
 
 .globl set_pgd
 set_pgd:
+	// アドレス空間を切り替え
 	msr	ttbr0_el1, x0
+	// TLB を無効化
 	tlbi vmalle1is
+	// out-of-order 実行で勝手に実行しないように
+	// data synchronization barrier
   	DSB ISH              // ensure completion of TLB invalidation
+	// instruction synchronization barrier
 	isb
 	ret
 
