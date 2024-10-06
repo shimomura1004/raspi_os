@@ -47,9 +47,14 @@ struct user_page {
 
 struct mm_struct {
 	unsigned long pgd;
+	// 今使っているユーザプロセス用ページの数
 	int user_pages_count;
+	// 使っているユーザプロセス用ページのリスト
 	struct user_page user_pages[MAX_PROCESS_PAGES];
+	// 今使っているカーネル用ページの数
 	int kernel_pages_count;
+	// 使っているカーネル用ページのオフセットのリスト
+	// カーネルが使えるページ数は最大で MAX_PROCESS_PAGES(16) 個まで
 	unsigned long kernel_pages[MAX_PROCESS_PAGES];
 };
 
