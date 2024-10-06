@@ -62,6 +62,7 @@ void _schedule(void)
 
 void schedule(void)
 {
+	// 自主的に CPU を手放した場合はカウンタを 0 にする
 	current->counter = 0;
 	_schedule();
 }
