@@ -262,6 +262,7 @@ el0_da:
 	bl disable_irq				
 	kernel_exit 0
 
+// fork で作られたプロセスに CPU 時間が与えられたときの処理
 .globl ret_from_fork
 ret_from_fork:
 	bl	schedule_tail

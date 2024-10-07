@@ -7,6 +7,7 @@
 static struct task_struct init_task = INIT_TASK;
 struct task_struct *current = &(init_task);
 struct task_struct * task[NR_TASKS] = {&(init_task), };
+// タスクの数
 int nr_tasks = 1;
 
 // タイマ割込みが発生してもタスク切り替えを行わないようにする

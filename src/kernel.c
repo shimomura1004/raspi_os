@@ -12,6 +12,7 @@
 #include "user.h"
 
 
+// カーネルスレッドを立ち上げ、ユーザプロセスに移行させる
 void kernel_process(){
 	printf("Kernel process started. EL %d\r\n", get_el());
 	unsigned long begin = (unsigned long)&user_begin;
@@ -33,6 +34,7 @@ void kernel_main()
 	enable_interrupt_controller();
 	enable_irq();
 
+	// カーネルプロセスを作る
 	int res = copy_process(PF_KTHREAD, (unsigned long)&kernel_process, 0);
 	if (res < 0) {
 		printf("error while starting kernel process");
