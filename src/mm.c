@@ -132,13 +132,17 @@ void map_page(struct task_struct *task, unsigned long va, unsigned long page){
 	task->mm.user_pages[task->mm.user_pages_count++] = p;
 }
 
+// 仮想アドレス空間のコピー
 int copy_virt_memory(struct task_struct *dst) {
 	struct task_struct* src = current;
+	// ユーザ空間にマップしてあるページを順番にコピー
 	for (int i = 0; i < src->mm.user_pages_count; i++) {
+		// 新しくページを確保して
 		unsigned long kernel_va = allocate_user_page(dst, src->mm.user_pages[i].virt_addr);
 		if( kernel_va == 0) {
 			return -1;
 		}
+		// ページを丸ごとコピー
 		memcpy(kernel_va, src->mm.user_pages[i].virt_addr, PAGE_SIZE);
 	}
 	return 0;
