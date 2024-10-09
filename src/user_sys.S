@@ -12,6 +12,9 @@ user_delay:
 
 .globl call_sys_write
 call_sys_write:
+	// svc のハンドラ内で w8 の値を見て処理が分岐する
+	// 通常は svc の引数の値で分離すると思うが、RPi OS では w8 の値を使っている
+	// w0~w7 はシステムコールの引数に使うのが習慣
 	mov w8, #SYS_WRITE_NUMBER	
 	svc #0
 	ret
