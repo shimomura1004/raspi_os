@@ -9,6 +9,7 @@ void loop(char* str)
 		for (int i = 0; i < 5; i++){
 			buf[0] = str[i];
 			call_sys_write(buf);
+			// アセンブラで書かれたただのビジーループ
 			user_delay(1000000);
 		}
 	}

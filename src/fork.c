@@ -54,18 +54,22 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 	return pid;
 }
 
-
+// カーネルのプロセスをユーザプロセスに移す
 int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 {
 	struct pt_regs *regs = task_pt_regs(current);
 	regs->pstate = PSR_MODE_EL0t;
 	regs->pc = pc;
+	// todo: このスタックポインタへの代入はどういう意味？
 	regs->sp = 2 *  PAGE_SIZE;  
+	// 新たにページを確保、code_page は仮想アドレス
 	unsigned long code_page = allocate_user_page(current, 0);
 	if (code_page == 0)	{
 		return -1;
 	}
+	// プログラム全体を code_page にコピー
 	memcpy(code_page, start, size);
+	// アドレス空間の切り替え(カーネルのアドレス空間 → プロセスのアドレス空間)
 	set_pgd(current->mm.pgd);
 	return 0;
 }

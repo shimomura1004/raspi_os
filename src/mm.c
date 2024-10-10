@@ -19,14 +19,14 @@ unsigned long allocate_kernel_page() {
 
 // ユーザ空間で使うためのページを確保し、その仮想アドレスを返す
 unsigned long allocate_user_page(struct task_struct *task, unsigned long va) {
-	// 未使用ページを探す
+	// 未使用ページを探す、page は仮想アドレスではなくオフセット
 	unsigned long page = get_free_page();
 	if (page == 0) {
 		return 0;
 	}
 	// 新たに確保したページをこのタスクのアドレス空間にマッピングする
 	map_page(task, va, page);
-	// 新たに確保したページの仮想アドレスを返す
+	// 新たに確保したページの仮想アドレスを返す(リニアマッピングなのでオフセットを足すだけ)
 	return page + VA_START;
 }
 
@@ -54,6 +54,8 @@ void free_page(unsigned long p){
 }
 
 // ページエントリを追加する
+// RPi3 では DRAM が物理アドレス 0 のところから配置されている
+// つまり DRAM 上のインデックスは物理アドレスと同じ扱いになる
 void map_table_entry(unsigned long *pte, unsigned long va, unsigned long pa) {
 	// ページエントリのオフセットを index に入れる
 	unsigned long index = va >> PAGE_SHIFT;

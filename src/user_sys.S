@@ -4,12 +4,14 @@
 .set SYS_FORK_NUMBER, 1 	
 .set SYS_EXIT_NUMBER, 2 	
 
+// ただのビジーループ
 .globl user_delay
 user_delay:
 	subs x0, x0, #1
 	bne user_delay
 	ret
 
+// svc を呼び出してカーネル空間に入る
 .globl call_sys_write
 call_sys_write:
 	// svc のハンドラ内で w8 の値を見て処理が分岐する

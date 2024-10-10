@@ -61,6 +61,7 @@ void _schedule(void)
 	preempt_enable();
 }
 
+// プロセスを切り替える
 void schedule(void)
 {
 	// 自主的に CPU を手放した場合はカウンタを 0 にする
