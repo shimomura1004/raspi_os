@@ -5,6 +5,13 @@
 
 .section ".text.boot"
 
+// SCTLR_EL1: system control register: キャッシュや MMU が有効か無効か、など
+// HCR_EL2: hypervisor configuration register: ハイパーバイザ関連の機能
+// SCR_EL3: secure configuration register: secure monitor
+// SPSR_EL3: saved program status register: condition flag とか
+//   condition flag: ゼロかどうか、オーバーフローしたか、…
+// ELR_EL3: exception link register: eret で戻る先のアドレス
+
 // リンカスクリプトで .text.boot セクションが 0 番地に置かれる
 // ここが OS のスタートポイントになる
 // raspberry pi 3 では？(a53 では？) 0 番地から実行が始まる？
