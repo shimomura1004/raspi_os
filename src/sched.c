@@ -5,9 +5,10 @@
 #include "mm.h"
 
 static struct task_struct init_task = INIT_TASK;
+// 現在実行中のタスクの task_struct
 struct task_struct *current = &(init_task);
 struct task_struct * task[NR_TASKS] = {&(init_task), };
-// タスクの数
+// 現在実行中のタスクの数(init_task があるので初期値は1)
 int nr_tasks = 1;
 
 // タイマ割込みが発生してもタスク切り替えを行わないようにする
@@ -42,14 +43,15 @@ void _schedule(void)
 				next = i;
 			}
 		}
-		// カウンタが 0 以外のものを見つけていたらループを抜ける
+		// まだ実行時間(counter)が残っているものがあったらそれを実行する
 		if (c) {
 			break;
 		}
-		// 探しなおす前に各タスクのカウンタを更新
+		// すべてのタスクが実行時間を使い切っていたら、全タスクに実行時間を補充する
 		for (int i = 0; i < NR_TASKS; i++) {
 			p = task[i];
 			if (p) {
+				// 何回もループした場合にカウンタの値が大きくなりすぎないように
 				// 今のカウンタの値を半分にして、プライオリティを足したもので更新
 				p->counter = (p->counter >> 1) + p->priority;
 			}
@@ -92,7 +94,9 @@ void schedule_tail(void) {
 void timer_tick()
 {
 	--current->counter;
-	// todo: 条件がよくわからないが、タイマが発火してもタスク切り替えしないこともある
+	// まだタスクが十分な時間実行されていなかったり(counter > 0)
+	// タスク切り替えが禁止されていたら(preempt_coutn > 0)
+	// 切り替えずに終了
 	if (current->counter>0 || current->preempt_count >0) {
 		return;
 	}

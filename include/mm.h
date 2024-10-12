@@ -15,10 +15,17 @@
 #define PAGE_SIZE   			(1 << PAGE_SHIFT)	
 #define SECTION_SIZE			(1 << SECTION_SHIFT)	
 
+// メモリのうち最初の 4MB はカーネルイメージと init task のスタック用
+// なので low_memory は 4MB(2 x section size)のところを指す
 #define LOW_MEMORY              	(2 * SECTION_SIZE)
+// メモリの末尾の 1MB はデバイスレジスタ用(device_base)なので
+// high memory としては device base となる
 #define HIGH_MEMORY             	DEVICE_BASE
 
+// low_memory~high_memory が自由に使えるメモリ
+// ページングの対象になるメモリのサイズ
 #define PAGING_MEMORY 			(HIGH_MEMORY - LOW_MEMORY)
+// 含まれるページの数
 #define PAGING_PAGES 			(PAGING_MEMORY/PAGE_SIZE)
 
 #define PTRS_PER_TABLE			(1 << TABLE_SHIFT)

@@ -22,6 +22,10 @@ extern struct task_struct *current;
 extern struct task_struct * task[NR_TASKS];
 extern int nr_tasks;
 
+// 控えないといけないレジスタ値を保存する
+// プロセスが切り替わるときは必ず cpu_switch_to 関数が呼ばれるため
+// ARM ABI により x0-x18 の値は呼び出し側で控えられる
+// それ以外のものだけを保存する
 struct cpu_context {
 	unsigned long x19;
 	unsigned long x20;
@@ -59,11 +63,12 @@ struct mm_struct {
 };
 
 struct task_struct {
-	struct cpu_context cpu_context;
-	long state;	
-	long counter;
-	long priority;
-	long preempt_count;
+	struct cpu_context cpu_context;	// CPU 状態
+	long state;						// プロセスの状態(TASK_RUNNING とか)
+	long counter;					// プロセスがどれくらい実行されるかを保持
+									// tick ごとに 1 減り、0 になると他のプロセスに切り替わる
+	long priority;					// タスクがスケジュールされるときにこの値が counter にコピーされる
+	long preempt_count;				// 0 以外の値が入っている場合はタスク切り替えが無視される
 	unsigned long flags;
 	struct mm_struct mm;
 };
@@ -77,6 +82,7 @@ extern void switch_to(struct task_struct* next);
 extern void cpu_switch_to(struct task_struct* prev, struct task_struct* next);
 extern void exit_process(void);
 
+// kernel_main の task_struct の初期値
 #define INIT_TASK \
 /*cpu_context*/ { { 0,0,0,0,0,0,0,0,0,0,0,0,0}, \
 /* state etc */	 0,0,15, 0, PF_KTHREAD, \

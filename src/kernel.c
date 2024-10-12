@@ -44,6 +44,7 @@ void kernel_main()
 	}
 
 	while (1){
+		// このプロセスでは特にやることがないので CPU を明け渡す
 		schedule();
 	}	
 }
