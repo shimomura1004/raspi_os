@@ -56,6 +56,10 @@ void _schedule(void)
 				p->counter = (p->counter >> 1) + p->priority;
 			}
 		}
+		// TASK_RUNNING 状態のものが見つかるまでずっとループする
+		// 割込みを有効にしておかないと誰もタスクの状態を変更できず無限ループになってしまうので
+		// timer_tick で割込みを有効にしておく必要がある
+		// ただし、割込みは許可されるが preemption(タスク切り替え)は許可されていないことに注意
 	}
 	// 切り替え先タスクを見つけて switch_to する
 	switch_to(task[next]);
