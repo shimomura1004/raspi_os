@@ -263,6 +263,7 @@ el0_da:
 	kernel_exit 0
 
 // fork で作られたプロセスに CPU 時間が与えられたときの処理
+// x19 には指定された関数のポインタが、x20 には引数が入っている
 .globl ret_from_fork
 ret_from_fork:
 	bl	schedule_tail
