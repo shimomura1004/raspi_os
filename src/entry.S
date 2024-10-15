@@ -227,6 +227,8 @@ el0_svc:
 	// インデックス(scno)を8倍(lsl #3)したオフセットを足したところのデータを x16 に入れる
 	ldr	x16, [stbl, scno, lsl #3]		// address in the syscall table
 	// 指定されたシステムコールを呼び出し
+	// x0~x7 は触っていないので、ユーザプログラムがシステムコールを呼んだときにセットした
+	// 引数がそのまま渡される
 	blr	x16					// call sys_* routine
 	b	ret_from_syscall
 ni_sys:

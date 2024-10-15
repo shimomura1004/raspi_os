@@ -11,6 +11,8 @@ user_delay:
 	bne user_delay
 	ret
 
+// システムコールを呼び出すためのユーザプログラム側のコード　
+
 // svc を呼び出してカーネル空間に入る
 .globl call_sys_write
 call_sys_write:

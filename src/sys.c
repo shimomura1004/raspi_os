@@ -4,6 +4,7 @@
 #include "sched.h"
 #include "mm.h"
 
+// システムコールの実体
 
 void sys_write(char * buf){
 	printf(buf);
