@@ -19,7 +19,8 @@ void kernel_process(){
 	unsigned long begin = (unsigned long)&user_begin;
 	unsigned long end = (unsigned long)&user_end;
 	unsigned long process = (unsigned long)&user_process;
-	// プロセスをユーザ空間に移す
+
+	// ここで自分自身をカーネル空間(EL1)からユーザ空間(EL0)に移す
 	int err = move_to_user_mode(begin, end - begin, process - begin);
 	if (err < 0){
 		printf("Error while moving process to user mode\n\r");
@@ -36,7 +37,7 @@ void kernel_main()
 	enable_interrupt_controller();
 	enable_irq();
 
-	// カーネルスレッドを作る
+	// カーネルスレッドを作る(EL1 で動く)
 	int res = copy_process(PF_KTHREAD, (unsigned long)&kernel_process, 0);
 	if (res < 0) {
 		printf("error while starting kernel process");

@@ -81,7 +81,9 @@
 	msr	sp_el0, x21
 	.endif /* \el == 0 */
 
-	msr	elr_el1, x22			
+	// kernel_entry で控えたレジスタを戻す
+	msr	elr_el1, x22
+	// eret で戻る exception level は spsr_el1 に含まれている
 	msr	spsr_el1, x23
 
 
