@@ -12,6 +12,7 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 
 	// 新たなページを確保
 	unsigned long page = allocate_kernel_page();
+	// ページの先頭に task_struct を置く
 	p = (struct task_struct *) page;
 	// ページの末尾を pt_regs 用の領域とする
 	struct pt_regs *childregs = task_pt_regs(p);
@@ -61,8 +62,12 @@ int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 	regs->pstate = PSR_MODE_EL0t;
 	regs->pc = pc;
 	// todo: このスタックポインタへの代入はどういう意味？
+	//       sp が 2*4096 になるので allocate した領域をはみ出してしまうのでは？
+	//       そもそも下で allocate しているのは code page なのでスタック領域ではない
 	regs->sp = 2 *  PAGE_SIZE;  
-	// 新たにページを確保、code_page は仮想アドレス
+	// 新たにページを確保、仮想アドレスとして 0 を渡しているので
+	// 確保したページはこのプロセスのアドレス空間の 0~4095 に割り当てられる
+	// 戻り値の code_page は仮想アドレス
 	unsigned long code_page = allocate_user_page(current, 0);
 	if (code_page == 0)	{
 		return -1;
