@@ -116,6 +116,8 @@ void exit_process(){
 	preempt_disable();
 	for (int i = 0; i < NR_TASKS; i++){
 		if (task[i] == current) {
+			// 実行中のプロセスの構造体を見つけて zombie にする(=スケジューリング対象から外れる)
+			// todo: メモリは解放しなくていい？ (free_page を呼ぶ関数がない…)
 			task[i]->state = TASK_ZOMBIE;
 			break;
 		}
