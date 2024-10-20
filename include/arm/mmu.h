@@ -7,6 +7,13 @@
 #define MM_ACCESS			(0x1 << 10)
 #define MM_ACCESS_PERMISSION		(0x01 << 6) 
 
+// MAIR_EL1 レジスタに設定する値
+// MAIR_EL1 レジスタは8個のパートに分かれており、ページの属性を入れておく
+// 各ページは変換テーブルのエントリで MAIR のどのパートを使うかを指定する
+// つまりシステム全体でメモリの属性は8パターンしかない
+// RPi OS では2個パターン(DEVICE_nGnRnE と NORMAL_NC)しか使わない
+//   DEVICE_nGnRnE  デバイスメモリ
+//   NORMAL_NC      通常のメモリで、キャッシュ不可
 /*
  * Memory region attributes:
  *

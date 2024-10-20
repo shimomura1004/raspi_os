@@ -1,5 +1,6 @@
 SECTIONS
 {
+	// カーネル空間に配置するので 0xffff... に配置する
 	. = 0xffff000000000000;
 	.text.boot : { *(.text.boot) }
 	. = ALIGN(0x00001000);

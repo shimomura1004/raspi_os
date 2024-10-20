@@ -3,6 +3,7 @@
 
 #include "mm.h"
 
+// ドライバのアドレスは 0xffff00003f000000 から始まる
 #define DEVICE_BASE 		0x3F000000	
 #define PBASE 			(VA_START + DEVICE_BASE)
 

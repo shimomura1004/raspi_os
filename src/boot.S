@@ -94,7 +94,7 @@ el1_entry:
 	bl 	__create_page_tables
 
 	// #define VA_START 			0xffff000000000000
-	// VA_START は TTBR1 のほうで使うための定数
+	// VA_START を足すことでカーネルの仮想アドレスにしている
 	mov	x0, #VA_START
 	// #define PAGE_SHIFT	 	12
 	// #define TABLE_SHIFT 		9
@@ -102,8 +102,9 @@ el1_entry:
 	// #define PAGE_SIZE   		(1 << PAGE_SHIFT)	
 	// #define SECTION_SIZE		(1 << SECTION_SHIFT)	
 	// #define LOW_MEMORY      	(2 * SECTION_SIZE)
-	// Arm では少し大きなセクションという単位でメモリを扱うこともできる
+	// Arm では少し大きなセクション(2MB)という単位でメモリを扱うこともできる
 	// aarch64 もスタックは下方向に伸びるので、スタックは 2 * 2MB で 4MB 確保されている
+	// sp には仮想アドレスが入っているので MMU が有効になってからじゃないと使えない
 	add	sp, x0, #LOW_MEMORY
 
 	// TTBR(translate table base register)は複数ある: TTBR{0,1}_el{0,1} + TTBR0_el{2,3}
@@ -113,8 +114,8 @@ el1_entry:
 	// TTBR0 と TTBR1 で仮想アドレスを分離し、それぞれにユーザアプリとカーネルを置く
 
 	// pg_dir はリンカスクリプトで設定されている
+	// __create_page_tables によって
 	// pg_dir にはアドレス変換テーブルの最上位のページのアドレスが入っている
-	// __create_page_tables でテーブルの構造を作っているはず
 	adrp	x0, pg_dir
 	msr	ttbr1_el1, x0
 
@@ -129,6 +130,7 @@ el1_entry:
 	ldr	x0, =(TCR_VALUE)
 	msr	tcr_el1, x0
 
+	// MAIR の設定を行う(詳細は mmu.h)
 	// MAIR: memory attribute indirection register
 	// #define MT_DEVICE_nGnRnE 		0x0
 	// #define MT_NORMAL_NC				0x1
@@ -249,6 +251,8 @@ el1_entry:
 
 __create_page_tables:
 	// x30 はリンクレジスタで、bl 命令でジャンプしたときの戻り先を保存している
+	// このあと bl 命令でジャンプすると x30 が上書きされてしまうので控えている
+	// x29 はだれも使わないことがわかっているのでスタックではなく x29 に控えれば十分
 	mov	x29, x30						// save return address
 
 	// pg_dir(リンカスクリプトで指定)のベースアドレスを x0 に代入
@@ -261,6 +265,8 @@ __create_page_tables:
 	mov	x1, #PG_DIR_SIZE
 
 	// pg_dir が指す位置から3ページ分を 0 クリアする
+	// PGD, PUD, PMD の3つ分、RPi3 の DRAM は1GBで、2MB の倍数なのでセクションマッピングが使える
+	// よって PTE はいらない
 	bl 	memzero
 
 	// memzero で x0 の値は更新されるので改めて設定
@@ -296,7 +302,10 @@ __create_page_tables:
 	// そのうち 0x0000_0000 から 0x3F00_0000 までは DRAM
 	// 残りの 0x3F00_0000 から 0x4000_0000 まではデバイス
 	// それらを仮想アドレス VA_START から始めて DEVICE_BASE までの範囲をマッピング
-	// todo: これだと DRAM は 1GB ないのではないか？
+	// 1GB のうち 0x3f000000 以降はデバイス用の領域なので2回目の create_block_map 呼び出しで対応
+	// end(x3) が SECTION_SIZE 分小さくなっているのは、
+	//   start=end となったアドレスまでマップしてからループを抜けるようになっているため
+	//   つまり1ブロック分小さくしておかないとオーバーランする
 	create_block_map x0, x1, x2, x3, MMU_FLAGS, x4
 
 	/* Mapping device memory*/
@@ -313,6 +322,10 @@ __create_page_tables:
 	//          = 0xffff_0000_0000_0000 + 0x4000_0000 - 0x0020_0000
 	// デバイス部分をマップ(フラグが違う)
 	create_block_map x0, x1, x2, x3, MMU_DEVICE_FLAGS, x4
+
+	// ここまでくると、カーネルのアドレス空間(0xffff_0000_3f00_0000 以降)に、
+	// 物理アドレス 0x0000_0000_0000_0000~0x0000_0000_4000_0000 がマップされている
+	// つまり RPi3 のすべての有効な物理アドレスがマップされているということ
 
 	mov	x30, x29						// restore return address
 	ret
