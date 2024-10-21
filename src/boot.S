@@ -13,6 +13,7 @@
 // ELR_EL3: exception link register: eret で戻る先のアドレス
 
 // リンカスクリプトで .text.boot セクションが 0 番地に置かれる
+//   → lesson6 以降では 0xffff_0000_0000_0000 に置かれる
 // ここが OS のスタートポイントになる
 // raspberry pi 3 では？(a53 では？) 0 番地から実行が始まる？
 .globl _start

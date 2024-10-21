@@ -61,9 +61,9 @@ int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 	struct pt_regs *regs = task_pt_regs(current);
 	regs->pstate = PSR_MODE_EL0t;
 	regs->pc = pc;
-	// todo: このスタックポインタへの代入はどういう意味？
-	//       sp が 2*4096 になるので allocate した領域をはみ出してしまうのでは？
-	//       そもそも下で allocate しているのは code page なのでスタック領域ではない
+	// 本文によると、ユーザプログラム自体は1ページを超えないというルールで
+	// 1ページ目をコード用に、2ページ目をスタックにしているとのこと
+	//   ただ、1ページ分しか allocate しないので、スタック領域はマッピングされないはず…
 	regs->sp = 2 *  PAGE_SIZE;  
 	// 新たにページを確保、仮想アドレスとして 0 を渡しているので
 	// 確保したページはこのプロセスのアドレス空間の 0~4095 に割り当てられる
