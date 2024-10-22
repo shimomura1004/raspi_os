@@ -150,9 +150,15 @@ int copy_virt_memory(struct task_struct *dst) {
 	return 0;
 }
 
+// todo: これはなに？
 static int ind = 1;
 
+// メモリアボートが発生した場合に割込みハンドラから呼ばれる
+// addr: アクセスしようとしたアドレス
+// esr: exception syndrome register
 int do_mem_abort(unsigned long addr, unsigned long esr) {
+	// メモリアボートは、アクセス権限のエラーなどでも発生する
+	// ページテーブルが未割当の場合のみ処理したいので esr の値を見て分岐する
 	unsigned long dfs = (esr & 0b111111);
 	if ((dfs & 0b111100) == 0b100) {
 		unsigned long page = get_free_page();
