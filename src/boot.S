@@ -25,21 +25,23 @@ _start:
 	b	proc_hang
 
 // コア 0 以外のコアを無限ループさせて止める
-proc_hang: 
+proc_hang:
 	b proc_hang
 
 // これ以降はコア 0 だけで実行される
 master:
 	// sysregs.h にて定義されている
 	// #define SCTLR_VALUE_MMU_DISABLED
-	//   (SCTLR_RESERVED | SCTLR_EE_LITTLE_ENDIAN | 
+	//   (SCTLR_RESERVED | SCTLR_EE_LITTLE_ENDIAN |
 	//    SCTLR_I_CACHE_DISABLED | SCTLR_D_CACHE_DISABLED |
 	//    SCTLR_MMU_DISABLED)
 	// MMU を無効にした状態の規定値を x0 レジスタにロードする
 	// 命令キャッシュ・データキャッシュも無効化される
 	ldr	x0, =SCTLR_VALUE_MMU_DISABLED
-	// EL1 用に設定を登録
-	msr	sctlr_el1, x0
+
+	// 起動直後は EL3 になっているので、EL2 に切り替える
+	// EL2 用に設定を登録
+	msr	sctlr_el2, x0
 
 	// #define HCR_RW	    			(1 << 31)
 	// #define HCR_VALUE			HCR_RW
@@ -54,7 +56,7 @@ master:
 	// RW は hcr_el2 と同じく 1 にしておかないと 32 ビットになる様子
 	// NS は non-secure bit で、1 にすると
 	//   Indicates that Exception levels lower than EL3 are
-	//   in Non-secure state, so memory accesses 
+	//   in Non-secure state, so memory accesses
 	//   from those Exception levels cannot access Secure memory.
 	ldr	x0, =SCR_VALUE
 	msr	scr_el3, x0
@@ -73,16 +75,16 @@ master:
 	ldr	x0, =SPSR_VALUE
 	msr	spsr_el3, x0
 
-	// boot.S 内にある el1_entry のアドレスを elr_el3 に入れる
+	// boot.S 内にある el2_entry のアドレスを elr_el3 に入れる
 	// elr_el3 は EL3 から eret するときに使われるアドレスを入れる
-	adr	x0, el1_entry
+	adr	x0, el2_entry
 	msr	elr_el3, x0
 
 	// 指定した状態(EL1h)で、指定したアドレス(el1_entry)に復帰
 	eret
 
-// ここから EL1 として実行される
-el1_entry:
+// ここから EL2 として実行される
+el2_entry:
 	// リンカスクリプトで設定される bss 領域の先頭/末尾を x0/x1 に入れる
 	adr	x0, bss_begin
 	adr	x1, bss_end
@@ -100,8 +102,8 @@ el1_entry:
 	// #define PAGE_SHIFT	 	12
 	// #define TABLE_SHIFT 		9
 	// #define SECTION_SHIFT	(PAGE_SHIFT + TABLE_SHIFT)
-	// #define PAGE_SIZE   		(1 << PAGE_SHIFT)	
-	// #define SECTION_SIZE		(1 << SECTION_SHIFT)	
+	// #define PAGE_SIZE   		(1 << PAGE_SHIFT)
+	// #define SECTION_SIZE		(1 << SECTION_SHIFT)
 	// #define LOW_MEMORY      	(2 * SECTION_SIZE)
 	// Arm では少し大きなセクション(2MB)という単位でメモリを扱うこともできる
 	// aarch64 もスタックは下方向に伸びるので、スタックは 2 * 2MB で 4MB 確保されている
@@ -118,10 +120,10 @@ el1_entry:
 	// __create_page_tables によって
 	// pg_dir にはアドレス変換テーブルの最上位のページのアドレスが入っている
 	adrp	x0, pg_dir
-	msr	ttbr1_el1, x0
+	msr	ttbr0_el2, x0
 
 	// TCR レジスタは MMU を設定するためのレジスタ
-	// #define TCR_T0SZ		(64 - 48) 
+	// #define TCR_T0SZ		(64 - 48)
 	// #define TCR_T1SZ		((64 - 48) << 16)
 	// #define TCR_TG0_4K	(0 << 14)
 	// #define TCR_TG1_4K	(2 << 30)
@@ -129,7 +131,7 @@ el1_entry:
 	// TCR_TG0_4K は、TTBR0_EL1 のページのサイズ
 	// TCR_TG0_4K は、TTBR1_EL1 のページのサイズ
 	ldr	x0, =(TCR_VALUE)
-	msr	tcr_el1, x0
+	msr	tcr_el2, x0
 
 	// MAIR の設定を行う(詳細は mmu.h)
 	// MAIR: memory attribute indirection register
@@ -140,7 +142,7 @@ el1_entry:
 	// #define MAIR_VALUE	(MT_DEVICE_nGnRnE_FLAGS << (8 * MT_DEVICE_nGnRnE))
 	//                    | (MT_NORMAL_NC_FLAGS << (8 * MT_NORMAL_NC))
 	ldr	x0, =(MAIR_VALUE)
-	msr	mair_el1, x0
+	msr	mair_el2, x0
 
 	// MMU を有効にする前にアドレスを控えておく
 	// 単に br kernel_main とすると、PC に対する kernel_main のアドレスへの相対値でジャンプするが、
@@ -151,7 +153,7 @@ el1_entry:
 
 	// MMU を有効にする
 	mov	x0, #SCTLR_MMU_ENABLED
-	msr	sctlr_el1, x0
+	msr	sctlr_el2, x0
 
 	// kernel_main 関数にジャンプ
 	br 	x2
@@ -182,7 +184,7 @@ el1_entry:
 	.endm
 
 	// #define PTRS_PER_TABLE	(1 << TABLE_SHIFT) ページ1つあたりのエントリ数(512個)
-	// #define PAGE_SIZE   		(1 << PAGE_SHIFT)	
+	// #define PAGE_SIZE   		(1 << PAGE_SHIFT)
 	// #define MM_TYPE_PAGE_TABLE		0x3
 
 	//======== create_table_entry ===============================================
@@ -247,7 +249,7 @@ el1_entry:
 	// なので end は SECTION_SIZE 分小さい値にしておかないとオーバーランする
 	b.ls	9999b
 	.endm
-	
+
 	//=============================================================================
 
 __create_page_tables:
@@ -261,7 +263,7 @@ __create_page_tables:
 
 	// x1 にページディレクトリのサイズ(4KB x 3)を代入
 	// #define PAGE_SHIFT	 		12
-	// #define PAGE_SIZE   			(1 << PAGE_SHIFT)	
+	// #define PAGE_SIZE   			(1 << PAGE_SHIFT)
 	// #define PG_DIR_SIZE			(3 * PAGE_SIZE)
 	mov	x1, #PG_DIR_SIZE
 
@@ -297,7 +299,7 @@ __create_page_tables:
 	// phys = x1 = 0
 	// start = x2 = VA_START
 	// end = x3 = VA_START + DEVICE_BASE - SECTION_SIZE
-	            = 0xffff_0000_0000_0000 + 0x3F00_0000 - 0x0020_0000
+	//          = 0xffff_0000_0000_0000 + 0x3F00_0000 - 0x0020_0000
 	// flags = MMU_FLAGS
 	// BCM2837 では RAM が物理アドレスの 0 番地から 1GB 搭載される
 	// そのうち 0x0000_0000 から 0x3F00_0000 までは DRAM
@@ -310,9 +312,9 @@ __create_page_tables:
 	create_block_map x0, x1, x2, x3, MMU_FLAGS, x4
 
 	/* Mapping device memory*/
-	mov 	x1, #DEVICE_BASE					// start mapping from device base address 
+	mov 	x1, #DEVICE_BASE					// start mapping from device base address
 	ldr 	x2, =(VA_START + DEVICE_BASE)				// first virtual address
-	// #define PHYS_MEMORY_SIZE		0x4000_0000 = 1GB	
+	// #define PHYS_MEMORY_SIZE		0x4000_0000 = 1GB
 	ldr	x3, =(VA_START + PHYS_MEMORY_SIZE - SECTION_SIZE)	// last virtual address
 
 	// tbl = x0 = pg_dir

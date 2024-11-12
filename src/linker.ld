@@ -1,7 +1,7 @@
 SECTIONS
 {
-	// カーネル空間に配置するので 0xffff... に配置する
-	. = 0xffff000000000000;
+	/* カーネル空間に配置するので 0xffff... に配置する */
+	. = 0x0000000000000000;
 	.text.boot : { *(.text.boot) }
 	. = ALIGN(0x00001000);
 	user_begin = .;
@@ -15,7 +15,7 @@ SECTIONS
 	.data : { *(.data) }
 	. = ALIGN(0x8);
 	bss_begin = .;
-	.bss : { *(.bss*) } 
+	.bss : { *(.bss*) }
 	bss_end = .;
 	. = ALIGN(0x00001000);
 	pg_dir = .;
