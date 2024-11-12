@@ -1,3 +1,5 @@
 *.img
 *.dtb
+*.map
 build/
+tmp/
