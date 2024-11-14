@@ -34,9 +34,14 @@ kernel8.img: $(SRC_DIR)/linker.ld $(OBJ_FILES)
 	$(ARMGNU)-ld -Map kernel8.map -T $(SRC_DIR)/linker.ld -o $(BUILD_DIR)/kernel8.elf  $(OBJ_FILES)
 	$(ARMGNU)-objcopy $(BUILD_DIR)/kernel8.elf -O binary kernel8.img
 
+# raw binary である kernel8.img を逆アセンブルする
+#  aarch64-linux-gnu-objdump -b binary --architecture=aarch64 -D kernel8.img
 # raw binary を elf に戻す
 #   aarch64-linux-gnu-objcopy -Ibinary -Oelf64-littleaarch64 kernel8.img hoge
 # elf を disassemble する (-d ではなく -D を使う)
 #   aarch64-linux-gnu-objdump -b binary --target=elf64-littleaarch64 -D hoge
 # raw にするとシンボル情報などが落ち、開始・終了位置とサイズだけになる
 #   aarch64-linux-gnu-nm hoge
+
+# kernel8.img is a flat binary and has no section information
+# use objdmp kernel8.elf to see section names
