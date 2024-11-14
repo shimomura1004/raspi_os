@@ -59,6 +59,9 @@ master:
 	//   in Non-secure state, so memory accesses
 	//   from those Exception levels cannot access Secure memory.
 	ldr	x0, =SCR_VALUE
+
+	// qemu を -kernel オプションで実行すると EL2 で起動されるため
+	// ここで scr_el3 にアクセスしようとするとクラッシュする
 	msr	scr_el3, x0
 
 	// #define SPSR_MASK_ALL (7 << 6)
