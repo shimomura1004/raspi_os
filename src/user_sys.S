@@ -1,8 +1,9 @@
 .section ".text.user"
 
-.set SYS_WRITE_NUMBER, 0 		// syscal numbers 
-.set SYS_FORK_NUMBER, 1 	
-.set SYS_EXIT_NUMBER, 2 	
+.set HVC_WRITE_NUMBER, 0 		// hvc numbers
+.set HVC_EXIT_NUMBER, 1
+// .set SYS_FORK_NUMBER, 1
+//.set SYS_EXIT_NUMBER, 2
 
 // ただのビジーループ
 .globl user_delay
@@ -11,26 +12,26 @@ user_delay:
 	bne user_delay
 	ret
 
-// システムコールを呼び出すためのユーザプログラム側のコード　
+// システムコールを呼び出すためのユーザプログラム側のコード
 
-// svc を呼び出してカーネル空間に入る
-.globl call_sys_write
-call_sys_write:
+// hvc を呼び出してカーネル空間に入る
+.globl call_hvc_write
+call_hvc_write:
 	// svc のハンドラ内で w8 の値を見て処理が分岐する
 	// 通常は svc の引数の値で分離すると思うが、RPi OS では w8 の値を使っている
 	// w0~w7 はシステムコールの引数に使うのが習慣
-	mov w8, #SYS_WRITE_NUMBER	
-	svc #0
+	mov w8, #HVC_WRITE_NUMBER
+	hvc #0
 	ret
 
-.globl call_sys_exit
-call_sys_exit:
-	mov w8, #SYS_EXIT_NUMBER	
-	svc #0
+.globl call_hvc_exit
+call_hvc_exit:
+	mov w8, #HVC_EXIT_NUMBER
+	hvc #0
 	ret
 
-.globl call_sys_fork
-call_sys_fork:
-	mov w8, #SYS_FORK_NUMBER	
-	svc #0
-	ret
+// .globl call_sys_fork
+// call_sys_fork:
+// 	  mov w8, #SYS_FORK_NUMBER
+// 	  svc #0
+// 	  ret

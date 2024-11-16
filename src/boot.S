@@ -136,6 +136,11 @@ el2_entry:
 	ldr	x0, =(TCR_VALUE)
 	msr	tcr_el2, x0
 
+	// VTCR(virtualization translation control register)
+	// Stage2 アドレス変換の制御を行うレジスタ
+	ldr	x0, =(VTCR_VALUE)
+	msr	vtcr_el2, x0
+
 	// MAIR の設定を行う(詳細は mmu.h)
 	// MAIR: memory attribute indirection register
 	// #define MT_DEVICE_nGnRnE 		0x0

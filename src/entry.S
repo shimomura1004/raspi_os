@@ -25,7 +25,7 @@
 	.endm
 
 	//-------- kernel_entry --------------------------------------------------
-	// #define S_FRAME_SIZE	272	// size of all saved registers 
+	// #define S_FRAME_SIZE	272	// size of all saved registers
 
 	// ハンドラが呼ばれた直後にやることをまとめたマクロ
 	// 具体的にはレジスタの保全を行う
@@ -66,7 +66,7 @@
 	mrs	x23, spsr_el1
 
 	// これらもメモリ上に保存 (x30 はリンクレジスタ)
-	stp	x30, x21, [sp, #16 * 15] 
+	stp	x30, x21, [sp, #16 * 15]
 	stp	x22, x23, [sp, #16 * 16]
 	.endm
 
@@ -75,7 +75,7 @@
 	// 基本的には kernel_entry と逆のことをやっているだけ
 	.macro	kernel_exit, el
 	ldp	x22, x23, [sp, #16 * 16]
-	ldp	x30, x21, [sp, #16 * 15] 
+	ldp	x30, x21, [sp, #16 * 15]
 
 	.if	\el == 0
 	msr	sp_el0, x21
@@ -102,7 +102,7 @@
 	ldp	x24, x25, [sp, #16 * 12]
 	ldp	x26, x27, [sp, #16 * 13]
 	ldp	x28, x29, [sp, #16 * 14]
-	add	sp, sp, #S_FRAME_SIZE		
+	add	sp, sp, #S_FRAME_SIZE
 	eret
 	.endm
 
@@ -113,7 +113,7 @@
  */
  // invalid つきのものは通常は呼ばれないハンドラで、エラー出力して無限ループする
 .align	11
-.globl vectors 
+.globl vectors
 vectors:
 	ventry	sync_invalid_el1t			// Synchronous EL1t
 	ventry	irq_invalid_el1t			// IRQ EL1t
@@ -176,29 +176,27 @@ error_invalid_el0_32:
 
 
 el1_irq:
-	kernel_entry 1 
+	kernel_entry 1
 	bl	handle_irq
-	kernel_exit 1 
+	kernel_exit 1
 
 el0_irq:
-	kernel_entry 0 
+	kernel_entry 0
 	bl	handle_irq
-	kernel_exit 0 
+	kernel_exit 0
 
 // 同期割込みハンドラ
-// #define ESR_ELx_EC_SHIFT		26
-// #define ESR_ELx_EC_SVC64		0x15
-// #define ESR_ELx_EC_DABT_LOW	0x24
+// EL0/1 で同期割込みが発生した場合
 el0_sync:
 	kernel_entry 0
-	// exception class を調べるために esr_el1 の ESR_ELx_EC_SHIFT ビット目を確認
+	// exception class を調べる
 	mrs	x25, esr_el1				// read the syndrome register
-	lsr	x24, x25, #ESR_ELx_EC_SHIFT		// exception class
-	// svc 命令によって発生した割込みか？
-	cmp	x24, #ESR_ELx_EC_SVC64			// SVC in 64-bit state
+	lsr	x24, x25, #ESR_EL2_EC_SHIFT		// exception class
+	// hvc 命令によって発生した割込みか？
+	cmp	x24, #ESR_EL2_EC_HVC64			// HVC in 64-bit state
 	b.eq	el0_svc
 	// データアボートによって発生した割込みか？
-	cmp	x24, #ESR_ELx_EC_DABT_LOW		// data abort in EL0
+	cmp	x24, #ESR_EL2_EC_DABT_LOW		// data abort in EL0
 	b.eq	el0_da
 	// それ以外の場合は invalid
 	handle_invalid_entry 0, SYNC_ERROR
@@ -254,7 +252,7 @@ el0_da:
 	mrs	x0, far_el1
 	// esr = exception syndrome register: 例外が発生した要因を保持
 	mrs	x1, esr_el1
-	// mm.c の関数を呼び出し			
+	// mm.c の関数を呼び出し
 	bl	do_mem_abort
 	// 戻り値が 0 ならジャンプ
 	cmp x0, 0
@@ -263,7 +261,7 @@ el0_da:
 	handle_invalid_entry 0, DATA_ABORT_ERROR
 1:
 	// 割込みを無効にして戻る
-	bl disable_irq				
+	bl disable_irq
 	kernel_exit 0
 
 // fork で作られたプロセスに CPU 時間が与えられたときの処理
@@ -275,8 +273,8 @@ ret_from_fork:
 	mov	x0, x20
 	blr	x19
 ret_to_user:
-	bl disable_irq				
-	kernel_exit 0 
+	bl disable_irq
+	kernel_exit 0
 
 
 .globl err_hang

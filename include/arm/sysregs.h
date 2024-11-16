@@ -40,11 +40,25 @@
 #define SPSR_VALUE			    (SPSR_MASK_ALL | SPSR_EL2h)
 
 // ***************************************
-// ESR_EL1, Exception Syndrome Register (EL1). Page 1899 of AArch64-Reference-Manual.
+// ESR_EL2, Exception Syndrome Register (EL2)
 // ***************************************
 
-#define ESR_ELx_EC_SHIFT		26
-#define ESR_ELx_EC_SVC64		0x15
-#define ESR_ELx_EC_DABT_LOW		0x24
+#define ESR_EL2_EC_SHIFT		26
+#define ESR_EL2_EC_TRAP_WFx     1
+#define ESR_EL2_EC_HVC64        22
+#define ESR_EL2_EC_DABT_LOW		36
+
+// ***************************************
+// VTCR_EL2, Virtualization Transition Control Register (EL2)
+// ***************************************
+
+#define VTCR_NSA        (1 << 30)
+#define VTCR_NSW        (1 << 29)
+#define VTCR_VS         (1 << 19)
+#define VTCR_PS         (5 << 16)
+#define VTCR_TG0        (0 << 14)
+#define VTCR_SL0        (2 << 6)
+#define VTCR_T0SZ       (64 - 48)
+#define VTCR_VALUE      (VTCR_NSA | VTCR_NSW | VTCR_VS | VTCR_PS | VTCR_TG0 | VTCR_SL0 | VTCR_T0SZ)
 
 #endif
