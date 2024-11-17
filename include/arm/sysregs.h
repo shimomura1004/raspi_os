@@ -16,11 +16,17 @@
 // HCR_EL2, Hypervisor Configuration Register (EL2), Page 1923 of AArch64-Reference-Manual.
 // ***************************************
 
-#define HCR_E2H                 (0 << 34)
-#define HCR_RW	    			(1 << 31)
-#define HCR_TGE                 (0 << 27)
-#define HCR_TWI                 (1 << 13)
-#define HCR_VALUE			    (HCR_E2H | HCR_RW | HCR_TGE | HCR_TWI)
+#define HCR_E2H         (0 << 34)
+#define HCR_RW	    	(1 << 31)
+#define HCR_TGE         (0 << 27)
+#define HCR_TWI         (1 << 13)
+// Asynchronous external Aborts and SError interrupt routing
+#define HCR_AMO         (1 << 5)    // routing to EL2
+// Physical IRQ routing
+#define HCR_IMO         (1 << 4)    // routing to EL2
+// Physical FIQ routing
+#define HCR_FMO         (1 << 3)    // routing to EL2
+#define HCR_VALUE   	(HCR_E2H | HCR_RW | HCR_TGE | HCR_TWI | HCR_AMO| HCR_IMO| HCR_FMO)
 
 // ***************************************
 // SCR_EL3, Secure Configuration Register (EL3), Page 2022 of AArch64-Reference-Manual.

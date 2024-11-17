@@ -1,8 +1,8 @@
 .globl irq_vector_init
 irq_vector_init:
-	adr	x0, vectors				// load VBAR_EL1 with virtual
+	adr	x0, vectors				// load VBAR_EL2 with virtual
 	// vector base address register: 例外発生時に呼び出されるハンドラのアドレスを格納
-	msr	vbar_el1, x0				// vector table address
+	msr	vbar_el2, x0				// vector table address
 	ret
 
 // 割込みを有効にする
