@@ -5,7 +5,7 @@
 #include "utils.h"
 #include "timer.h"
 #include "irq.h"
-#include "fork.h"
+#include "task.h"
 #include "sched.h"
 #include "mini_uart.h"
 #include "sys.h"
@@ -40,7 +40,7 @@ void kernel_main()
 	enable_interrupt_controller();
 	enable_irq();
 
-	// カーネルスレッドを作る(EL1 で動く)
+	// カーネルスレッドを作る(EL2 で動く)
 	int res = create_task((unsigned long)&kernel_process, 0);
 	if (res < 0) {
 		printf("error while starting kernel process");
