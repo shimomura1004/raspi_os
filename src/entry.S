@@ -269,12 +269,15 @@ el0_da:
 .globl ret_from_fork
 ret_from_fork:
 	bl	schedule_tail
-	cbz	x19, ret_to_user			// not a kernel thread
+	// x19 の値が 0 ならば ret_to_user にジャンプ
+	// cbz	x19, ret_to_user			// not a kernel thread
 	mov	x0, x20
+	// x19 に無条件分岐する
 	blr	x19
-ret_to_user:
-	bl disable_irq
-	kernel_exit 0
+// ret_to_user:
+// 	// 割込みを無効にしてから kernel_exit でユーザ空間に戻る
+// 	bl disable_irq
+// 	kernel_exit 0
 
 
 .globl err_hang

@@ -4,7 +4,8 @@
 #include "utils.h"
 #include "entry.h"
 
-int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
+// int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
+int create_task(unsigned long fn, unsigned long arg)
 {
 	// copy_process の処理中はスケジューラによるタスク切り替えを禁止
 	preempt_disable();
@@ -20,22 +21,25 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 	if (!p)
 		return -1;
 
-	if (clone_flags & PF_KTHREAD) {
-		// カーネルスレッドの場合、実行する関数名と引数を覚える
-		p->cpu_context.x19 = fn;
-		p->cpu_context.x20 = arg;
-	} else {
-		// 今実行中のプロセスのレジスタの保存先を取得
-		struct pt_regs * cur_regs = task_pt_regs(current);
-		// 構造体の値をコピー
-		*childregs = *cur_regs;
-		// pt_regs の最初のレジスタの値(x0)を 0 にする
-		childregs->regs[0] = 0;
-		// メモリ空間を丸ごとコピー
-		copy_virt_memory(p);
-	}
-	// フラグは指定されたものを使い、それ以外は現在のプロセスのものをコピー
-	p->flags = clone_flags;
+	// カーネルスレッドの場合、実行する関数名と引数を覚える
+	p->cpu_context.x19 = fn;
+	p->cpu_context.x20 = arg;
+	p->flags = PF_KTHREAD;
+
+	// if (clone_flags & PF_KTHREAD) {
+	// 	// カーネルスレッドの場合、実行する関数名と引数を覚える
+	// 	p->cpu_context.x19 = fn;
+	// 	p->cpu_context.x20 = arg;
+	// } else {
+	// 	// 今実行中のプロセスのレジスタの保存先を取得
+	// 	struct pt_regs * cur_regs = task_pt_regs(current);
+	// 	// 構造体の値をコピー
+	// 	*childregs = *cur_regs;
+	// 	// pt_regs の最初のレジスタの値(x0)を 0 にする
+	// 	childregs->regs[0] = 0;
+	// 	// メモリ空間を丸ごとコピー
+	// 	copy_virt_memory(p);
+	// }
 	p->priority = current->priority;
 	p->state = TASK_RUNNING;
 	p->counter = p->priority;
@@ -49,7 +53,7 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 	// 今動いているタスク数を増やし、その連番をそのまま PID とする
 	int pid = nr_tasks++;
 	// 新たに作った task_struct 構造体のアドレスを task 配列に入れておく
-	task[pid] = p;	
+	task[pid] = p;
 
 	preempt_enable();
 	return pid;
@@ -65,7 +69,7 @@ int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 	// 1ページ目をコード用に、2ページ目をスタックにしているとのこと
 	// ただ、1ページ分しか allocate しないので、スタック領域はマッピングされない
 	//  → 遅延マッピング、ページフォルトが発生し、そのハンドラ内で対応される
-	regs->sp = 2 *  PAGE_SIZE;  
+	regs->sp = 2 *  PAGE_SIZE;
 	// 新たにページを確保、仮想アドレスとして 0 を渡しているので
 	// 確保したページはこのプロセスのアドレス空間の 0~4095 に割り当てられる
 	// 戻り値の code_page は仮想アドレス

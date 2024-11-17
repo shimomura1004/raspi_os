@@ -41,7 +41,7 @@ void kernel_main()
 	enable_irq();
 
 	// カーネルスレッドを作る(EL1 で動く)
-	int res = copy_process(PF_KTHREAD, (unsigned long)&kernel_process, 0);
+	int res = create_task((unsigned long)&kernel_process, 0);
 	if (res < 0) {
 		printf("error while starting kernel process");
 		return;
