@@ -115,125 +115,115 @@
 .align	11
 .globl vectors
 vectors:
-	ventry	sync_invalid_el1t		// Synchronous EL2
-	ventry	irq_invalid_el1t		// IRQ EL2
-	ventry	fiq_invalid_el1t		// FIQ EL2
-	ventry	error_invalid_el1t		// Error EL2
+	ventry	sync_invalid_el2		// Synchronous EL2
+	ventry	irq_invalid_el2			// IRQ EL2
+	ventry	fiq_invalid_el2			// FIQ EL2
+	ventry	error_invalid_el2		// Error EL2
 
-	ventry	sync_invalid_el1h		// Synchronous EL2
-	ventry	el1_irq					// IRQ EL2
-	ventry	fiq_invalid_el1h		// FIQ EL2
-	ventry	error_invalid_el1h		// Error EL2
+	ventry	sync_invalid_el2		// Synchronous EL2
+	ventry	el2_irq					// IRQ EL2
+	ventry	fiq_invalid_el2			// FIQ EL2
+	ventry	error_invalid_el2		// Error EL2
 
-	ventry	el0_sync				// Synchronous 64-bit EL0 or EL1
-	ventry	el0_irq					// IRQ 64-bit EL0 or EL1
-	ventry	fiq_invalid_el0_64		// FIQ 64-bit EL0 or EL1
-	ventry	error_invalid_el0_64	// Error 64-bit EL0 or EL1
+	ventry	el01_sync				// Synchronous 64-bit EL0 or EL1
+	ventry	el01_irq				// IRQ 64-bit EL0 or EL1
+	ventry	fiq_invalid_el01_64		// FIQ 64-bit EL0 or EL1
+	ventry	error_invalid_el01_64	// Error 64-bit EL0 or EL1
 
-	ventry	sync_invalid_el0_32		// Synchronous 32-bit EL0 or EL1
-	ventry	irq_invalid_el0_32		// IRQ 32-bit EL0 or EL1
-	ventry	fiq_invalid_el0_32		// FIQ 32-bit EL0 or EL1
-	ventry	error_invalid_el0_32	// Error 32-bit EL0 or EL1
+	ventry	sync_invalid_el01_32	// Synchronous 32-bit EL0 or EL1
+	ventry	irq_invalid_el01_32		// IRQ 32-bit EL0 or EL1
+	ventry	fiq_invalid_el01_32		// FIQ 32-bit EL0 or EL1
+	ventry	error_invalid_el01_32	// Error 32-bit EL0 or EL1
 
-sync_invalid_el1t:
-	handle_invalid_entry 1, SYNC_INVALID_EL1t
+sync_invalid_el2:
+	handle_invalid_entry 1, SYNC_INVALID_EL2
 
-irq_invalid_el1t:
-	handle_invalid_entry 1, IRQ_INVALID_EL1t
+irq_invalid_el2:
+	handle_invalid_entry 1, IRQ_INVALID_EL2
 
-fiq_invalid_el1t:
-	handle_invalid_entry 1, FIQ_INVALID_EL1t
+fiq_invalid_el2:
+	handle_invalid_entry 1, FIQ_INVALID_EL2
 
-error_invalid_el1t:
-	handle_invalid_entry 1, ERROR_INVALID_EL1t
+error_invalid_el2:
+	handle_invalid_entry 1, ERROR_INVALID_EL2
 
-sync_invalid_el1h:
-	handle_invalid_entry 1, SYNC_INVALID_EL1h
+fiq_invalid_el01_64:
+	handle_invalid_entry 0, FIQ_INVALID_EL01_64
 
-fiq_invalid_el1h:
-	handle_invalid_entry 1, FIQ_INVALID_EL1h
+error_invalid_el01_64:
+	handle_invalid_entry 0, ERROR_INVALID_EL01_64
 
-error_invalid_el1h:
-	handle_invalid_entry 1, ERROR_INVALID_EL1h
+sync_invalid_el01_32:
+	handle_invalid_entry 0, SYNC_INVALID_EL01_32
 
-fiq_invalid_el0_64:
-	handle_invalid_entry 0, FIQ_INVALID_EL0_64
+irq_invalid_el01_32:
+	handle_invalid_entry 0, IRQ_INVALID_EL01_32
 
-error_invalid_el0_64:
-	handle_invalid_entry 0, ERROR_INVALID_EL0_64
+fiq_invalid_el01_32:
+	handle_invalid_entry 0, FIQ_INVALID_EL01_32
 
-sync_invalid_el0_32:
-	handle_invalid_entry  0, SYNC_INVALID_EL0_32
-
-irq_invalid_el0_32:
-	handle_invalid_entry  0, IRQ_INVALID_EL0_32
-
-fiq_invalid_el0_32:
-	handle_invalid_entry  0, FIQ_INVALID_EL0_32
-
-error_invalid_el0_32:
-	handle_invalid_entry  0, ERROR_INVALID_EL0_32
+error_invalid_el01_32:
+	handle_invalid_entry 0, ERROR_INVALID_EL01_32
 
 
-el1_irq:
+el2_irq:
 	kernel_entry 1
 	bl	handle_irq
 	kernel_exit 1
 
-el0_irq:
+el01_irq:
 	kernel_entry 0
 	bl	handle_irq
 	kernel_exit 0
 
 // 同期割込みハンドラ
 // EL0/1 で同期割込みが発生した場合
-el0_sync:
+el01_sync:
 	kernel_entry 0
 	// exception class を調べる
 	mrs	x25, esr_el1				// read the syndrome register
 	lsr	x24, x25, #ESR_EL2_EC_SHIFT		// exception class
 	// hvc 命令によって発生した割込みか？
 	cmp	x24, #ESR_EL2_EC_HVC64			// HVC in 64-bit state
-	b.eq	el0_svc
+	b.eq	el01_hvc
 	// データアボートによって発生した割込みか？
 	cmp	x24, #ESR_EL2_EC_DABT_LOW		// data abort in EL0
-	b.eq	el0_da
+	b.eq	el01_da
 	// それ以外の場合は invalid
 	handle_invalid_entry 0, SYNC_ERROR
 
 // レジスタのエイリアスの定義
-sc_nr	.req	x25					// number of system calls
-scno	.req	x26					// syscall number
-stbl	.req	x27					// syscall table pointer
+hc_nr	.req	x25					// number of hvcs
+hcno	.req	x26					// hvc number
+htbl	.req	x27					// hvc table pointer
 
-// #define __NR_syscalls	 3
-el0_svc:
+el01_hvc:
 	// stbl は x27 のエイリアス
-	adr	stbl, sys_call_table			// load syscall table pointer
+	adr	htbl, hvc_table			// load hvc table pointer
 	// uxtw は32ビットデータを64ビットにゼロ拡張する命令
-	// scno は x26 のエイリアス
-	uxtw	scno, w8				// syscall number in w8
-	// sc_nr は x25 のエイリアス
-	mov	sc_nr, #__NR_syscalls
+	// hcno は x26 のエイリアス
+	uxtw	hcno, w8				// hvc number in w8
+	// hc_nr は x25 のエイリアス
+	mov	hc_nr, #__NR_hvcs
 	// bl: branch with link
 	// 割込みを有効にする
 	bl	enable_irq
 	// システムコール番号がシステムコールの数より小さいかを確認
-	cmp     scno, sc_nr                     	// check upper syscall limit
-	// システムコール番号が無効なら ni_sys に飛んで invalid とする
-	b.hs	ni_sys
+	cmp     hcno, hc_nr                     	// check upper hvc limit
+	// システムコール番号が無効なら ni_hv に飛んで invalid とする
+	b.hs	ni_hv
 
-	// テーブルのアドレス(stbl)をベースに、
-	// インデックス(scno)を8倍(lsl #3)したオフセットを足したところのデータを x16 に入れる
-	ldr	x16, [stbl, scno, lsl #3]		// address in the syscall table
+	// テーブルのアドレス(htbl)をベースに、
+	// インデックス(hcno)を8倍(lsl #3)したオフセットを足したところのデータを x16 に入れる
+	ldr	x16, [htbl, hcno, lsl #3]		// address in the hvc table
 	// 指定されたシステムコールを呼び出し
 	// x0~x7 は触っていないので、ユーザプログラムがシステムコールを呼んだときにセットした
 	// 引数がそのまま渡される
-	blr	x16					// call sys_* routine
-	b	ret_from_syscall
-ni_sys:
-	handle_invalid_entry 0, SYSCALL_ERROR
-ret_from_syscall:
+	blr	x16					// call hvc_* routine
+	b	ret_from_hvc
+ni_hv:
+	handle_invalid_entry 0, HVC_ERROR
+ret_from_hvc:
 	// システムコールから戻る処理
 	// 割込みを無効にする
 	bl	disable_irq
@@ -245,7 +235,7 @@ ret_from_syscall:
 
 // todo: 割込みを有効・無効にするタイミングがよくわからない
 // データアボートしたときのハンドラ
-el0_da:
+el01_da:
 	// すぐに割込みを有効にする
 	bl	enable_irq
 	// far = fault address regiter: データアボートなどが発生した場合に、その仮想アドレスを保持
@@ -274,11 +264,6 @@ ret_from_fork:
 	mov	x0, x20
 	// x19 に無条件分岐する
 	blr	x19
-// ret_to_user:
-// 	// 割込みを無効にしてから kernel_exit でユーザ空間に戻る
-// 	bl disable_irq
-// 	kernel_exit 0
-
 
 .globl err_hang
 err_hang: b err_hang
