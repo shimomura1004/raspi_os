@@ -83,7 +83,7 @@ master:
 	adr	x0, el2_entry
 	msr	elr_el3, x0
 
-	// 指定した状態(EL1h)で、指定したアドレス(el1_entry)に復帰
+	// 指定した状態(EL2)で、指定したアドレス(el2_entry)に復帰
 	eret
 
 // ここから EL2 として実行される

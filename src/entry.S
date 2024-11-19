@@ -5,9 +5,9 @@
 	//-------- handle_invalid_entry -------------------------------------------
 	// 無効な割込みハンドラを表現するためのマクロ
 
-	.macro handle_invalid_entry el, type
+	.macro handle_invalid_entry type
 	// レジスタを退避
-	kernel_entry \el
+	kernel_entry
 	// show_invalid_entry_message 用の3つの引数を準備する
 	mov	x0, #\type
 	mrs	x1, esr_el1
@@ -29,7 +29,7 @@
 
 	// ハンドラが呼ばれた直後にやることをまとめたマクロ
 	// 具体的にはレジスタの保全を行う
-	.macro	kernel_entry, el
+	.macro	kernel_entry
 	// 控えるレジスタの容量分 sp をずらしてメモリ上に領域を確保する
 	sub	sp, sp, #S_FRAME_SIZE
 	// x0-x29 レジスタをスタックに控える (stp は2つのレジスタを一気にメモリに書き込む命令)
@@ -49,21 +49,16 @@
 	stp	x26, x27, [sp, #16 * 13]
 	stp	x28, x29, [sp, #16 * 14]
 
-	// 割込みが発生した時の EL の値に応じて分岐
-	.if	\el == 0
-	// EL0 で割込みが発生した場合は sp_el0 に元の sp の値が保存されるのでそれを控える
-	mrs	x21, sp_el0
-	.else
+	// 元々は割込みが発生した時の EL の値に応じて分岐していたが、今は区別しない
 	// EL1 で割込みが発生した場合はスタックは再利用するので
 	// 単純に先ほどレジスタを控えるために動かした分を戻した値を控えればいい
 	add	x21, sp, #S_FRAME_SIZE
-	.endif /* \el == 0 */
 
-	// elr_el1 は、例外が発生し EL1 にきたときに、戻り先アドレスが入っているレジスタ
-	mrs	x22, elr_el1
-	// spsr_el1 は、例外が発生し EL1 にきたときに、元のステータスを保存しているレジスタ
+	// elr_el2 は、例外が発生し EL2 にきたときに、戻り先アドレスが入っているレジスタ
+	mrs	x22, elr_el2
+	// spsr_el2 は、例外が発生し EL2 にきたときに、元のステータスを保存しているレジスタ
 	// たとえば条件フラグとか、割込みのマスク状態など
-	mrs	x23, spsr_el1
+	mrs	x23, spsr_el2
 
 	// これらもメモリ上に保存 (x30 はリンクレジスタ)
 	stp	x30, x21, [sp, #16 * 15]
@@ -73,18 +68,14 @@
 	//-------- kernel_exit --------------------------------------------------
 
 	// 基本的には kernel_entry と逆のことをやっているだけ
-	.macro	kernel_exit, el
+	.macro	kernel_exit
 	ldp	x22, x23, [sp, #16 * 16]
 	ldp	x30, x21, [sp, #16 * 15]
 
-	.if	\el == 0
-	msr	sp_el0, x21
-	.endif /* \el == 0 */
-
 	// kernel_entry で控えたレジスタを戻す
-	msr	elr_el1, x22
-	// eret で戻る exception level は spsr_el1 に含まれている
-	msr	spsr_el1, x23
+	msr	elr_el2, x22
+	// eret で戻る exception level は spsr_el2 に含まれている
+	msr	spsr_el2, x23
 
 
 	ldp	x0, x1, [sp, #16 * 0]
@@ -136,50 +127,50 @@ vectors:
 	ventry	error_invalid_el01_32	// Error 32-bit EL0 or EL1
 
 sync_invalid_el2:
-	handle_invalid_entry 1, SYNC_INVALID_EL2
+	handle_invalid_entry SYNC_INVALID_EL2
 
 irq_invalid_el2:
-	handle_invalid_entry 1, IRQ_INVALID_EL2
+	handle_invalid_entry IRQ_INVALID_EL2
 
 fiq_invalid_el2:
-	handle_invalid_entry 1, FIQ_INVALID_EL2
+	handle_invalid_entry FIQ_INVALID_EL2
 
 error_invalid_el2:
-	handle_invalid_entry 1, ERROR_INVALID_EL2
+	handle_invalid_entry ERROR_INVALID_EL2
 
 fiq_invalid_el01_64:
-	handle_invalid_entry 0, FIQ_INVALID_EL01_64
+	handle_invalid_entry FIQ_INVALID_EL01_64
 
 error_invalid_el01_64:
-	handle_invalid_entry 0, ERROR_INVALID_EL01_64
+	handle_invalid_entry ERROR_INVALID_EL01_64
 
 sync_invalid_el01_32:
-	handle_invalid_entry 0, SYNC_INVALID_EL01_32
+	handle_invalid_entry SYNC_INVALID_EL01_32
 
 irq_invalid_el01_32:
-	handle_invalid_entry 0, IRQ_INVALID_EL01_32
+	handle_invalid_entry IRQ_INVALID_EL01_32
 
 fiq_invalid_el01_32:
-	handle_invalid_entry 0, FIQ_INVALID_EL01_32
+	handle_invalid_entry FIQ_INVALID_EL01_32
 
 error_invalid_el01_32:
-	handle_invalid_entry 0, ERROR_INVALID_EL01_32
+	handle_invalid_entry ERROR_INVALID_EL01_32
 
 
 el2_irq:
-	kernel_entry 1
+	kernel_entry
 	bl	handle_irq
-	kernel_exit 1
+	kernel_exit
 
 el01_irq:
-	kernel_entry 0
+	kernel_entry
 	bl	handle_irq
-	kernel_exit 0
+	kernel_exit
 
 // 同期割込みハンドラ
 // EL0/1 で同期割込みが発生した場合
 el01_sync:
-	kernel_entry 0
+	kernel_entry
 	// exception class を調べる
 	mrs	x25, esr_el1				// read the syndrome register
 	lsr	x24, x25, #ESR_EL2_EC_SHIFT		// exception class
@@ -190,7 +181,7 @@ el01_sync:
 	cmp	x24, #ESR_EL2_EC_DABT_LOW		// data abort in EL0
 	b.eq	el01_da
 	// それ以外の場合は invalid
-	handle_invalid_entry 0, SYNC_ERROR
+	handle_invalid_entry SYNC_ERROR
 
 // レジスタのエイリアスの定義
 hc_nr	.req	x25					// number of hvcs
@@ -222,7 +213,7 @@ el01_hvc:
 	blr	x16					// call hvc_* routine
 	b	ret_from_hvc
 ni_hv:
-	handle_invalid_entry 0, HVC_ERROR
+	handle_invalid_entry HVC_ERROR
 ret_from_hvc:
 	// システムコールから戻る処理
 	// 割込みを無効にする
@@ -231,7 +222,7 @@ ret_from_hvc:
 	// kernel_exit が x0 に値を復帰させるメモリ位置に直接今の x0 の値を入れる
 	// #define S_X0		0		// offset of x0 register in saved stack frame
 	str	x0, [sp, #S_X0]				// returned x0
-	kernel_exit 0
+	kernel_exit
 
 // todo: 割込みを有効・無効にするタイミングがよくわからない
 // データアボートしたときのハンドラ
@@ -248,11 +239,11 @@ el01_da:
 	cmp x0, 0
 	b.eq 1f
 	// do_mem_abort が失敗した場合は invalid とする
-	handle_invalid_entry 0, DATA_ABORT_ERROR
+	handle_invalid_entry DATA_ABORT_ERROR
 1:
 	// 割込みを無効にして戻る
 	bl disable_irq
-	kernel_exit 0
+	kernel_exit
 
 // fork で作られたプロセスに CPU 時間が与えられたときの処理
 // x19 には指定された関数のポインタが、x20 には引数が入っている
