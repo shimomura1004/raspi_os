@@ -2,9 +2,15 @@
 #include "sched.h"
 #include "task.h"
 #include "utils.h"
+#include "user.h"
+#include "printf.h"
 #include "entry.h"
 
-// int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
+static struct pt_regs * task_pt_regs(struct task_struct *tsk) {
+	unsigned long p = (unsigned long)tsk + THREAD_SIZE - sizeof(struct pt_regs);
+	return (struct pt_regs *)p;
+}
+
 int create_task(unsigned long fn, unsigned long arg)
 {
 	// copy_process の処理中はスケジューラによるタスク切り替えを禁止
