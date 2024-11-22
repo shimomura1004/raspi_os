@@ -12,6 +12,7 @@ static struct pt_regs * task_pt_regs(struct task_struct *tsk) {
 	return (struct pt_regs *)p;
 }
 
+// スレッド構造体に必要なデータをセットする
 static int prepare_el1_switching(unsigned long start, unsigned long size, unsigned long pc) {
 	struct pt_regs *regs = task_pt_regs(current);
 	regs->pstate = PSR_MODE_EL1h;
@@ -28,17 +29,23 @@ static int prepare_el1_switching(unsigned long start, unsigned long size, unsign
 
 static void prepare_vmtask(unsigned long arg) {
 	printf("vmtask: arg=%d, EL=%d\r\n", arg, get_el());
+	// user_begin/user_end はリンカスクリプトで指定されたアドレス
+	// ユーザプログラムのコードやデータ領域の先頭と末尾
 	unsigned long begin = (unsigned long)&user_begin;
 	unsigned long end = (unsigned long)&user_end;
 	unsigned long process = (unsigned long)&user_process;
+	// プロセスのアドレス空間内のアドレスを計算して渡す
 	int err = prepare_el1_switching(begin, end - begin, process - begin);
 	if (err < 0) {
 		printf("Error while moving process to user mode\r\n");
 	}
 
 	// switch_from_kthread() will be called and switched to EL1
+	// todo: eret で戻る EL は spsr_el2 に書かれているが、これを準備していないので、
+	//       EL1 にならないのでは？
 }
 
+// EL2 で動くタスクを作る
 int create_vmtask(unsigned long arg)
 {
 	// copy_process の処理中はスケジューラによるタスク切り替えを禁止
@@ -55,7 +62,7 @@ int create_vmtask(unsigned long arg)
 	if (!p)
 		return -1;
 
-	// カーネルスレッドの場合、実行する関数名と引数を覚える
+	// switch_from_kthread 内で x19 のアドレスにジャンプする
 	p->cpu_context.x19 = (unsigned long)prepare_vmtask;
 	p->cpu_context.x20 = arg;
 	p->flags = PF_KTHREAD;
@@ -73,6 +80,7 @@ int create_vmtask(unsigned long arg)
 	// 今動いているタスク数を増やし、その連番をそのまま PID とする
 	int pid = nr_tasks++;
 	// 新たに作った task_struct 構造体のアドレスを task 配列に入れておく
+	// これでそのうち今作ったタスクに処理が切り替わり、 switch_from_kthread から実行開始される
 	task[pid] = p;
 
 	preempt_enable();

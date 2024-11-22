@@ -95,6 +95,7 @@ unsigned long map_table(unsigned long *table, unsigned long shift, unsigned long
 }
 
 // task のアドレス空間のアドレス va に、指定されたページ page を割り当てる
+// stage1/2 のどちらも差はない
 void map_stage2_page(struct task_struct *task, unsigned long va, unsigned long page){
 	// page global directory
 	unsigned long pgd;
@@ -161,6 +162,7 @@ static int ind = 1;
 // メモリアボートが発生した場合に割込みハンドラから呼ばれる
 // addr: アクセスしようとしたアドレス
 // esr: exception syndrome register
+// HV になっても do_mem_abort 自体の処理は変わらないが、引数として渡される値が変わっている
 int do_mem_abort(unsigned long addr, unsigned long esr) {
 	// メモリアボートは、アクセス権限のエラーなどでも発生する
 	// ページテーブルが未割当の場合のみ処理したいので esr の値を見て分岐する

@@ -245,8 +245,7 @@ el01_da:
 	bl disable_irq
 	kernel_exit
 
-// todo: switch_from_kthread になって位置づけが変わったはず
-// fork で作られたプロセスに CPU 時間が与えられたときの処理
+// vmtask_create で作られたタスクに切り替わったときの処理
 // x19 には指定された関数のポインタが、x20 には引数が入っている
 .globl switch_from_kthread
 switch_from_kthread:

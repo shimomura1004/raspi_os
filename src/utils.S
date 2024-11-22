@@ -24,6 +24,7 @@ delay:
 .globl set_stage2_pgd
 set_stage2_pgd:
 	// アドレス空間を切り替え
+	// EL2 にはページテーブルが1つしかない
 	msr	vttbr_el2, x0
 	// TLB を無効化
 	tlbi vmalle1is
