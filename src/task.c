@@ -6,12 +6,40 @@
 #include "printf.h"
 #include "entry.h"
 
+// 各スレッド用の領域の末尾に置かれた task_struct へのポインタを返す
 static struct pt_regs * task_pt_regs(struct task_struct *tsk) {
 	unsigned long p = (unsigned long)tsk + THREAD_SIZE - sizeof(struct pt_regs);
 	return (struct pt_regs *)p;
 }
 
-int create_task(unsigned long fn, unsigned long arg)
+static int prepare_el1_switching(unsigned long start, unsigned long size, unsigned long pc) {
+	struct pt_regs *regs = task_pt_regs(current);
+	regs->pstate = PSR_MODE_EL1h;
+	regs->pc = pc;
+	regs->sp = 2 * PAGE_SIZE;
+	unsigned long code_page = allocate_user_page(current, 0);
+	if (code_page == 0) {
+		return -1;
+	}
+	memcpy(code_page, start, size);
+	set_stage2_pgd(current->mm.pgd);
+	return 0;
+}
+
+static void prepare_vmtask(unsigned long arg) {
+	printf("vmtask: arg=%d, EL=%d\r\n", arg, get_el());
+	unsigned long begin = (unsigned long)&user_begin;
+	unsigned long end = (unsigned long)&user_end;
+	unsigned long process = (unsigned long)&user_process;
+	int err = prepare_el1_switching(begin, end - begin, process - begin);
+	if (err < 0) {
+		printf("Error while moving process to user mode\r\n");
+	}
+
+	// switch_from_kthread() will be called and switched to EL1
+}
+
+int create_vmtask(unsigned long arg)
 {
 	// copy_process の処理中はスケジューラによるタスク切り替えを禁止
 	preempt_disable();
@@ -28,31 +56,17 @@ int create_task(unsigned long fn, unsigned long arg)
 		return -1;
 
 	// カーネルスレッドの場合、実行する関数名と引数を覚える
-	p->cpu_context.x19 = fn;
+	p->cpu_context.x19 = (unsigned long)prepare_vmtask;
 	p->cpu_context.x20 = arg;
 	p->flags = PF_KTHREAD;
 
-	// if (clone_flags & PF_KTHREAD) {
-	// 	// カーネルスレッドの場合、実行する関数名と引数を覚える
-	// 	p->cpu_context.x19 = fn;
-	// 	p->cpu_context.x20 = arg;
-	// } else {
-	// 	// 今実行中のプロセスのレジスタの保存先を取得
-	// 	struct pt_regs * cur_regs = task_pt_regs(current);
-	// 	// 構造体の値をコピー
-	// 	*childregs = *cur_regs;
-	// 	// pt_regs の最初のレジスタの値(x0)を 0 にする
-	// 	childregs->regs[0] = 0;
-	// 	// メモリ空間を丸ごとコピー
-	// 	copy_virt_memory(p);
-	// }
 	p->priority = current->priority;
 	p->state = TASK_RUNNING;
 	p->counter = p->priority;
 	p->preempt_count = 1; //disable preemtion until schedule_tail
 
 	// コピーされたプロセスは最初 ret_from_fork 関数から動き出す
-	p->cpu_context.pc = (unsigned long)ret_from_fork;
+	p->cpu_context.pc = (unsigned long)switch_from_kthread;
 	// ret_from_fork の中で kernel_exit が呼ばれる
 	// そのとき SP が指す先には退避したレジスタが格納されている必要がある
 	p->cpu_context.sp = (unsigned long)childregs;
@@ -63,38 +77,4 @@ int create_task(unsigned long fn, unsigned long arg)
 
 	preempt_enable();
 	return pid;
-}
-
-// カーネルのプロセスをユーザプロセスに移す
-int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
-{
-	struct pt_regs *regs = task_pt_regs(current);
-	regs->pstate = PSR_MODE_EL0t;
-	regs->pc = pc;
-	// 本文によると、ユーザプログラム自体は1ページを超えないというルールで
-	// 1ページ目をコード用に、2ページ目をスタックにしているとのこと
-	// ただ、1ページ分しか allocate しないので、スタック領域はマッピングされない
-	//  → 遅延マッピング、ページフォルトが発生し、そのハンドラ内で対応される
-	regs->sp = 2 *  PAGE_SIZE;
-	// 新たにページを確保、仮想アドレスとして 0 を渡しているので
-	// 確保したページはこのプロセスのアドレス空間の 0~4095 に割り当てられる
-	// 戻り値の code_page は仮想アドレス
-	unsigned long code_page = allocate_user_page(current, 0);
-	if (code_page == 0)	{
-		return -1;
-	}
-	// プログラム全体を code_page にコピー
-	memcpy(code_page, start, size);
-	// アドレス空間の切り替え(カーネルのアドレス空間 → プロセスのアドレス空間)
-	set_pgd(current->mm.pgd);
-	return 0;
-}
-
-// 指定されたタスクに対応するレジスタの保存先を返す
-struct pt_regs * task_pt_regs(struct task_struct *tsk)
-{
-	// todo: THREAD_SIZE の意味は…？ページのサイズと同じなのはたまたま？
-	// ページのサイズが 4096 なので、ページ末尾に pt_regs 用の領域を確保する
-	unsigned long p = (unsigned long)tsk + THREAD_SIZE - sizeof(struct pt_regs);
-	return (struct pt_regs *)p;
 }

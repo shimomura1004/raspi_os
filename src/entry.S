@@ -245,16 +245,20 @@ el01_da:
 	bl disable_irq
 	kernel_exit
 
+// todo: switch_from_kthread になって位置づけが変わったはず
 // fork で作られたプロセスに CPU 時間が与えられたときの処理
 // x19 には指定された関数のポインタが、x20 には引数が入っている
-.globl ret_from_fork
-ret_from_fork:
+.globl switch_from_kthread
+switch_from_kthread:
 	bl	schedule_tail
 	// x19 の値が 0 ならば ret_to_user にジャンプ
 	// cbz	x19, ret_to_user			// not a kernel thread
 	mov	x0, x20
 	// x19 に無条件分岐する
 	blr	x19
+	// 割込みを無効にしてカーネル空間から抜ける
+	bl disable_irq
+	kernel_exit
 
 .globl err_hang
 err_hang: b err_hang

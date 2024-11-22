@@ -77,14 +77,14 @@ void schedule(void)
 
 
 // 指定したタスクに切り替える
-void switch_to(struct task_struct * next) 
+void switch_to(struct task_struct * next)
 {
-	if (current == next) 
+	if (current == next)
 		return;
 	struct task_struct * prev = current;
 	current = next;
 	// アドレス空間を切り替え
-	set_pgd(next->mm.pgd);
+	set_stage2_pgd(next->mm.pgd);
 	// レジスタを控えて実際にタスクを切り替える
 	// 戻ってくるときは別のタスクになっている
 	cpu_switch_to(prev, next);

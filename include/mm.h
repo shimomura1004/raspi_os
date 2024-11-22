@@ -42,7 +42,7 @@
 
 unsigned long get_free_page();
 void free_page(unsigned long p);
-void map_page(struct task_struct *task, unsigned long va, unsigned long page);
+void map_stage2_page(struct task_struct *task, unsigned long va, unsigned long page);
 void memzero(unsigned long src, unsigned long n);
 void memcpy(unsigned long dst, unsigned long src, unsigned long n);
 

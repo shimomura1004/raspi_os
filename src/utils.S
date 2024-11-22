@@ -21,10 +21,10 @@ delay:
 	bne delay
 	ret
 
-.globl set_pgd
-set_pgd:
+.globl set_stage2_pgd
+set_stage2_pgd:
 	// アドレス空間を切り替え
-	msr	ttbr0_el1, x0
+	msr	vttbr_el2, x0
 	// TLB を無効化
 	tlbi vmalle1is
 	// out-of-order 実行で勝手に実行しないように
@@ -33,13 +33,3 @@ set_pgd:
 	// instruction synchronization barrier
 	isb
 	ret
-
-.globl get_pgd
-get_pgd:
-	mov x1, 0
-	ldr x0, [x1]
-	mov x0, 0x1000
-	msr	ttbr0_el1, x0
-	ldr x0, [x1]
-	ret
-

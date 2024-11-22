@@ -12,20 +12,20 @@
 #include "user.h"
 
 
-// カーネルスレッドを立ち上げ、ユーザプロセスに移行させる
-void kernel_process(){
-	printf("Kernel process started. EL %d\r\n", get_el());
-	// user_begin はリンカスクリプトで設定されるアドレスで、ユーザ空間用のテキスト領域の先頭
-	unsigned long begin = (unsigned long)&user_begin;
-	unsigned long end = (unsigned long)&user_end;
-	unsigned long process = (unsigned long)&user_process;
+// // カーネルスレッドを立ち上げ、ユーザプロセスに移行させる
+// void kernel_process(){
+// 	printf("Kernel process started. EL %d\r\n", get_el());
+// 	// user_begin はリンカスクリプトで設定されるアドレスで、ユーザ空間用のテキスト領域の先頭
+// 	unsigned long begin = (unsigned long)&user_begin;
+// 	unsigned long end = (unsigned long)&user_end;
+// 	unsigned long process = (unsigned long)&user_process;
 
-	// ここで自分自身をカーネル空間(EL1)からユーザ空間(EL0)に移す
-	int err = move_to_user_mode(begin, end - begin, process - begin);
-	if (err < 0){
-		printf("Error while moving process to user mode\n\r");
-	}
-}
+// 	// ここで自分自身をカーネル空間(EL1)からユーザ空間(EL0)に移す
+// 	int err = move_to_user_mode(begin, end - begin, process - begin);
+// 	if (err < 0){
+// 		printf("Error while moving process to user mode\n\r");
+// 	}
+// }
 
 // HLOS としてのスタート地点
 void kernel_main()
@@ -41,7 +41,7 @@ void kernel_main()
 	enable_irq();
 
 	// カーネルスレッドを作る(EL2 で動く)
-	int res = create_task((unsigned long)&kernel_process, 0);
+	int res = create_vmtask(0);
 	if (res < 0) {
 		printf("error while starting kernel process");
 		return;

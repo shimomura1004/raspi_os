@@ -25,7 +25,7 @@ unsigned long allocate_user_page(struct task_struct *task, unsigned long va) {
 		return 0;
 	}
 	// 新たに確保したページをこのタスクのアドレス空間にマッピングする
-	map_page(task, va, page);
+	map_stage2_page(task, va, page);
 	// 新たに確保したページの仮想アドレスを返す(リニアマッピングなのでオフセットを足すだけ)
 	return page + VA_START;
 }
@@ -61,7 +61,7 @@ void map_table_entry(unsigned long *pte, unsigned long va, unsigned long pa) {
 	unsigned long index = va >> PAGE_SHIFT;
 	index = index & (PTRS_PER_TABLE - 1);
 	// エントリのオフセットを計算し書き込み
-	unsigned long entry = pa | MMU_PTE_FLAGS; 
+	unsigned long entry = pa | MMU_PTE_FLAGS;
 	pte[index] = entry;
 }
 
@@ -95,7 +95,7 @@ unsigned long map_table(unsigned long *table, unsigned long shift, unsigned long
 }
 
 // task のアドレス空間のアドレス va に、指定されたページ page を割り当てる
-void map_page(struct task_struct *task, unsigned long va, unsigned long page){
+void map_stage2_page(struct task_struct *task, unsigned long va, unsigned long page){
 	// page global directory
 	unsigned long pgd;
 
@@ -153,19 +153,24 @@ int copy_virt_memory(struct task_struct *dst) {
 // todo: これはなに？
 static int ind = 1;
 
+#define ISS_ABORT_S1PTW			(1<<7)
+
+#define ISS_ABORT_IFSC			0b111111
+#define IFSC_TRANS_FAULT_EL1	0b000101
+
 // メモリアボートが発生した場合に割込みハンドラから呼ばれる
 // addr: アクセスしようとしたアドレス
 // esr: exception syndrome register
 int do_mem_abort(unsigned long addr, unsigned long esr) {
 	// メモリアボートは、アクセス権限のエラーなどでも発生する
 	// ページテーブルが未割当の場合のみ処理したいので esr の値を見て分岐する
-	unsigned long dfs = (esr & 0b111111);
-	if ((dfs & 0b111100) == 0b100) {
+	if ((esr & ISS_ABORT_S1PTW) == ISS_ABORT_S1PTW) {
+		// stage 2 translation fault
 		unsigned long page = get_free_page();
 		if (page == 0) {
 			return -1;
 		}
-		map_page(current, addr & PAGE_MASK, page);
+		map_stage2_page(current, addr & PAGE_MASK, page);
 		ind++;
 		if (ind > 2){
 			return -1;
