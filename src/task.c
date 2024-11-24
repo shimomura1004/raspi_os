@@ -45,9 +45,13 @@ static void prepare_vmtask(unsigned long arg) {
 	//       EL1 にならないのでは？
 }
 
+static struct cpu_sysregs initial_sysregs;
+
 // EL2 で動くタスクを作る
 int create_vmtask(unsigned long arg)
 {
+	static int is_first = 0;
+
 	// copy_process の処理中はスケジューラによるタスク切り替えを禁止
 	preempt_disable();
 	struct task_struct *p;
@@ -71,6 +75,12 @@ int create_vmtask(unsigned long arg)
 	p->state = TASK_RUNNING;
 	p->counter = p->priority;
 	p->preempt_count = 1; //disable preemtion until schedule_tail
+
+	if (is_first) {
+		// 初回のみ sysregs の値(つまり初期値)を控える
+		get_sysregs(&initial_sysregs);
+	}
+	memcpy((unsigned long)&p->cpu_sysregs, (unsigned long)&initial_sysregs, sizeof(struct cpu_sysregs));
 
 	// コピーされたプロセスは最初 ret_from_fork 関数から動き出す
 	p->cpu_context.pc = (unsigned long)switch_from_kthread;
