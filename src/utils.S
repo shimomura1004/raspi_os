@@ -36,8 +36,8 @@ set_stage2_pgd:
 	ret
 
 // todo: ldp じゃなくて stp では？
-.globl set_sysregs
-set_sysregs:
+.globl _set_sysregs
+_set_sysregs:
 	ldp x1, x2, [x0], #16
 	msr sctlr_el1, x1
 	msr spsr_el1, x2
@@ -49,8 +49,8 @@ set_sysregs:
 	msr mair_el1, x2
 	ret
 
-.globl get_sysregs
-get_sysregs:
+.globl _get_sysregs
+_get_sysregs:
 	// レジスタ x1, x2 にデータをロード
 	// ロード後、x0 の値は16ずれる
 	ldp x1, x2, [x0], #16

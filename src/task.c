@@ -23,7 +23,7 @@ static int prepare_el1_switching(unsigned long start, unsigned long size, unsign
 		return -1;
 	}
 	memcpy(code_page, start, size);
-	set_stage2_pgd(current->mm.pgd);
+	set_cpu_sysregs(current);
 	return 0;
 }
 
@@ -47,11 +47,28 @@ static void prepare_vmtask(unsigned long arg) {
 
 static struct cpu_sysregs initial_sysregs;
 
+static void prepare_initial_sysregs(void) {
+	static int is_first_call = 0;
+
+	if (!is_first_call) {
+		return;
+	}
+
+	// 初回のみ sysregs の値(つまり初期値)を控える
+	_get_sysregs(&initial_sysregs);
+
+	// MMU を確実に無効化する(初期値に関わらず 0 ビット目を確実に 0 にする)
+	// SCTLR_EL1 の 0 ビット目は M ビット
+	// M bit: MMU enable for EL1&0 stage 1 address translation.
+	//        0b0/0b1: EL1&0 stage 1 address translation disabled/enabled
+	initial_sysregs.sctlr_el1 &= ~1;
+
+	is_first_call = 1;
+}
+
 // EL2 で動くタスクを作る
 int create_vmtask(unsigned long arg)
 {
-	static int is_first = 0;
-
 	// copy_process の処理中はスケジューラによるタスク切り替えを禁止
 	preempt_disable();
 	struct task_struct *p;
@@ -76,10 +93,7 @@ int create_vmtask(unsigned long arg)
 	p->counter = p->priority;
 	p->preempt_count = 1; //disable preemtion until schedule_tail
 
-	if (is_first) {
-		// 初回のみ sysregs の値(つまり初期値)を控える
-		get_sysregs(&initial_sysregs);
-	}
+	prepare_initial_sysregs();
 	memcpy((unsigned long)&p->cpu_sysregs, (unsigned long)&initial_sysregs, sizeof(struct cpu_sysregs));
 
 	// コピーされたプロセスは最初 ret_from_fork 関数から動き出す

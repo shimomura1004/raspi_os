@@ -75,10 +75,10 @@ void schedule(void)
 	_schedule();
 }
 
-// todo: 現状は誰も使ってない
 void set_cpu_sysregs(struct task_struct *task) {
+	// アドレス空間を切り替え
 	set_stage2_pgd(task->mm.pgd);
-	set_sysregs(&(task->cpu_sysregs));
+	_set_sysregs(&(task->cpu_sysregs));
 }
 
 // 指定したタスクに切り替える
@@ -88,8 +88,7 @@ void switch_to(struct task_struct * next)
 		return;
 	struct task_struct * prev = current;
 	current = next;
-	// アドレス空間を切り替え
-	set_stage2_pgd(next->mm.pgd);
+	set_cpu_sysregs(next);
 	// レジスタを控えて実際にタスクを切り替える
 	// 戻ってくるときは別のタスクになっている
 	cpu_switch_to(prev, next);
