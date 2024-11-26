@@ -1,6 +1,13 @@
 #ifndef _MMU_H
 #define _MMU_H
 
+// nG[11] (not global) : TLB でどう扱われるかを表す
+// AF[10] (Access flag)
+// SH[9:8] (Shareability field)
+// AP[7:6] (Access Permissions)
+// NS[5] (Non-seccure) : このアドレスが secure か non-secure かを表す
+// AttrIndx[4:2] : Stage 1 memory attributes index
+
 #define MM_TYPE_PAGE_TABLE		0x3
 #define MM_TYPE_PAGE 			0x3
 #define MM_TYPE_BLOCK			0x1

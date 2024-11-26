@@ -227,7 +227,7 @@ el2_entry:
 	// phys - マップ対象の物理アドレスの開始位置
 	// start - マップ先の仮想アドレスの先頭
 	// end - マップ先の仮想アドレスの末尾
-	// flags - エントリの下位2ビットにセットするフラグ
+	// flags - エントリの lower attributes にセットするフラグ
 
 	.macro	create_block_map, tbl, phys, start, end, flags, tmp1
 	// start のアドレスから PUD のインデックスを取り出す
