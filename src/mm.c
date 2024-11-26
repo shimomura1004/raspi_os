@@ -56,17 +56,17 @@ void free_page(unsigned long p){
 // ページエントリを追加する
 // RPi3 では DRAM が物理アドレス 0 のところから配置されている
 // つまり DRAM 上のインデックスは物理アドレスと同じ扱いになる
-void map_table_entry(unsigned long *pte, unsigned long va, unsigned long pa) {
+void map_stage2_table_entry(unsigned long *pte, unsigned long va, unsigned long pa) {
 	// ページエントリのオフセットを index に入れる
 	unsigned long index = va >> PAGE_SHIFT;
 	index = index & (PTRS_PER_TABLE - 1);
 	// エントリのオフセットを計算し書き込み
-	unsigned long entry = pa | MMU_PTE_FLAGS;
+	unsigned long entry = pa | MMU_STAGE2_PAGE_FLAGS;
 	pte[index] = entry;
 }
 
 // 該当するページテーブルのオフセットを返す(もしなければ新規に確保する)
-unsigned long map_table(unsigned long *table, unsigned long shift, unsigned long va, int* new_table) {
+unsigned long map_stage2_table(unsigned long *table, unsigned long shift, unsigned long va, int* new_table) {
 	// PGD/PUD/PMD のインデックスが書かれている位置が LSB にくるようにシフト
 	unsigned long index = va >> shift;
 	// さらにインデックス部分だけを残すようにマスク
@@ -112,43 +112,27 @@ void map_stage2_page(struct task_struct *task, unsigned long va, unsigned long p
 	// RPi OS では PGD/PUD/PMD は1個ずつしかないので初回しか追加されないはず
 	int new_table;
 	// PGD
-	unsigned long pud = map_table((unsigned long *)(pgd + VA_START), PGD_SHIFT, va, &new_table);
+	unsigned long pud = map_stage2_table((unsigned long *)(pgd + VA_START), PGD_SHIFT, va, &new_table);
 	if (new_table) {
 		// もし新たにページが確保されていたら使用ページを登録
 		task->mm.kernel_pages[++task->mm.kernel_pages_count] = pud;
 	}
 	// PUD
-	unsigned long pmd = map_table((unsigned long *)(pud + VA_START) , PUD_SHIFT, va, &new_table);
+	unsigned long pmd = map_stage2_table((unsigned long *)(pud + VA_START) , PUD_SHIFT, va, &new_table);
 	if (new_table) {
 		task->mm.kernel_pages[++task->mm.kernel_pages_count] = pmd;
 	}
 	// PMD
-	unsigned long pte = map_table((unsigned long *)(pmd + VA_START), PMD_SHIFT, va, &new_table);
+	unsigned long pte = map_stage2_table((unsigned long *)(pmd + VA_START), PMD_SHIFT, va, &new_table);
 	if (new_table) {
 		task->mm.kernel_pages[++task->mm.kernel_pages_count] = pte;
 	}
 
 	// 最後にページエントリの追加
-	map_table_entry((unsigned long *)(pte + VA_START), va, page);
+	map_stage2_table_entry((unsigned long *)(pte + VA_START), va, page);
 	struct user_page p = {page, va};
 	// ユーザ空間の管理対象に加える
 	task->mm.user_pages[task->mm.user_pages_count++] = p;
-}
-
-// 仮想アドレス空間のコピー
-int copy_virt_memory(struct task_struct *dst) {
-	struct task_struct* src = current;
-	// ユーザ空間にマップしてあるページを順番にコピー
-	for (int i = 0; i < src->mm.user_pages_count; i++) {
-		// 新しくページを確保して
-		unsigned long kernel_va = allocate_user_page(dst, src->mm.user_pages[i].virt_addr);
-		if( kernel_va == 0) {
-			return -1;
-		}
-		// ページを丸ごとコピー
-		memcpy(kernel_va, src->mm.user_pages[i].virt_addr, PAGE_SIZE);
-	}
-	return 0;
 }
 
 // todo: これはなに？

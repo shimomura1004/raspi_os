@@ -78,6 +78,7 @@ struct task_struct {
 									// tick ごとに 1 減り、0 になると他のプロセスに切り替わる
 	long priority;					// タスクがスケジュールされるときにこの値が counter にコピーされる
 	long preempt_count;				// 0 以外の値が入っている場合はタスク切り替えが無視される
+	long id;
 	unsigned long flags;
 	struct mm_struct mm;
 	struct cpu_sysregs cpu_sysregs;
@@ -96,8 +97,9 @@ extern void exit_process(void);
 // kernel_main の task_struct の初期値
 #define INIT_TASK \
 /*cpu_context*/ { { 0,0,0,0,0,0,0,0,0,0,0,0,0}, \
-/* state etc */	 0,0,15, 0, PF_KTHREAD, \
-/* mm */ { 0, 0, {{0}}, 0, {0}} \
+/* state etc */	 0,0,15, 0, 0, PF_KTHREAD, \
+/* mm */ { 0, 0, {{0}}, 0, {0}}, \
+/* cpu_sysregs */ { 0,0,0,0,0,0}, \
 }
 #endif
 #endif
