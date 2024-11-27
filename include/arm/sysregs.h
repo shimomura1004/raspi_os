@@ -5,6 +5,11 @@
 // SCTLR_EL2, System Control Register (EL2), Page 2025 of AArch64-Reference-Manual.
 // ***************************************
 
+// SCTLR: sytem control register
+// EE[25]: 0 なら little-endian, 1 なら big-endian
+// I[12] (instruction access cacheability control): 0 なら命令キャッシュ不可、1 なら命令キャッシュ可
+// C[2] (cacheability control): 0 ならデータキャッシュ不可、1 ならデータキャッシュ可
+// M[0] (MMU enable): 0 なら無効、1 なら有効
 #define SCTLR_EE                    (0 << 25)
 #define SCTLR_I_CACHE_DISABLED      (0 << 12)
 #define SCTLR_D_CACHE_DISABLED      (0 << 2)
@@ -17,6 +22,35 @@
 // HCR_EL2, Hypervisor Configuration Register (EL2), Page 1923 of AArch64-Reference-Manual.
 // ***************************************
 
+// HCR: hypervisor configuration register
+// E2H[34] (EL2 host): ホスト OS が EL2 で動くかどうか、0なら無効、1なら有効
+// RW[31] (exection state control for lower execption level):
+//   0b0: lower level はすべて aarch32
+//   0b1: EL1 の exception stte は aarch64
+// TGE[27] (trap general exception from el0)
+//   0b0: 特に意味なし
+//   0b1: EL1 にきたすべての exception は EL2 に渡される
+//        すべての仮想割込みは無効化される
+//        割込み処理後、EL1 に戻ることを禁止する
+//        など
+// TWI[13] (traps el0 and el1 exection of wfi instructions to el2)
+//   0b0: トラップしない
+//   0b1: EL0 か EL1 で WFI 命令を実行すると EL2 でトラップされる
+// AMO[5] (physical serror exception routing)
+//   0b0: 特に効果なし
+//   0b1: physical serror 例外は EL2 で処理される、など
+// IMO[4] (physiccal irq routing)
+//   0b0: HCR_EL2.TGE の値によって意味が変わる
+//   0b1: physical irq interrupt は EL2 で処理される、など
+// FMO[3] (physical FIQ routing)
+//   0b0: HCR_EL2.TGE の値によって意味が変わる
+//   0b1: physical FIQ interrupt は EL2 で処理される、など
+// SWIO[1] (Set/Way invalidation override): set/way は arm のキャッシュの用語
+//   0b0: set/way 命令でのデータキャッシュインバリデートに影響を与えない
+//   0b1: set/way 命令でデータキャッシュはインバリデートされる
+// VM[0] (virtualization enable)
+//   0b0: EL1/0 向けの stage2 アドレス変換を無効化
+//   0b1: EL1/0 向けの stage2 アドレス変換を有効化
 #define HCR_E2H         (0 << 34)
 #define HCR_RW	    	(1 << 31)
 #define HCR_TGE         (0 << 27)
