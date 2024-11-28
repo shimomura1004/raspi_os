@@ -78,7 +78,7 @@ struct task_struct {
 									// tick ごとに 1 減り、0 になると他のプロセスに切り替わる
 	long priority;					// タスクがスケジュールされるときにこの値が counter にコピーされる
 	long preempt_count;				// 0 以外の値が入っている場合はタスク切り替えが無視される
-	long id;
+	long id;						// VMID
 	unsigned long flags;
 	struct mm_struct mm;
 	struct cpu_sysregs cpu_sysregs;

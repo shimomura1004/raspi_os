@@ -1,0 +1,5 @@
+BaseOnStyle: LLVM
+
+IndentWidth:    4
+Language:       Cpp
+UseTab:         Never
