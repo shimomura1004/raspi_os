@@ -21,13 +21,15 @@ delay:
 	bne delay
 	ret
 
+// void set_stage2_pgd(unsigned long pgd, unsigned long vmid);
 .globl set_stage2_pgd
 set_stage2_pgd:
-	and x1, x1, #0xff
-	lsl x1, x1, #48
-	orr x0, x0, x1		// set VMID
+	and x1, x1, #0xff	// 下位8ビットだけを残す
+	lsl x1, x1, #48		// 48ビットずらすので、下位8ビットが64ビットの上位8ビットに移動する
+	orr x0, x0, x1		// set VMID (アドレスの上位8ビットに VMID を入れる)
 	// アドレス空間を切り替え
 	// EL2 にはページテーブルが1つしかない
+	// VTTBR_EL2 の上位16ビットは VMID を格納する、残りの48ビットはベースアドレス
 	msr	vttbr_el2, x0
 	// TLB を無効化
 	tlbi vmalle1is

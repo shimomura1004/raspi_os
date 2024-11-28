@@ -69,6 +69,7 @@ static void prepare_initial_sysregs(void) {
 // EL2 で動くタスクを作る
 int create_vmtask(unsigned long arg)
 {
+	// これから作る VM の VMID
 	static int nextid = 0;
 
 	// copy_process の処理中はスケジューラによるタスク切り替えを禁止
@@ -93,8 +94,8 @@ int create_vmtask(unsigned long arg)
 	p->priority = current->priority;
 	p->state = TASK_RUNNING;
 	p->counter = p->priority;
-	p->preempt_count = 1; //disable preemtion until schedule_tail
-	p->id = nextid++;
+	p->preempt_count = 1; 	// disable preemtion until schedule_tail
+	p->id = nextid++;		// VMID は1つずつ増やして重複しないようにする
 
 	prepare_initial_sysregs();
 	memcpy((unsigned long)&p->cpu_sysregs, (unsigned long)&initial_sysregs, sizeof(struct cpu_sysregs));
