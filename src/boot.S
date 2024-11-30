@@ -157,7 +157,7 @@ el2_entry:
 	// MMU が無効であった場合の相対位置にジャンプしてしまうのでずれる
 	// 一度 ldr でアドレスをレジスタに入れると絶対値になり、これであれば MMU 有効化後に適切な値となる
 	// todo: 詳細はよくわからない
-	ldr	x2, =kernel_main
+	ldr	x2, =hypervisor_main
 
 	// MMU を有効にする
 	mov	x0, #SCTLR_MMU_ENABLED
