@@ -48,7 +48,7 @@ static void prepare_vmtask(unsigned long arg) {
 static struct cpu_sysregs initial_sysregs;
 
 static void prepare_initial_sysregs(void) {
-	static int is_first_call = 0;
+	static int is_first_call = 1;
 
 	if (!is_first_call) {
 		return;
@@ -63,15 +63,12 @@ static void prepare_initial_sysregs(void) {
 	//        0b0/0b1: EL1&0 stage 1 address translation disabled/enabled
 	initial_sysregs.sctlr_el1 &= ~1;
 
-	is_first_call = 1;
+	is_first_call = 0;
 }
 
 // EL2 で動くタスクを作る
 int create_vmtask(unsigned long arg)
 {
-	// これから作る VM の VMID
-	static int nextid = 0;
-
 	// copy_process の処理中はスケジューラによるタスク切り替えを禁止
 	preempt_disable();
 	struct task_struct *p;
@@ -95,7 +92,6 @@ int create_vmtask(unsigned long arg)
 	p->state = TASK_RUNNING;
 	p->counter = p->priority;
 	p->preempt_count = 1; 	// disable preemtion until schedule_tail
-	p->id = nextid++;		// VMID は1つずつ増やして重複しないようにする
 
 	prepare_initial_sysregs();
 	memcpy((unsigned long)&p->cpu_sysregs, (unsigned long)&initial_sysregs, sizeof(struct cpu_sysregs));
@@ -110,6 +106,7 @@ int create_vmtask(unsigned long arg)
 	// 新たに作った task_struct 構造体のアドレスを task 配列に入れておく
 	// これでそのうち今作ったタスクに処理が切り替わり、 switch_from_kthread から実行開始される
 	task[pid] = p;
+	p->pid = pid;
 
 	preempt_enable();
 	return pid;
