@@ -2,7 +2,7 @@ ARMGNU ?= aarch64-linux-gnu
 
 COPS = -Wall -nostdlib -nostartfiles -ffreestanding -Iinclude -mgeneral-regs-only
 COPS += -g -O0
-ASMOPS = -Iinclude 
+ASMOPS = -Iinclude
 
 BUILD_DIR = build
 SRC_DIR = src
@@ -11,6 +11,11 @@ all : kernel8.img
 
 clean :
 	rm -rf $(BUILD_DIR) *.img 
+
+debug : kernel8.img
+	gdb-multiarch -ex 'target remote :1234' \
+	-ex 'layout asm' \
+	-ex 'add-symbol-file build/kernel8.elf'
 
 $(BUILD_DIR)/%_c.o: $(SRC_DIR)/%.c
 	mkdir -p $(@D)

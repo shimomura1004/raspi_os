@@ -9,3 +9,11 @@
 - aarch64 では
     - アドレスの上位12ビットが 0 の場合は TTBR0 で指定した変換テーブルで仮想アドレスを変換する(ユーザプロセス用)
     - アドレスの上位12ビットが 1 の場合は TTBR1 で指定した変換テーブルで仮想アドレスを変換する(カーネル用)
+
+# Debug
+- flat binary にデバッグ情報を残すこともできるようだが、objcopy がうまくデバッグ情報を認識してくれない
+- 以下のように gdb で kernel8.elf を追加で読み込むほうが楽
+    - `(gdb) add-symbol-file build/kernel8.elf`
+- 状況に応じて `layout asm` もしくは `layout src` で表示を切り替える
+- デバッグ時は毎回 target remote するのは大変なので以下のようにコマンドラインで指定するといい
+    - `$ gdb-multiarch -ex 'target remote :1234'`
