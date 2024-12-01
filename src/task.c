@@ -28,7 +28,7 @@ static int prepare_el1_switching(unsigned long start, unsigned long size, unsign
 }
 
 static void prepare_vmtask(unsigned long arg) {
-	printf("vmtask: arg=%d, EL=%d\r\n", arg, get_el());
+	printf("task: arg=%d, EL=%d\r\n", arg, get_el());
 	// user_begin/user_end はリンカスクリプトで指定されたアドレス
 	// ユーザプログラムのコードやデータ領域の先頭と末尾
 	unsigned long begin = (unsigned long)&user_begin;
@@ -37,7 +37,7 @@ static void prepare_vmtask(unsigned long arg) {
 	// プロセスのアドレス空間内のアドレスを計算して渡す
 	int err = prepare_el1_switching(begin, end - begin, process - begin);
 	if (err < 0) {
-		printf("Error while moving process to user mode\r\n");
+		printf("task: prepare_el1_switching() failed.\r\n");
 	}
 
 	// switch_from_kthread() will be called and switched to EL1
@@ -96,15 +96,15 @@ int create_vmtask(unsigned long arg)
 	prepare_initial_sysregs();
 	memcpy((unsigned long)&p->cpu_sysregs, (unsigned long)&initial_sysregs, sizeof(struct cpu_sysregs));
 
-	// コピーされたプロセスは最初 ret_from_fork 関数から動き出す
+	// el1 のプロセスは最初 switch_from_kthread 関数から動き出す
 	p->cpu_context.pc = (unsigned long)switch_from_kthread;
-	// ret_from_fork の中で kernel_exit が呼ばれる
+	// switch_from_kthread の中で kernel_exit が呼ばれる
 	// そのとき SP が指す先には退避したレジスタが格納されている必要がある
 	p->cpu_context.sp = (unsigned long)childregs;
 	// 今動いているタスク数を増やし、その連番をそのまま PID とする
 	int pid = nr_tasks++;
 	// 新たに作った task_struct 構造体のアドレスを task 配列に入れておく
-	// これでそのうち今作ったタスクに処理が切り替わり、 switch_from_kthread から実行開始される
+	// これでそのうち今作ったタスクに処理が切り替わり、switch_from_kthread から実行開始される
 	task[pid] = p;
 	p->pid = pid;
 

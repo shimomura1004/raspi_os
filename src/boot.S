@@ -153,7 +153,7 @@ el2_entry:
 	msr	mair_el2, x0
 
 	// MMU を有効にする前にアドレスを控えておく
-	// 単に br kernel_main とすると、PC に対する kernel_main のアドレスへの相対値でジャンプするが、
+	// 単に br hypervisor_main とすると、PC に対する hypervisor_main のアドレスへの相対値でジャンプするが、
 	// MMU が無効であった場合の相対位置にジャンプしてしまうのでずれる
 	// 一度 ldr でアドレスをレジスタに入れると絶対値になり、これであれば MMU 有効化後に適切な値となる
 	// todo: 詳細はよくわからない
@@ -163,7 +163,7 @@ el2_entry:
 	mov	x0, #SCTLR_MMU_ENABLED
 	msr	sctlr_el2, x0
 
-	// kernel_main 関数にジャンプ
+	// hypervisor_main 関数にジャンプ
 	br 	x2
 
 	//-------- ここからマクロ定義 ------------------------------------------------
