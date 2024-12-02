@@ -40,7 +40,7 @@ set_stage2_pgd:
 	isb
 	ret
 
-// todo: ldp じゃなくて stp では？
+// x0 が指すメモリアドレスに保存された値を各システムレジスタに復元する
 .globl _set_sysregs
 _set_sysregs:
 	ldp x1, x2, [x0], #16
@@ -54,17 +54,16 @@ _set_sysregs:
 	msr mair_el1, x2
 	ret
 
+// 各システムレジスタの値を取り出し、x0 が指すメモリアドレスに保存する
 .globl _get_sysregs
 _get_sysregs:
-	// レジスタ x1, x2 にデータをロード
-	// ロード後、x0 の値は16ずれる
-	ldp x1, x2, [x0], #16
-	msr sctlr_el1, x1
-	msr spsr_el1, x2
-	ldp x1, x2, [x0], #16
-	msr ttbr0_el1, x1
-	msr ttbr1_el1, x2
-	ldp x1, x2, [x0], #16
-	msr tcr_el1, x1
-	msr mair_el1, x2
+	mrs x1, sctlr_el1
+	mrs x2, spsr_el1
+	stp x1, x2, [x0], #16
+	mrs x1, ttbr0_el1
+	mrs x2, ttbr1_el1
+	stp x1, x2, [x0], #16
+	mrs x1, tcr_el1
+	mrs x2, mair_el1
+	stp x1, x2, [x0], #16
 	ret
