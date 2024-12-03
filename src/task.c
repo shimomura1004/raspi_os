@@ -16,6 +16,8 @@ static struct pt_regs * task_pt_regs(struct task_struct *tsk) {
 static int prepare_el1_switching(unsigned long start, unsigned long size, unsigned long pc) {
 	struct pt_regs *regs = task_pt_regs(current);
 	regs->pstate = PSR_MODE_EL1h;
+	// pc は 0 になるが、新しく確保したページを仮想アドレスの 0 にマッピングしているので問題ない
+	// todo: el1 に eret したあとにメモリアクセスできなくなるのは別の問題
 	regs->pc = pc;
 	regs->sp = 2 * PAGE_SIZE;
 	unsigned long code_page = allocate_user_page(current, 0);
