@@ -24,20 +24,25 @@ delay:
 // void set_stage2_pgd(unsigned long pgd, unsigned long vmid);
 .globl set_stage2_pgd
 set_stage2_pgd:
+	// prepare VMID
 	and x1, x1, #0xff	// 下位8ビットだけを残す
 	lsl x1, x1, #48		// 48ビットずらすので、下位8ビットが64ビットの上位8ビットに移動する
-	orr x0, x0, x1		// set VMID (アドレスの上位8ビットに VMID を入れる)
+	// set VMID
+	orr x0, x0, x1		// アドレスの上位8ビットに VMID を入れる
+	// TLB invalidate
+	dsb ishst
+
+	tlbi vmalls12e1is
+	// out-of-order 実行で勝手に実行しないように
+	// data synchronization barrier
+	dsb ish				// ensure completion of TLB invalidation
+	// instruction synchronization barrier
+	isb
+
 	// アドレス空間を切り替え
 	// EL2 にはページテーブルが1つしかない
 	// VTTBR_EL2 の上位16ビットは VMID を格納する、残りの48ビットはベースアドレス
 	msr	vttbr_el2, x0
-	// TLB を無効化
-	//tlbi vmalle1is
-	// out-of-order 実行で勝手に実行しないように
-	// data synchronization barrier
-  	DSB ISH              // ensure completion of TLB invalidation
-	// instruction synchronization barrier
-	isb
 	ret
 
 // x0 が指すメモリアドレスに保存された値を各システムレジスタに復元する
@@ -52,6 +57,7 @@ _set_sysregs:
 	ldp x1, x2, [x0], #16
 	msr tcr_el1, x1
 	msr mair_el1, x2
+	isb
 	ret
 
 // 各システムレジスタの値を取り出し、x0 が指すメモリアドレスに保存する
