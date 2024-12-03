@@ -32,7 +32,7 @@ set_stage2_pgd:
 	// VTTBR_EL2 の上位16ビットは VMID を格納する、残りの48ビットはベースアドレス
 	msr	vttbr_el2, x0
 	// TLB を無効化
-	tlbi vmalle1is
+	//tlbi vmalle1is
 	// out-of-order 実行で勝手に実行しないように
 	// data synchronization barrier
   	DSB ISH              // ensure completion of TLB invalidation
