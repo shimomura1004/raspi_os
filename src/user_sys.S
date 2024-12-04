@@ -12,6 +12,12 @@ user_delay:
 	bne user_delay
 	ret
 
+// デバッグ用に WFI を呼び出すためだけのコード
+.globl user_wfi
+user_wfi:
+	wfi
+	ret
+
 // システムコールを呼び出すためのユーザプログラム側のコード
 
 // hvc を呼び出してカーネル空間に入る
