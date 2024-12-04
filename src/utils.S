@@ -29,9 +29,16 @@ set_stage2_pgd:
 	lsl x1, x1, #48		// 48ビットずらすので、下位8ビットが64ビットの上位8ビットに移動する
 	// set VMID
 	orr x0, x0, x1		// アドレスの上位8ビットに VMID を入れる
-	// TLB invalidate
-	dsb ishst
 
+	// 以下の4この命令のセットで、TLB をインバリデートできる
+	// TLB invalidate
+	// dsb: data synchronization barrier
+	//   dsb 命令よりあとに記述された命令は、この命令が終わるまで実行されない
+	// SY: full system DSB operation, this is the default and can be omitted
+	// ST: DSB operation that waits only for stores to complete
+	// ISH: DSB operation only to the inner shareable domain
+	// ISHST: DST operation that waits only for stores to complete, and only to the inner shareable domain.
+	dsb ishst
 	tlbi vmalls12e1is
 	// out-of-order 実行で勝手に実行しないように
 	// data synchronization barrier
@@ -57,6 +64,7 @@ _set_sysregs:
 	ldp x1, x2, [x0], #16
 	msr tcr_el1, x1
 	msr mair_el1, x2
+	// TTBR を復元してメモリ空間が変わるので、isb で命令同期している？
 	isb
 	ret
 

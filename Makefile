@@ -1,3 +1,5 @@
+.PHONY: all clean debug
+
 ARMGNU ?= aarch64-linux-gnu
 
 COPS = -Wall -nostdlib -nostartfiles -ffreestanding -Iinclude -mgeneral-regs-only

@@ -21,16 +21,17 @@
 // MAIR_EL1 レジスタは8個のパートに分かれており、ページの属性を入れておく
 // 各ページは変換テーブルのエントリで MAIR のどのパートを使うかを指定する
 // つまりシステム全体でメモリの属性は8パターンしかない
-// RPi OS では2個パターン(DEVICE_nGnRnE と NORMAL_NC)しか使わない
-//   DEVICE_nGnRnE  デバイスメモリ
-//   NORMAL_NC      通常のメモリで、キャッシュ不可
+// raspvisor では以下の2パターンを準備している
+//   DEVICE_nGnRnE       デバイスメモリ
+//   NORMAL_CACHEABLE    通常のメモリで、キャッシュも可能
+// https://developer.arm.com/documentation/ddi0601/2024-09/AArch64-Registers/MAIR-EL1--Memory-Attribute-Indirection-Register--EL1-
 /*
  * Memory region attributes:
  *
  *   n = AttrIndx[2:0]
  *			n	MAIR
- *   DEVICE_nGnRnE	000	00000000
- *   NORMAL_NC		001	01000100
+ *   DEVICE_nGnRnE      000 00000000
+ *   NORMAL_CACJEABLE   001 11111111
  */
 #define MT_DEVICE_nGnRnE            0x0
 #define MT_NORMAL_CACHEABLE         0x1
