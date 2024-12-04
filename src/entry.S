@@ -5,14 +5,14 @@
 	//-------- handle_invalid_entry -------------------------------------------
 	// 無効な割込みハンドラを表現するためのマクロ
 
-	.macro handle_invalid_entry type
+	.macro handle_invalid_entry type func
 	// レジスタを退避
 	kernel_entry
 	// show_invalid_entry_message 用の3つの引数を準備する
 	mov	x0, #\type
 	mrs	x1, esr_el2
 	mrs	x2, elr_el2
-	bl	show_invalid_entry_message
+	bl \func
 	// err_hang に飛ぶと無限ループする
 	b	err_hang
 	.endm
@@ -127,34 +127,34 @@ vectors:
 	ventry	error_invalid_el01_32	// Error 32-bit EL0 or EL1
 
 sync_invalid_el2:
-	handle_invalid_entry SYNC_INVALID_EL2
+	handle_invalid_entry SYNC_INVALID_EL2 show_invalid_entry_message
 
 irq_invalid_el2:
-	handle_invalid_entry IRQ_INVALID_EL2
+	handle_invalid_entry IRQ_INVALID_EL2 show_invalid_entry_message
 
 fiq_invalid_el2:
-	handle_invalid_entry FIQ_INVALID_EL2
+	handle_invalid_entry FIQ_INVALID_EL2 show_invalid_entry_message
 
 error_invalid_el2:
-	handle_invalid_entry ERROR_INVALID_EL2
+	handle_invalid_entry ERROR_INVALID_EL2 show_invalid_entry_message
 
 fiq_invalid_el01_64:
-	handle_invalid_entry FIQ_INVALID_EL01_64
+	handle_invalid_entry FIQ_INVALID_EL01_64 show_invalid_entry_message
 
 error_invalid_el01_64:
-	handle_invalid_entry ERROR_INVALID_EL01_64
+	handle_invalid_entry ERROR_INVALID_EL01_64 show_invalid_entry_message
 
 sync_invalid_el01_32:
-	handle_invalid_entry SYNC_INVALID_EL01_32
+	handle_invalid_entry SYNC_INVALID_EL01_32 show_invalid_entry_message
 
 irq_invalid_el01_32:
-	handle_invalid_entry IRQ_INVALID_EL01_32
+	handle_invalid_entry IRQ_INVALID_EL01_32 show_invalid_entry_message
 
 fiq_invalid_el01_32:
-	handle_invalid_entry FIQ_INVALID_EL01_32
+	handle_invalid_entry FIQ_INVALID_EL01_32 show_invalid_entry_message
 
 error_invalid_el01_32:
-	handle_invalid_entry ERROR_INVALID_EL01_32
+	handle_invalid_entry ERROR_INVALID_EL01_32 show_invalid_entry_message
 
 
 el2_irq:
@@ -174,14 +174,16 @@ el01_sync:
 	// exception class を調べる
 	mrs	x25, esr_el2				// read the syndrome register
 	lsr	x24, x25, #ESR_EL2_EC_SHIFT		// exception class
+
+	// todo: デバッグ用に、いったんすべての処理をやめてエラー出力させる
 	// hvc 命令によって発生した割込みか？
-	cmp	x24, #ESR_EL2_EC_HVC64			// HVC in 64-bit state
-	b.eq	el01_hvc
+	//cmp	x24, #ESR_EL2_EC_HVC64			// HVC in 64-bit state
+	//b.eq	el01_hvc
 	// データアボートによって発生した割込みか？
-	cmp	x24, #ESR_EL2_EC_DABT_LOW		// data abort in EL0
-	b.eq	el01_da
+	//cmp	x24, #ESR_EL2_EC_DABT_LOW		// data abort in EL0
+	//b.eq	el01_da
 	// それ以外の場合は invalid
-	handle_invalid_entry SYNC_ERROR
+	handle_invalid_entry SYNC_ERROR show_uncaught_sync_exception_message
 
 // レジスタのエイリアスの定義
 hc_nr	.req	x25					// number of hvcs
@@ -213,7 +215,7 @@ el01_hvc:
 	blr	x16					// call hvc_* routine
 	b	ret_from_hvc
 ni_hv:
-	handle_invalid_entry HVC_ERROR
+	handle_invalid_entry HVC_ERROR show_invalid_entry_message
 ret_from_hvc:
 	// システムコールから戻る処理
 	// 割込みを無効にする
@@ -239,7 +241,7 @@ el01_da:
 	cmp x0, 0
 	b.eq 1f
 	// do_mem_abort が失敗した場合は invalid とする
-	handle_invalid_entry DATA_ABORT_ERROR
+	handle_invalid_entry DATA_ABORT_ERROR show_invalid_entry_message
 1:
 	// 割込みを無効にして戻る
 	bl disable_irq

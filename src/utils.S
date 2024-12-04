@@ -81,3 +81,29 @@ _get_sysregs:
 	mrs x2, mair_el1
 	stp x1, x2, [x0], #16
 	ret
+
+.globl _get_spsr_el2
+_get_spsr_el2:
+	mrs x0, spsr_el2
+	ret
+
+.globl _get_sctlr_el1
+_get_sctlr_el1:
+	mrs x0, sctlr_el1
+	ret
+
+.globl _get_vttbr_el2
+_get_vttbr_el2:
+	mrs x0, vttbr_el2
+	ret
+
+.globl _get_id_aa64mmfr0_el1
+_get_id_aa64mmfr0_el1:
+	mrs x0, id_aa64mmfr0_el1
+	ret
+
+.globl do_at
+do_at:
+	at s12e1r, x0
+	mrs x0, par_el1
+	ret
