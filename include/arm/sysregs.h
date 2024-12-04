@@ -53,6 +53,7 @@
 //   0b1: EL1/0 向けの stage2 アドレス変換を有効化
 #define HCR_E2H         (0 << 34)
 #define HCR_RW	    	(1 << 31)
+#define HCR_TRVM        (1 << 30)
 #define HCR_TGE         (0 << 27)
 #define HCR_TWI         (1 << 13)
 // Asynchronous external Aborts and SError interrupt routing
@@ -70,10 +71,15 @@
 // SCR_EL3, Secure Configuration Register (EL3), Page 2022 of AArch64-Reference-Manual.
 // ***************************************
 
+// https://developer.arm.com/documentation/ddi0601/2024-09/AArch32-Registers/SCR--Secure-Configuration-Register
+// HCE[8]: hypervior call instruction enable
+//   0b0: UNDEFINED at Non-secure EL1. UNPREDICTABLE at EL2.
+//   0b1: HVC instructions are enabled at Non-secure EL1 and EL2.
 #define SCR_RESERVED			(3 << 4)
 #define SCR_RW				    (1 << 10)
+#define SCR_HCE                 (1 << 8)    // enable HVC
 #define SCR_NS				    (1 << 0)
-#define SCR_VALUE	    	    (SCR_RESERVED | SCR_RW | SCR_NS)
+#define SCR_VALUE	    	    (SCR_RESERVED | SCR_RW | SCR_HCE | SCR_NS)
 
 // ***************************************
 // SPSR_EL3, Saved Program Status Register (EL3) Page 288 of AArch64-Reference-Manual.
@@ -96,13 +102,59 @@
 // VTCR_EL2, Virtualization Transition Control Register (EL2)
 // ***************************************
 
+// https://developer.arm.com/documentation/ddi0601/2024-09/AArch64-Registers/VTCR-EL2--Virtualization-Translation-Control-Register
+// NSA[30]: Non-secure stage 2 translation output address space for the Secure EL1&0 translation regime
+//   0b0: All stage 2 translation for the Non-secure IPA space of the Secure EL1&0 translation regime access the Secure PA space
+//   0b1: All stage 2 translation for the Non-secure IPA space of the Secure EL1&0 translation regime access the Non-secure PA space
+// NSW[29]: Non-secure stage 2 translation table address space for the Secure EL1&0 translation regime
+//   0b0: All stage 2 translation table walks for the Non-secure IPA space of the Secure EL1&0 translation regime are to the Secure PA space.
+//   0b1: All stage 2 translation table walks for the Non-secure IPA space of the Secure EL1&0 translation regime are to the Non-secure PA space.
+// VS[19]: VMID Size
+//   0b0: 8-bit VMID
+//   0b1: 16-bit VMID
+// PS[18:16]: physical address size for the second stage of translation
+//   0b000: 32 bits, 4GB.
+//   0b001: 36 bits, 64GB.
+//   0b010: 40 bits, 1TB.
+//   0b011: 42 bits, 4TB.
+//   0b100: 44 bits, 16TB.
+//   0b101: 48 bits, 256TB.
+//   0b110: 52 bits, 4PB.
+//   0b111: 56 bits, 64PB.
+// TG0[15:14]: Granule size for the VTTBR_EL2
+//   0b00: 4KB.
+//   0b01: 64KB.
+//   0b10: 16KB.
+// SH0[13:12]: Shareability attribute for memory associated with translation table walks using VTTBR_EL2 or VSTTBR_EL2
+//   0b00: Non-shareable.
+//   0b10: Outer Shareable.
+//   0b11: Inner Shareable.
+// ORGN0[11:10]: Outer cacheability attribute for memory associated with translation table walks using VTTBR_EL2 or VSTTBR_EL2.
+//   0b00: Normal memory, Outer Non-cacheable.
+//   0b01: Normal memory, Outer Write-Back Read-Allocate Write-Allocate Cacheable.
+//   0b10: Normal memory, Outer Write-Through Read-Allocate No Write-Allocate Cacheable.
+//   0b11: Normal memory, Outer Write-Back Read-Allocate No Write-Allocate Cacheable.
+// IRGN0[9:8]: Inner cacheability attribute for memory associated with translation table walks using VTTBR_EL2 or VSTTBR_EL2.
+//   0b00: Normal memory, Inner Non-cacheable.
+//   0b01: Normal memory, Inner Write-Back Read-Allocate Write-Allocate Cacheable.
+//   0b10: Normal memory, Inner Write-Through Read-Allocate No Write-Allocate Cacheable.
+//   0b11: Normal memory, Inner Write-Back Read-Allocate No Write-Allocate Cacheable.
+// SL0[7:6]: Starting level of the stage 2 translation lookup
+//   0b01 and VTCR_EL2.TG0 is 0b00 and VTCR_EL2.SL2 is 0b0, start at level1
+//   ...
+// T0SZ[5:0]: The size offset of the memory region addressed by VTTBR_EL2. The region size is 2^(64 - T0SZ)
 #define VTCR_NSA        (1 << 30)
 #define VTCR_NSW        (1 << 29)
-#define VTCR_VS         (1 << 19)
-#define VTCR_PS         (5 << 16)
-#define VTCR_TG0        (0 << 14)
-#define VTCR_SL0        (2 << 6)
-#define VTCR_T0SZ       (64 - 48)
-#define VTCR_VALUE      (VTCR_NSA | VTCR_NSW | VTCR_VS | VTCR_PS | VTCR_TG0 | VTCR_SL0 | VTCR_T0SZ)
+#define VTCR_VS         (0 << 19)   // 8bit VMID
+#define VTCR_PS         (2 << 16)   // 40bit, 1TB
+#define VTCR_TG0        (0 << 14)   // 4KB
+#define VCTR_SH0        (3 << 12)   // Inner shareable
+#define VCTR_ORGN0      (1 << 10)   // outer write-back ...
+#define VCTR_IRGN0      (1 << 8)    // inner write-back ...
+#define VTCR_SL0        (1 << 6)    // start at level1?
+#define VTCR_T0SZ       (64 - 38)   // 仮想アドレスのサイズは 2^38 = 256GB
+#define VTCR_VALUE \
+    (VTCR_NSA | VTCR_NSW | VTCR_VS | VTCR_PS | VTCR_TG0 | \
+     VCTR_SH0 | VCTR_ORGN0 | VCTR_IRGN0 | VTCR_SL0 | VTCR_T0SZ)
 
 #endif
