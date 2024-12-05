@@ -16,6 +16,7 @@ static struct pt_regs * task_pt_regs(struct task_struct *tsk) {
 static int prepare_el1_switching(unsigned long start, unsigned long size, unsigned long pc) {
 	struct pt_regs *regs = task_pt_regs(current);
 	regs->pstate = PSR_MODE_EL1h;
+
 	// pc は 0 になるが、新しく確保したページを仮想アドレスの 0 にマッピングしているので問題ない
 	// todo: el1 に eret したあとにメモリアクセスできなくなるのは別の問題
 	regs->pc = pc;
@@ -26,11 +27,28 @@ static int prepare_el1_switching(unsigned long start, unsigned long size, unsign
 	}
 	memcpy(code_page, start, size);
 	set_cpu_sysregs(current);
+
+	unsigned long do_at(unsigned long);
+	unsigned long _get_id_aa64mmfr0_el1(void);
+	printf("psize=%x\n", _get_id_aa64mmfr0_el1() & 0xf);
+	// todo: デバッグ用に、アドレス変換ができるかを確認
+	printf("do_at: %x\n", do_at(0));
+	while(0);
+
 	return 0;
 }
 
 static void prepare_vmtask(unsigned long arg) {
 	printf("task: arg=%d, EL=%d\r\n", arg, get_el());
+
+	// デバッグ用に、EL1 で実行する命令の置き場所を変えた
+	unsigned int insns[] = {
+		0x52800008,	// mov w8, #0
+		0xd4000001, // hvc #0
+		0xd65f03c0,	// ret
+	};
+	int err = prepare_el1_switching((unsigned long)insns, (unsigned long)(sizeof(insns)), 0x80000);
+
 	// user_begin/user_end はリンカスクリプトで指定されたアドレス
 	// ユーザプログラムのコードやデータ領域の先頭と末尾
 	unsigned long begin = (unsigned long)&user_begin;
@@ -41,6 +59,7 @@ static void prepare_vmtask(unsigned long arg) {
 	if (err < 0) {
 		printf("task: prepare_el1_switching() failed.\r\n");
 	}
+	printf("task: entering el1...\n");
 
 	// switch_from_kthread() will be called and switched to EL1
 	// todo: eret で戻る EL は spsr_el2 に書かれているが、これを準備していないので、

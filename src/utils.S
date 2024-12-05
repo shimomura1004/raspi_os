@@ -99,11 +99,15 @@ _get_vttbr_el2:
 
 .globl _get_id_aa64mmfr0_el1
 _get_id_aa64mmfr0_el1:
+	// id_aa64mmfr0_el1: information about the implemented memory model and memory management support in the AArch64 Execution state.
 	mrs x0, id_aa64mmfr0_el1
 	ret
 
+// 引数として仮想アドレスを取り、Stage1 と 2 のアドレス変換を行った値を返す 
 .globl do_at
 do_at:
+	// x0 に入った仮想アドレスを変換
 	at s12e1r, x0
+	// par_el1 に at 命令の結果が入る
 	mrs x0, par_el1
 	ret
