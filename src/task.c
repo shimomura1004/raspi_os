@@ -17,23 +17,17 @@ static int prepare_el1_switching(unsigned long start, unsigned long size, unsign
 	struct pt_regs *regs = task_pt_regs(current);
 	regs->pstate = PSR_MODE_EL1h;
 
-	// pc は 0 になるが、新しく確保したページを仮想アドレスの 0 にマッピングしているので問題ない
-	// todo: el1 に eret したあとにメモリアクセスできなくなるのは別の問題
+	// ベースとした raspios がリニアマッピングなので、仮想アドレスの 0x0 は物理アドレスの 0x0 にマッピングされる
+	// Raspberry Pi 4B の場合、そこには DRAM はない
+	// なので仮想アドレスの 0x80000 を確保しなくてはいけない
 	regs->pc = pc;
 	regs->sp = 2 * PAGE_SIZE;
-	unsigned long code_page = allocate_user_page(current, 0);
+	unsigned long code_page = allocate_user_page(current, 0x80000);
 	if (code_page == 0) {
 		return -1;
 	}
 	memcpy(code_page, start, size);
 	set_cpu_sysregs(current);
-
-	unsigned long do_at(unsigned long);
-	unsigned long _get_id_aa64mmfr0_el1(void);
-	printf("psize=%x\n", _get_id_aa64mmfr0_el1() & 0xf);
-	// todo: デバッグ用に、アドレス変換ができるかを確認
-	printf("do_at: %x\n", do_at(0));
-	while(0);
 
 	return 0;
 }
@@ -42,11 +36,14 @@ static void prepare_vmtask(unsigned long arg) {
 	printf("task: arg=%d, EL=%d\r\n", arg, get_el());
 
 	// デバッグ用に、EL1 で実行する命令の置き場所を変えた
+	// デバッグ用に、WFI で syn exception が発生することを確認する
 	unsigned int insns[] = {
+		0xd503207f, // wfi
 		0x52800008,	// mov w8, #0
 		0xd4000001, // hvc #0
 		0xd65f03c0,	// ret
 	};
+	// raspios のメモリはリニアマッピングなので、rpi4b の DRAM がある 0x80000 に置く
 	int err = prepare_el1_switching((unsigned long)insns, (unsigned long)(sizeof(insns)), 0x80000);
 
 	// user_begin/user_end はリンカスクリプトで指定されたアドレス
