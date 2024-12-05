@@ -97,39 +97,32 @@ unsigned long map_stage2_table(unsigned long *table, unsigned long shift, unsign
 // task のアドレス空間のアドレス va に、指定されたページ page を割り当てる
 // stage1/2 のどちらも差はない
 void map_stage2_page(struct task_struct *task, unsigned long va, unsigned long page){
-	// page global directory
-	unsigned long pgd;
+	// 最上位のページテーブル
+	unsigned long lv1_table;
 
-	if (!task->mm.pgd) {
-		// Page global directory がなかったら、まずそれを作る
-		task->mm.pgd = get_free_page();
+	if (!task->mm.first_table) {
+		// ページテーブルがなかったら作る
+		task->mm.first_table = get_free_page();
 		// 今確保したページをカーネルの管理対象に加える
-		task->mm.kernel_pages[++task->mm.kernel_pages_count] = task->mm.pgd;
+		task->mm.kernel_pages[++task->mm.kernel_pages_count] = task->mm.first_table;
 	}
-	pgd = task->mm.pgd;
+	lv1_table = task->mm.first_table;
 
 	// 新しくテーブルが追加されたかを示すフラグ
-	// RPi OS では PGD/PUD/PMD は1個ずつしかないので初回しか追加されないはず
 	int new_table;
-	// PGD
-	unsigned long pud = map_stage2_table((unsigned long *)(pgd + VA_START), PGD_SHIFT, va, &new_table);
+	// Level 1 のテーブル(lv1_table)から対応するエントリ(lv2_table)を探す
+	unsigned long lv2_table = map_stage2_table((unsigned long *)(lv1_table + VA_START), LV1_SHIFT, va, &new_table);
 	if (new_table) {
 		// もし新たにページが確保されていたら使用ページを登録
-		task->mm.kernel_pages[++task->mm.kernel_pages_count] = pud;
+		task->mm.kernel_pages[++task->mm.kernel_pages_count] = lv2_table;
 	}
-	// PUD
-	unsigned long pmd = map_stage2_table((unsigned long *)(pud + VA_START) , PUD_SHIFT, va, &new_table);
+	// Level 2 のテーブル(lv2_table)から対応するエントリ(lv3_table)を探す
+	unsigned long lv3_table = map_stage2_table((unsigned long *)(lv2_table + VA_START) , LV2_SHIFT, va, &new_table);
 	if (new_table) {
-		task->mm.kernel_pages[++task->mm.kernel_pages_count] = pmd;
+		task->mm.kernel_pages[++task->mm.kernel_pages_count] = lv3_table;
 	}
-	// PMD
-	unsigned long pte = map_stage2_table((unsigned long *)(pmd + VA_START), PMD_SHIFT, va, &new_table);
-	if (new_table) {
-		task->mm.kernel_pages[++task->mm.kernel_pages_count] = pte;
-	}
-
-	// 最後にページエントリの追加
-	map_stage2_table_entry((unsigned long *)(pte + VA_START), va, page);
+	// Level 3 のテーブル(lv3_table)の対応するエントリを探してページを登録
+	map_stage2_table_entry((unsigned long *)(lv3_table + VA_START), va, page);
 	struct user_page p = {page, va};
 	// ユーザ空間の管理対象に加える
 	task->mm.user_pages[task->mm.user_pages_count++] = p;

@@ -59,7 +59,7 @@ struct user_page {
 };
 
 struct mm_struct {
-	unsigned long pgd;
+	unsigned long first_table;
 	// 今使っているユーザプロセス用ページの数
 	int user_pages_count;
 	// 使っているユーザプロセス用ページのリスト

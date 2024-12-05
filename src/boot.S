@@ -126,13 +126,6 @@ el2_entry:
 	msr	ttbr0_el2, x0
 
 	// TCR レジスタは MMU を設定するためのレジスタ
-	// #define TCR_T0SZ		(64 - 48)
-	// #define TCR_T1SZ		((64 - 48) << 16)
-	// #define TCR_TG0_4K	(0 << 14)
-	// #define TCR_TG1_4K	(2 << 30)
-	// #define TCR_VALUE	(TCR_T0SZ | TCR_T1SZ | TCR_TG0_4K | TCR_TG1_4K)
-	// TCR_TG0_4K は、TTBR0_EL1 のページのサイズ
-	// TCR_TG0_4K は、TTBR1_EL1 のページのサイズ
 	ldr	x0, =(TCR_VALUE)
 	msr	tcr_el2, x0
 

@@ -30,9 +30,18 @@
 
 #define PTRS_PER_TABLE			(1 << TABLE_SHIFT)
 
-#define PGD_SHIFT			PAGE_SHIFT + 3*TABLE_SHIFT
-#define PUD_SHIFT			PAGE_SHIFT + 2*TABLE_SHIFT
-#define PMD_SHIFT			PAGE_SHIFT + TABLE_SHIFT
+// for stage 1 translation (VA to IPA)
+#define PGD_SHIFT			(PAGE_SHIFT + 3 * TABLE_SHIFT)
+#define PUD_SHIFT			(PAGE_SHIFT + 2 * TABLE_SHIFT)
+#define PMD_SHIFT			(PAGE_SHIFT +     TABLE_SHIFT)
+
+// for stage 2 translation (IPA to PA)
+// https://developer.arm.com/documentation/102142/0100/Stage-2-translation
+// for armv7
+//   https://developer.arm.com/documentation/den0013/d/The-Memory-Management-Unit/Level-2-translation-tables
+// stage 2 では LV1
+#define LV1_SHIFT           (PAGE_SHIFT + 2 * TABLE_SHIFT)
+#define LV2_SHIFT           (PAGE_SHIFT +     TABLE_SHIFT)
 
 #define PG_DIR_SIZE			(3 * PAGE_SIZE)
 
