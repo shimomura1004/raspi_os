@@ -51,11 +51,11 @@ static void prepare_vmtask(unsigned long arg) {
 
 	// user_begin/user_end はリンカスクリプトで指定されたアドレス
 	// ユーザプログラムのコードやデータ領域の先頭と末尾
-	unsigned long begin = (unsigned long)&user_begin;
-	unsigned long end = (unsigned long)&user_end;
-	unsigned long process = (unsigned long)&user_process;
+	//unsigned long begin = (unsigned long)&user_begin;
+	//unsigned long end = (unsigned long)&user_end;
+	//unsigned long process = (unsigned long)&user_process;
 	// プロセスのアドレス空間内のアドレスを計算して渡す
-	int err = prepare_el1_switching(begin, end - begin, process - begin);
+	//int err = prepare_el1_switching(begin, end - begin, process - begin);
 	if (err < 0) {
 		printf("task: prepare_el1_switching() failed.\r\n");
 	}
