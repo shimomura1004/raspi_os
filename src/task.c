@@ -17,12 +17,9 @@ static int prepare_el1_switching(unsigned long start, unsigned long size, unsign
 	struct pt_regs *regs = task_pt_regs(current);
 	regs->pstate = PSR_MODE_EL1h;
 
-	// ベースとした raspios がリニアマッピングなので、仮想アドレスの 0x0 は物理アドレスの 0x0 にマッピングされる
-	// Raspberry Pi 4B の場合、そこには DRAM はない
-	// なので仮想アドレスの 0x80000 を確保しなくてはいけない
 	regs->pc = pc;
 	regs->sp = 2 * PAGE_SIZE;
-	unsigned long code_page = allocate_user_page(current, 0x80000);
+	unsigned long code_page = allocate_user_page(current, 0x1000);
 	if (code_page == 0) {
 		return -1;
 	}
@@ -35,32 +32,34 @@ static int prepare_el1_switching(unsigned long start, unsigned long size, unsign
 static void prepare_vmtask(unsigned long arg) {
 	printf("task: arg=%d, EL=%d\r\n", arg, get_el());
 
-	// デバッグ用に、EL1 で実行する命令の置き場所を変えた
-	// デバッグ用に、WFI で syn exception が発生することを確認する
-	unsigned int insns[] = {
-		0xd503207f, // wfi
-		0x52800008,	// mov w8, #0
-		0xd4000001, // hvc #0
-		0xd65f03c0,	// ret
-	};
-	// raspios のメモリはリニアマッピングなので、rpi4b の DRAM がある 0x80000 に置く
-	int err = prepare_el1_switching((unsigned long)insns, (unsigned long)(sizeof(insns)), 0x80000);
+	// 元々(raspberry-pi-os)は
+	//   カーネルの仮想メモリ空間(VA)と物理メモリ(PA)がリニアマッピング(boot.S で設定)
+	//   ユーザプロセスの仮想メモリ空間(VA)と物理メモリ(PA)は任意のマッピング(適宜設定)
+	// ハイパーバイザ化により
+	//   ハイパーバイザの仮想メモリ空間(IPA)と物理メモリ(PA)がリニアマッピング(boot.S で設定)
+	//   VM の仮想メモリ空間(VA)とハイパーバイザのメモリ空間(IPA)は任意のマッピング(適宜設定)
+	// ここでは VM 用(EL1)のメモリマッピングを行う
 
-	// user_begin/user_end はリンカスクリプトで指定されたアドレス
+	extern unsigned long el1_test_begin;
+	extern unsigned long el1_test_end;
+
+	// el1_test_begin/el1_test_end はリンカスクリプトで指定されたアドレス
 	// ユーザプログラムのコードやデータ領域の先頭と末尾
-	//unsigned long begin = (unsigned long)&user_begin;
-	//unsigned long end = (unsigned long)&user_end;
-	//unsigned long process = (unsigned long)&user_process;
+	unsigned long begin = (unsigned long)&el1_test_begin;
+	unsigned long end = (unsigned long)&el1_test_end;
+
 	// プロセスのアドレス空間内のアドレスを計算して渡す
-	//int err = prepare_el1_switching(begin, end - begin, process - begin);
+	// GDB は物理アドレス空間で見ているので、バイナリの仮想アドレスとずれると面倒
+	// よって 0x1000(el1_test_begin の値) にマッピングする
+	int err = prepare_el1_switching(begin, end - begin, 0x1000);
 	if (err < 0) {
 		printf("task: prepare_el1_switching() failed.\r\n");
 	}
 	printf("task: entering el1...\n");
 
 	// switch_from_kthread() will be called and switched to EL1
-	// todo: eret で戻る EL は spsr_el2 に書かれているが、これを準備していないので、
-	//       EL1 にならないのでは？
+	// eret で戻る EL は spsr_el2 に書かれており、
+	// これは prepare_el1_switching の中で pc に値をセットすることで設定されている
 }
 
 static struct cpu_sysregs initial_sysregs;

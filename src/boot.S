@@ -96,7 +96,7 @@ el2_entry:
 	// bss 領域を 0 クリア
 	bl 	memzero
 
-	// ページテーブルを準備
+	// EL2 用のページテーブルを準備
 	bl 	__create_page_tables
 
 	// #define VA_START 			0xffff000000000000
@@ -120,8 +120,7 @@ el2_entry:
 	// TTBR0 と TTBR1 で仮想アドレスを分離し、それぞれにユーザアプリとカーネルを置く
 
 	// pg_dir はリンカスクリプトで設定されている
-	// __create_page_tables によって
-	// pg_dir にはアドレス変換テーブルの最上位のページのアドレスが入っている
+	// __create_page_tables によって、pg_dir にはアドレス変換テーブルの最上位のページのアドレスが入っている
 	adrp	x0, pg_dir
 	msr	ttbr0_el2, x0
 

@@ -25,6 +25,7 @@ unsigned long allocate_user_page(struct task_struct *task, unsigned long va) {
 		return 0;
 	}
 	// 新たに確保したページをこのタスクのアドレス空間にマッピングする
+	// todo: これは VA->IPA の変換なので map_stage1_page とするべきでは？
 	map_stage2_page(task, va, page);
 	// 新たに確保したページの仮想アドレスを返す(リニアマッピングなのでオフセットを足すだけ)
 	return page + VA_START;
