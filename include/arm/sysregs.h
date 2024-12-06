@@ -90,15 +90,6 @@
 #define SPSR_VALUE			    (SPSR_MASK_ALL | SPSR_EL2h)
 
 // ***************************************
-// ESR_EL2, Exception Syndrome Register (EL2)
-// ***************************************
-
-#define ESR_EL2_EC_SHIFT		26
-#define ESR_EL2_EC_TRAP_WFx     1
-#define ESR_EL2_EC_HVC64        22
-#define ESR_EL2_EC_DABT_LOW		36
-
-// ***************************************
 // VTCR_EL2, Virtualization Transition Control Register (EL2)
 // ***************************************
 

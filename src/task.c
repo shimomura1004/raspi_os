@@ -2,7 +2,6 @@
 #include "sched.h"
 #include "task.h"
 #include "utils.h"
-#include "user.h"
 #include "printf.h"
 #include "entry.h"
 
@@ -19,7 +18,7 @@ static int prepare_el1_switching(unsigned long start, unsigned long size, unsign
 
 	regs->pc = pc;
 	regs->sp = 2 * PAGE_SIZE;
-	unsigned long code_page = allocate_user_page(current, 0x1000);
+	unsigned long code_page = allocate_user_page(current, 0x0);
 	if (code_page == 0) {
 		return -1;
 	}
@@ -51,7 +50,7 @@ static void prepare_vmtask(unsigned long arg) {
 	// プロセスのアドレス空間内のアドレスを計算して渡す
 	// GDB は物理アドレス空間で見ているので、バイナリの仮想アドレスとずれると面倒
 	// よって 0x1000(el1_test_begin の値) にマッピングする
-	int err = prepare_el1_switching(begin, end - begin, 0x1000);
+	int err = prepare_el1_switching(begin, end - begin, 0x0);
 	if (err < 0) {
 		printf("task: prepare_el1_switching() failed.\r\n");
 	}

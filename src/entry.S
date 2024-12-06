@@ -1,18 +1,17 @@
 #include "arm/sysregs.h"
 #include "entry.h"
-#include "sys.h"
 
 	//-------- handle_invalid_entry -------------------------------------------
 	// 無効な割込みハンドラを表現するためのマクロ
 
-	.macro handle_invalid_entry type func
+	.macro handle_invalid_entry type
 	// レジスタを退避
 	kernel_entry
 	// show_invalid_entry_message 用の3つの引数を準備する
 	mov	x0, #\type
 	mrs	x1, esr_el2
 	mrs	x2, elr_el2
-	bl \func
+	bl show_invalid_entry_message
 	// err_hang に飛ぶと無限ループする
 	b	err_hang
 	.endm
@@ -127,34 +126,34 @@ vectors:
 	ventry	error_invalid_el01_32	// Error 32-bit EL0 or EL1
 
 sync_invalid_el2:
-	handle_invalid_entry SYNC_INVALID_EL2 show_invalid_entry_message
+	handle_invalid_entry SYNC_INVALID_EL2
 
 irq_invalid_el2:
-	handle_invalid_entry IRQ_INVALID_EL2 show_invalid_entry_message
+	handle_invalid_entry IRQ_INVALID_EL2
 
 fiq_invalid_el2:
-	handle_invalid_entry FIQ_INVALID_EL2 show_invalid_entry_message
+	handle_invalid_entry FIQ_INVALID_EL2
 
 error_invalid_el2:
-	handle_invalid_entry ERROR_INVALID_EL2 show_invalid_entry_message
+	handle_invalid_entry ERROR_INVALID_EL2
 
 fiq_invalid_el01_64:
-	handle_invalid_entry FIQ_INVALID_EL01_64 show_invalid_entry_message
+	handle_invalid_entry FIQ_INVALID_EL01_64
 
 error_invalid_el01_64:
-	handle_invalid_entry ERROR_INVALID_EL01_64 show_invalid_entry_message
+	handle_invalid_entry ERROR_INVALID_EL01_64
 
 sync_invalid_el01_32:
-	handle_invalid_entry SYNC_INVALID_EL01_32 show_invalid_entry_message
+	handle_invalid_entry SYNC_INVALID_EL01_32
 
 irq_invalid_el01_32:
-	handle_invalid_entry IRQ_INVALID_EL01_32 show_invalid_entry_message
+	handle_invalid_entry IRQ_INVALID_EL01_32
 
 fiq_invalid_el01_32:
-	handle_invalid_entry FIQ_INVALID_EL01_32 show_invalid_entry_message
+	handle_invalid_entry FIQ_INVALID_EL01_32
 
 error_invalid_el01_32:
-	handle_invalid_entry ERROR_INVALID_EL01_32 show_invalid_entry_message
+	handle_invalid_entry ERROR_INVALID_EL01_32
 
 
 el2_irq:
@@ -171,78 +170,16 @@ el01_irq:
 // EL0/1 で同期割込みが発生した場合
 el01_sync:
 	kernel_entry
-	// exception class を調べる
-	mrs	x25, esr_el2				// read the syndrome register
-	lsr	x24, x25, #ESR_EL2_EC_SHIFT		// exception class
-
-	// todo: デバッグ用に、いったんすべての処理をやめてエラー出力させる
-	// hvc 命令によって発生した割込みか？
-	//cmp	x24, #ESR_EL2_EC_HVC64			// HVC in 64-bit state
-	//b.eq	el01_hvc
-	// データアボートによって発生した割込みか？
-	//cmp	x24, #ESR_EL2_EC_DABT_LOW		// data abort in EL0
-	//b.eq	el01_da
-	// それ以外の場合は invalid
-	handle_invalid_entry SYNC_ERROR show_uncaught_sync_exception_message
-
-// レジスタのエイリアスの定義
-hc_nr	.req	x25					// number of hvcs
-hcno	.req	x26					// hvc number
-htbl	.req	x27					// hvc table pointer
-
-el01_hvc:
-	// stbl は x27 のエイリアス
-	adr	htbl, hvc_table			// load hvc table pointer
-	// uxtw は32ビットデータを64ビットにゼロ拡張する命令
-	// hcno は x26 のエイリアス
-	uxtw	hcno, w8				// hvc number in w8
-	// hc_nr は x25 のエイリアス
-	mov	hc_nr, #__NR_hvcs
-	// bl: branch with link
 	// 割込みを有効にする
 	bl	enable_irq
-	// システムコール番号がシステムコールの数より小さいかを確認
-	cmp     hcno, hc_nr                     	// check upper hvc limit
-	// システムコール番号が無効なら ni_hv に飛んで invalid とする
-	b.hs	ni_hv
 
-	// テーブルのアドレス(htbl)をベースに、
-	// インデックス(hcno)を8倍(lsl #3)したオフセットを足したところのデータを x16 に入れる
-	ldr	x16, [htbl, hcno, lsl #3]		// address in the hvc table
-	// 指定されたシステムコールを呼び出し
-	// x0~x7 は触っていないので、ユーザプログラムがシステムコールを呼んだときにセットした
-	// 引数がそのまま渡される
-	blr	x16					// call hvc_* routine
-	b	ret_from_hvc
-ni_hv:
-	handle_invalid_entry HVC_ERROR show_invalid_entry_message
-ret_from_hvc:
-	// システムコールから戻る処理
-	// 割込みを無効にする
-	bl	disable_irq
-	// ABI に従いシステムコールの戻り値を x0 レジスタに入れたいので
-	// kernel_exit が x0 に値を復帰させるメモリ位置に直接今の x0 の値を入れる
-	// #define S_X0		0		// offset of x0 register in saved stack frame
-	str	x0, [sp, #S_X0]				// returned x0
-	kernel_exit
+	mrs x0, esr_el2		// read the syndrome register
+	mrs x1, elr_el2
+	mrs x2, far_el2
+	mov x3, x8			// hvc number in x8
 
-// todo: 割込みを有効・無効にするタイミングがよくわからない
-// データアボートしたときのハンドラ
-el01_da:
-	// すぐに割込みを有効にする
-	bl	enable_irq
-	// far = fault address regiter: データアボートなどが発生した場合に、その仮想アドレスを保持
-	mrs	x0, far_el2
-	// esr = exception syndrome register: 例外が発生した要因を保持
-	mrs	x1, esr_el2
-	// mm.c の関数を呼び出し
-	bl	do_mem_abort
-	// 戻り値が 0 ならジャンプ
-	cmp x0, 0
-	b.eq 1f
-	// do_mem_abort が失敗した場合は invalid とする
-	handle_invalid_entry DATA_ABORT_ERROR show_invalid_entry_message
-1:
+	bl handle_sync_exception
+
 	// 割込みを無効にして戻る
 	bl disable_irq
 	kernel_exit
@@ -281,16 +218,6 @@ switch_from_kthread:
 	ldp	x26, x27, [sp, #16 * 13]
 	ldp	x28, x29, [sp, #16 * 14]
 	add	sp, sp, #S_FRAME_SIZE
-	// print current el for debug
-	mrs x0, CurrentEL
-	lsr x0, x0, #2
-	// set ttbrx_el1 for debug
-	mrs x1, ttbr0_el2
-	msr ttbr0_el1, x1
-	msr ttbr1_el1, x1
-	// Cannot access memory at address 0x1000 とのこと
-	// ページ設定ができていない？
-	// eret したあとは x/i 0x0 などもアクセスできなくなっている
 	eret
 
 .globl err_hang

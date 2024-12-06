@@ -1,7 +1,15 @@
 #include "sync_exc.h"
 #include "arm/sysregs.h"
-#include "sched.h"
 #include "printf.h"
+
+// ***************************************
+// ESR_EL2, Exception Syndrome Register (EL2)
+// ***************************************
+
+#define ESR_EL2_EC_SHIFT		26
+#define ESR_EL2_EC_TRAP_WFx     1
+#define ESR_EL2_EC_HVC64        22
+#define ESR_EL2_EC_DABT_LOW		36
 
 // eclass のインデックスに合わせたエラーメッセージ
 static const char *sync_error_reasons[] = {
@@ -68,32 +76,20 @@ static const char *sync_error_reasons[] = {
 	"BRK instruction execution in AArch64 state.",
 };
 
-// todo: 重複
-static const char *entry_error_messages[] = {
-	"SYNC_INVALID_EL2",
-	"IRQ_INVALID_EL2",		
-	"FIQ_INVALID_EL2",		
-	"ERROR_INVALID_EL2",		
-
-	"SYNC_INVALID_EL01_64",		
-	"IRQ_INVALID_EL01_64",		
-	"FIQ_INVALID_EL01_64",		
-	"ERROR_INVALID_EL01_64",		
-
-	"SYNC_INVALID_EL01_32",		
-	"IRQ_INVALID_EL01_32",		
-	"FIQ_INVALID_EL01_32",		
-	"ERROR_INVALID_EL01_32",	
-
-	"SYNC_ERROR",
-	"HVC_ERROR",
-	"DATA_ABORT_ERROR",
-};
-
-// ハンドルできない同期例外が発生した場合の専用のログプリンタ
-void show_uncaught_sync_exception_message(int type, unsigned long esr, unsigned long address) {
+void handle_sync_exception(unsigned long esr, unsigned long elr, unsigned long far, unsigned long hvc_nr) {
 	int eclass = (esr >> ESR_EL2_EC_SHIFT) & 0x3f;
-	printf("%s, ESR: %x, address: %x\nreason: %s\n",
-		entry_error_messages[type], esr,
-		address, sync_error_reasons[eclass]);
+	switch (eclass)
+	{
+	case ESR_EL2_EC_TRAP_WFx:
+		printf("WFx!\n");
+		break;
+	case ESR_EL2_EC_HVC64:
+		printf("HVC(%d)!\n", hvc_nr);
+		break;
+	case ESR_EL2_EC_DABT_LOW:
+		break;
+	default:
+		printf("Uncaught sync exception: %s, esr: %x, address: %x\n", sync_error_reasons[eclass], esr, elr);
+		break;
+	}
 }

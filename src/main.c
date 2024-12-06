@@ -8,8 +8,6 @@
 #include "task.h"
 #include "sched.h"
 #include "mini_uart.h"
-#include "sys.h"
-#include "user.h"
 
 // hypervisor としてのスタート地点
 void hypervisor_main()
