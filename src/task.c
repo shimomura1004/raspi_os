@@ -11,56 +11,19 @@ static struct pt_regs * task_pt_regs(struct task_struct *tsk) {
 	return (struct pt_regs *)p;
 }
 
-// スレッド構造体に必要なデータをセットする
-static int prepare_el1_switching(unsigned long start, unsigned long size, unsigned long pc) {
+static void prepare_task(loader_func_t loader, unsigned long arg) {
+	printf("task: arg=%d, EL=%d\r\n", arg, get_el());
+
 	struct pt_regs *regs = task_pt_regs(current);
 	regs->pstate = PSR_MODE_EL1h;
 
-	regs->pc = pc;
-	regs->sp = 2 * PAGE_SIZE;
-	// unsigned long code_page = allocate_user_page(current, 0x0);
-	unsigned long code_page = allocate_user_page(current, 0x1000);
-	if (code_page == 0) {
-		return -1;
+	if (loader(arg, &regs->pc, &regs->sp) < 0) {
+		printf("task: load failed.\n");
 	}
-	memcpy(code_page, start, size);
+
 	set_cpu_sysregs(current);
 
-	return 0;
-}
-
-static void prepare_vmtask(unsigned long arg) {
-	printf("task: arg=%d, EL=%d\r\n", arg, get_el());
-
-	// 元々(raspberry-pi-os)は
-	//   カーネルの仮想メモリ空間(VA)と物理メモリ(PA)がリニアマッピング(boot.S で設定)
-	//   ユーザプロセスの仮想メモリ空間(VA)と物理メモリ(PA)は任意のマッピング(適宜設定)
-	// ハイパーバイザ化により
-	//   ハイパーバイザの仮想メモリ空間(IPA)と物理メモリ(PA)がリニアマッピング(boot.S で設定)
-	//   VM の仮想メモリ空間(VA)とハイパーバイザのメモリ空間(IPA)は任意のマッピング(適宜設定)
-	// ここでは VM 用(EL1)のメモリマッピングを行う
-
-	extern unsigned long el1_test_begin;
-	extern unsigned long el1_test_end;
-
-	// el1_test_begin/el1_test_end はリンカスクリプトで指定されたアドレス
-	// ユーザプログラムのコードやデータ領域の先頭と末尾
-	unsigned long begin = (unsigned long)&el1_test_begin;
-	unsigned long end = (unsigned long)&el1_test_end;
-
-	// プロセスのアドレス空間内のアドレスを計算して渡す
-	// GDB は物理アドレス空間で見ているので、バイナリの仮想アドレスとずれると面倒
-	// よって 0x1000(el1_test_begin の値) にマッピングする
-	// int err = prepare_el1_switching(begin, end - begin, 0x0);
-	int err = prepare_el1_switching(begin, end - begin, 0x1000);
-	if (err < 0) {
-		printf("task: prepare_el1_switching() failed.\r\n");
-	}
 	printf("task: entering el1...\n");
-
-	// switch_from_kthread() will be called and switched to EL1
-	// eret で戻る EL は spsr_el2 に書かれており、
-	// これは prepare_el1_switching の中で pc に値をセットすることで設定されている
 }
 
 static struct cpu_sysregs initial_sysregs;
@@ -85,8 +48,7 @@ static void prepare_initial_sysregs(void) {
 }
 
 // EL2 で動くタスクを作る
-int create_vmtask(unsigned long arg)
-{
+int create_task(loader_func_t loader, unsigned long arg) {
 	// copy_process の処理中はスケジューラによるタスク切り替えを禁止
 	preempt_disable();
 	struct task_struct *p;
@@ -102,8 +64,9 @@ int create_vmtask(unsigned long arg)
 		return -1;
 
 	// switch_from_kthread 内で x19 のアドレスにジャンプする
-	p->cpu_context.x19 = (unsigned long)prepare_vmtask;
-	p->cpu_context.x20 = arg;
+	p->cpu_context.x19 = (unsigned long)prepare_task;
+	p->cpu_context.x20 = (unsigned long)loader;
+	p->cpu_context.x21 = arg;
 	p->flags = PF_KTHREAD;
 
 	p->priority = current->priority;

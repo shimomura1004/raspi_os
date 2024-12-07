@@ -1,5 +1,6 @@
 #include "mm.h"
 #include "arm/mmu.h"
+#include "utils.h"
 
 // ページの使用状況を表す領域
 static unsigned short mem_map [ PAGING_PAGES ] = {0,};

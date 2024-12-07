@@ -76,7 +76,6 @@
 	// eret で戻る exception level は spsr_el2 に含まれている
 	msr	spsr_el2, x23
 
-
 	ldp	x0, x1, [sp, #16 * 0]
 	ldp	x2, x3, [sp, #16 * 1]
 	ldp	x4, x5, [sp, #16 * 2]
@@ -189,10 +188,16 @@ el01_sync:
 .globl switch_from_kthread
 switch_from_kthread:
 	bl	schedule_tail
-	// x19 の値が 0 ならば ret_to_user にジャンプ
-	// cbz	x19, ret_to_user			// not a kernel thread
 	mov	x0, x20
-	// x19 に無条件分岐する
+	// todo: なぜ以下3つのコピーが必要か不明
+	//       kernel_entry のときに以下のようにレジスタを控えているが…
+	//   add	x21, sp, #S_FRAME_SIZE
+	//   mrs	x22, elr_el2
+	//   mrs	x23, spsr_el2
+	mov x1, x21
+	mov x3, x22
+	mov x4, x23
+	// x19 (create_initial_sysregs)に無条件分岐する
 	blr	x19
 	// 割込みを無効にしてカーネル空間から抜ける
 	bl disable_irq
