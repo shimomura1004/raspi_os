@@ -7,7 +7,7 @@
 static struct task_struct init_task = INIT_TASK;
 // 現在実行中のタスクの task_struct
 struct task_struct *current = &(init_task);
-struct task_struct * task[NR_TASKS] = {&(init_task), };
+struct task_struct *task[NR_TASKS] = {&(init_task), };
 // 現在実行中のタスクの数(init_task があるので初期値は1)
 int nr_tasks = 1;
 
@@ -103,12 +103,12 @@ void timer_tick()
 {
 	--current->counter;
 	// まだタスクが十分な時間実行されていなかったり(counter > 0)
-	// タスク切り替えが禁止されていたら(preempt_coutn > 0)
+	// タスク切り替えが禁止されていたら(preempt_count > 0)
 	// 切り替えずに終了
-	if (current->counter>0 || current->preempt_count >0) {
+	if (current->counter > 0 || current->preempt_count > 0) {
 		return;
 	}
-	current->counter=0;
+	current->counter = 0;
 	// 割込みハンドラは割込み無効状態で開始される
 	// _schedule 関数の処理中に割込みを使う部分があるので割込みを有効にする
 	enable_irq();
