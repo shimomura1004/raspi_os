@@ -91,22 +91,22 @@ void handle_sync_exception(unsigned long esr, unsigned long elr, unsigned long f
 		printf("TRAP_WFX\n");
 		break;
 	case ESR_EL2_EC_TRAP_FP_REG:
-		printf("TRAP_FP_REG\n");
+		INFO("TRAP_FP_REG");
 		break;
 	case ESR_EL2_EC_HVC64:
-		printf("HVC(%d)!\n", hvc_nr);
+		INFO("HVC(%d)!", hvc_nr);
 		break;
 	case ESR_EL2_EC_TRAP_SYSTEM:
-		printf("TRAP_SYSTEM\n");
+		INFO("TRAP_SYSTEM");
 		break;
 	case ESR_EL2_EC_TRAP_SVE:
-		printf("TRAP_SVE\n");
+		INFO("TRAP_SVE");
 		break;
 	case ESR_EL2_EC_DABT_LOW:
-		printf("DABT_LOW\n");
+		printf("DABT_LOW");
 		break;
 	default:
-		printf("Uncaught synchronous exception:\n%s\nesr: %x, address: %x\n", sync_error_reasons[eclass], esr, elr);
+		PANIC("uncaught synchronous exception:\n%s\nesr: %x, address: %x", sync_error_reasons[eclass], esr, elr);
 		break;
 	}
 }

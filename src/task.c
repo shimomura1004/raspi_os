@@ -2,8 +2,8 @@
 #include "sched.h"
 #include "task.h"
 #include "utils.h"
-#include "printf.h"
 #include "entry.h"
+#include "debug.h"
 
 // 各スレッド用の領域の末尾に置かれた task_struct へのポインタを返す
 static struct pt_regs * task_pt_regs(struct task_struct *tsk) {
@@ -12,18 +12,18 @@ static struct pt_regs * task_pt_regs(struct task_struct *tsk) {
 }
 
 static void prepare_task(loader_func_t loader, unsigned long arg) {
-	printf("task: arg=%d, EL=%d\r\n", arg, get_el());
+	INFO("loading... arg=%d, EL=%d", arg, get_el());
 
 	struct pt_regs *regs = task_pt_regs(current);
 	regs->pstate = PSR_MODE_EL1h;
 
 	if (loader(arg, &regs->pc, &regs->sp) < 0) {
-		printf("task: load failed.\n");
+		PANIC("failed to load");
 	}
 
 	set_cpu_sysregs(current);
 
-	printf("task: entering el1...\n");
+	INFO("entering el1...");
 }
 
 static struct cpu_sysregs initial_sysregs;

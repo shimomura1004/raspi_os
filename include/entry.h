@@ -22,6 +22,7 @@
 #ifndef __ASSEMBLER__
 
 void switch_from_kthread(void);
+void err_hang(void);
 
 #endif
 

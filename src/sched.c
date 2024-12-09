@@ -1,6 +1,5 @@
 #include "sched.h"
 #include "irq.h"
-#include "printf.h"
 #include "utils.h"
 #include "mm.h"
 
@@ -116,7 +115,7 @@ void timer_tick()
 	disable_irq();
 }
 
-void exit_process(){
+void exit_task(){
 	preempt_disable();
 	for (int i = 0; i < NR_TASKS; i++){
 		if (task[i] == current) {

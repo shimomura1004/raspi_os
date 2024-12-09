@@ -63,7 +63,7 @@ void hypervisor_main()
 	uart_init();
 	init_printf(NULL, putc);
 
-	printf("Starting hypervisor (EL %d)...\r\n", get_el());
+	printf("=== raspvisor ===\n");
 
 	irq_vector_init();
 	timer_init();

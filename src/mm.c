@@ -139,7 +139,7 @@ void map_stage2_page(struct task_struct *task, unsigned long va, unsigned long p
 // addr: アクセスしようとしたアドレス
 // esr: exception syndrome register
 // HV になっても do_mem_abort 自体の処理は変わらないが、引数として渡される値が変わっている
-int do_mem_abort(unsigned long addr, unsigned long esr) {
+int handle_mem_abort(unsigned long addr, unsigned long esr) {
 	// メモリアボートは、アクセス権限のエラーなどでも発生する
 	// ページテーブルが未割当の場合のみ処理したいので esr の値を見て分岐する
 	if ((esr & ISS_ABORT_S1PTW) == ISS_ABORT_S1PTW) {
