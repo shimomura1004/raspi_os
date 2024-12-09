@@ -1,6 +1,9 @@
 #include "sync_exc.h"
+#include "irq.h"
+#include "mm.h"
+#include "sched.h"
+#include "debug.h"
 #include "arm/sysregs.h"
-#include "printf.h"
 
 // ***************************************
 // ESR_EL2, Exception Syndrome Register (EL2)
@@ -88,7 +91,12 @@ void handle_sync_exception(unsigned long esr, unsigned long elr, unsigned long f
 	switch (eclass)
 	{
 	case ESR_EL2_EC_TRAP_WFX:
-		printf("TRAP_WFX\n");
+		// ゲスト VM が WFI/WFE を実行したら VM を切り替える
+		// todo: pc += 4
+		extern void _schedule(void);
+		enable_irq();
+		_schedule();
+		disable_irq();
 		break;
 	case ESR_EL2_EC_TRAP_FP_REG:
 		INFO("TRAP_FP_REG");
@@ -103,7 +111,10 @@ void handle_sync_exception(unsigned long esr, unsigned long elr, unsigned long f
 		INFO("TRAP_SVE");
 		break;
 	case ESR_EL2_EC_DABT_LOW:
-		printf("DABT_LOW");
+		// データアボートは処理し、問題なければそのまま復帰
+		if (handle_mem_abort(far, esr) < 0) {
+			PANIC("handle_mem_abort() failed.");
+		}
 		break;
 	default:
 		PANIC("uncaught synchronous exception:\n%s\nesr: %x, address: %x", sync_error_reasons[eclass], esr, elr);
