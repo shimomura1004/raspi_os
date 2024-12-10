@@ -105,8 +105,8 @@ void map_stage2_page(struct task_struct *task, unsigned long va, unsigned long p
 	if (!task->mm.first_table) {
 		// ページテーブルがなかったら作る
 		task->mm.first_table = get_free_page();
-		// 今確保したページをカーネルの管理対象に加える
-		task->mm.kernel_pages[++task->mm.kernel_pages_count] = task->mm.first_table;
+		// 新しくページを確保したのでカウントアップする
+		task->mm.kernel_pages_count++;
 	}
 	lv1_table = task->mm.first_table;
 
@@ -115,19 +115,18 @@ void map_stage2_page(struct task_struct *task, unsigned long va, unsigned long p
 	// Level 1 のテーブル(lv1_table)から対応するエントリ(lv2_table)を探す
 	unsigned long lv2_table = map_stage2_table((unsigned long *)(lv1_table + VA_START), LV1_SHIFT, va, &new_table);
 	if (new_table) {
-		// もし新たにページが確保されていたら使用ページを登録
-		task->mm.kernel_pages[++task->mm.kernel_pages_count] = lv2_table;
+		// もし新たにページが確保されていたらカウントアップする
+		task->mm.kernel_pages_count++;
 	}
 	// Level 2 のテーブル(lv2_table)から対応するエントリ(lv3_table)を探す
 	unsigned long lv3_table = map_stage2_table((unsigned long *)(lv2_table + VA_START) , LV2_SHIFT, va, &new_table);
 	if (new_table) {
-		task->mm.kernel_pages[++task->mm.kernel_pages_count] = lv3_table;
+		task->mm.kernel_pages_count++;
 	}
 	// Level 3 のテーブル(lv3_table)の対応するエントリを探してページを登録
 	map_stage2_table_entry((unsigned long *)(lv3_table + VA_START), va, page);
-	struct user_page p = {page, va};
-	// ユーザ空間の管理対象に加える
-	task->mm.user_pages[task->mm.user_pages_count++] = p;
+	// ユーザ空間用のページ数をカウントアップする　
+	task->mm.user_pages_count++;
 }
 
 #define ISS_ABORT_S1PTW			(1<<7)
