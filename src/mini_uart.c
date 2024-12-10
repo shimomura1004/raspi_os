@@ -2,7 +2,7 @@
 #include "peripherals/mini_uart.h"
 #include "peripherals/gpio.h"
 
-void uart_send ( char c )
+static void _uart_send ( char c )
 {
 	// 送信バッファが空くまで待つビジーループ
 	while(1) {
@@ -10,6 +10,16 @@ void uart_send ( char c )
 			break;
 	}
 	put32(AUX_MU_IO_REG,c);
+}
+
+void uart_send(char c) {
+	if (c == '\n') {
+		_uart_send('\r');
+		_uart_send('\n');
+	}
+	else {
+		_uart_send(c);
+	}
 }
 
 char uart_recv ( void )
@@ -25,7 +35,7 @@ char uart_recv ( void )
 void uart_send_string(char* str)
 {
 	for (int i = 0; str[i] != '\0'; i ++) {
-		uart_send((char)str[i]);
+		_uart_send((char)str[i]);
 	}
 }
 
@@ -63,5 +73,5 @@ void uart_init ( void )
 // This function is required by printf function
 void putc ( void* p, char c)
 {
-	uart_send(c);
+	_uart_send(c);
 }
