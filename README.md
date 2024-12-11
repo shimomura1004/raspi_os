@@ -10,6 +10,10 @@
     - アドレスの上位12ビットが 0 の場合は TTBR0 で指定した変換テーブルで仮想アドレスを変換する(ユーザプロセス用)
     - アドレスの上位12ビットが 1 の場合は TTBR1 で指定した変換テーブルで仮想アドレスを変換する(カーネル用)
 - ハイパーバイザでは、Stage 1(VA->IPA)は通常のマッピング、Stage 2(IPA->PA) はリニアマッピング
+- mrs: copy register from status register
+    - mrs x0, esr_el2
+- msr: copy status register from register
+    - msr esr_el2, x0
 
 # Debug
 - flat binary にデバッグ情報を残すこともできるようだが、objcopy がうまくデバッグ情報を認識してくれない
