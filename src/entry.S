@@ -169,8 +169,6 @@ el01_irq:
 // EL0/1 で同期割込みが発生した場合
 el01_sync:
 	kernel_entry
-	// 割込みを有効にする
-	bl	enable_irq
 
 	mrs x0, esr_el2		// read the syndrome register
 	mrs x1, elr_el2
@@ -179,8 +177,6 @@ el01_sync:
 
 	bl handle_sync_exception
 
-	// 割込みを無効にして戻る
-	bl disable_irq
 	kernel_exit
 
 // vmtask_create で作られたタスクに切り替わったときの処理
