@@ -23,6 +23,49 @@
 // ***************************************
 
 // HCR: hypervisor configuration register
+// 一部のレジスタアクセスをトラップするよう設定するためのビット
+//
+// TID5[58] Trap ID group 5
+//   GMID_EL1 へのアクセスを EL2 でトラップする
+//   0b0: This control does not cause any instructions to be trapped
+//   0b1: The specified EL1 assesses to ID group 5 registers are trapped to EL2
+// EnSCXT[53] Enable access to the SCXTNUM_EL1 and SCXTNUM_EL0 registers
+//   0b0: EL1 accesses to SCXTNUM_EL0 and SCXTNUM_EL1 are disabled, causing an exception to EL2
+//   0b1: This control does not cause accesses to SCXTNUM_EL0 and SCXTNUM_EL1 to be trapped
+// TID4[49] Trap ID group 4
+//   以下のレジスタアクセスを EL2 にトラップする
+//     EL1 reads of CCSIDR_EL1, CCSIDR2_EL1, CLIDR_EL1, and CSSELR_EL1.
+//     EL1 writes to CSSELR_EL1.
+//   0b0: This control does not cause any instructions to be trapped.
+//   0b1: The specified EL1 accesses to ID group 4 registers are trapped to EL2.
+// FIEN[47] Fault Injection Enable
+//   以下のレジスタアクセスを EL2 にトラップする
+//     ERXPFGCDN_EL1, ERXPFGCTL_EL1, and ERXPFGF_EL1
+//   0b0: Accesses to the specified registers from EL1 are trapped to EL2, when EL2 is enabled in the current Security state.
+//   0b1: This control does not cause any instructions to be trapped.
+// TERR[36] Trap accesses of Error Record registers
+//     MRS and MSR accesses to ERRSELR_EL1, ERXADDR_EL1, ERXCTLR_EL1, ERXMISC0_EL1, ERXMISC1_EL1, and ERXSTATUS_EL1.
+//     MRS accesses to ERRIDR_EL1 and ERXFR_EL1.
+//   0b0: Accesses of the specified Error Record registers are not trapped by this mechanism.
+//   0b1: Accesses of the specified Error Record registers at EL1 are trapped to EL2, unless the instruction generates a higher priority exception.
+#define HCR_TID5        (1 << 58)
+#define HCR_ENSCXT      (0 << 53)
+#define HCR_TID4        (1 << 49)
+#define HCR_FIEN        (0 << 47)
+#define HCR_TERR        (1 << 36)
+#define HCR_TLOR        (1 << 35)
+#define HCR_TRVM        (0 << 30)
+#define HCR_TDZ         (1 << 28)
+#define HCR_TVM         (1 << 26)
+
+#define HCR_TACR        (1 << 21)
+#define HCR_TID3        (1 << 18)
+#define HCR_TID2        (1 << 17)
+#define HCR_TID1        (1 << 16)
+#define HCR_TWE         (1 << 14)
+#define HCR_TWI         (1 << 13)
+
+// HCR: hypervisor configuration register
 // E2H[34] (EL2 host): ホスト OS が EL2 で動くかどうか、0なら無効、1なら有効
 // RW[31] (exection state control for lower execption level):
 //   0b0: lower level はすべて aarch32
@@ -51,9 +94,9 @@
 // VM[0] (virtualization enable)
 //   0b0: EL1/0 向けの stage2 アドレス変換を無効化
 //   0b1: EL1/0 向けの stage2 アドレス変換を有効化
+
 #define HCR_E2H         (0 << 34)
 #define HCR_RW	    	(1 << 31)
-#define HCR_TRVM        (1 << 30)
 #define HCR_TGE         (0 << 27)
 #define HCR_TWI         (1 << 13)
 // Asynchronous external Aborts and SError interrupt routing
