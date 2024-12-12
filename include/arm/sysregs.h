@@ -48,6 +48,14 @@
 //     MRS accesses to ERRIDR_EL1 and ERXFR_EL1.
 //   0b0: Accesses of the specified Error Record registers are not trapped by this mechanism.
 //   0b1: Accesses of the specified Error Record registers at EL1 are trapped to EL2, unless the instruction generates a higher priority exception.
+// TLOR[35] Trap LOR registers
+//   Traps Non-secure EL1 accesses to LORSA_EL1, LOREA_EL1, LORN_EL1, LORC_EL1, and LORID_EL1 registers to EL2.
+//     LORegions: limited ordering regions
+//   0b0: This control does not cause any instructions to be trapped.
+//   0b1: Non-secure EL1 accesses to the LOR registers are trapped to EL2.
+// TRVM[30]
+// Trap Reads of Virtual Memory controls. Traps reads of the virtual memory control registers to EL2.
+
 #define HCR_TID5        (1 << 58)
 #define HCR_ENSCXT      (0 << 53)
 #define HCR_TID4        (1 << 49)
