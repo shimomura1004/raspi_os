@@ -93,6 +93,10 @@ void handle_trap_wfx() {
 	schedule();
 }
 
+void handle_hvc64(unsigned long hvc_nr) {
+	INFO("HVC(%d)!", hvc_nr);
+}
+
 void handle_sync_exception(unsigned long esr, unsigned long elr, unsigned long far, unsigned long hvc_nr) {
 	int eclass = (esr >> ESR_EL2_EC_SHIFT) & 0x3f;
 	switch (eclass)
@@ -105,7 +109,7 @@ void handle_sync_exception(unsigned long esr, unsigned long elr, unsigned long f
 		INFO("TRAP_FP_REG");
 		break;
 	case ESR_EL2_EC_HVC64:
-		INFO("HVC(%d)!", hvc_nr);
+		handle_hvc64(hvc_nr);
 		break;
 	case ESR_EL2_EC_TRAP_SYSTEM:
 		INFO("TRAP_SYSTEM");
