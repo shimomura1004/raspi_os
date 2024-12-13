@@ -6,17 +6,26 @@
 // ***************************************
 
 // SCTLR: sytem control register
-// EE[25]: 0 なら little-endian, 1 なら big-endian
-// I[12] (instruction access cacheability control): 0 なら命令キャッシュ不可、1 なら命令キャッシュ可
-// C[2] (cacheability control): 0 ならデータキャッシュ不可、1 ならデータキャッシュ可
-// M[0] (MMU enable): 0 なら無効、1 なら有効
+// EE[25]:
+//   0b0: little-endian
+//   0b1: big-endian
+// I[12] (instruction access cacheability control):
+//   0b0: 命令キャッシュ不可
+//   0b1: 命令キャッシュ可
+// C[2] (cacheability control):
+//   0b0: データキャッシュ不可
+//   0b1: データキャッシュ可
+// M[0] (MMU enable):
+//   0b0: 無効
+//   0b1: 有効
 #define SCTLR_EE                    (0 << 25)
 #define SCTLR_I_CACHE_DISABLED      (0 << 12)
 #define SCTLR_D_CACHE_DISABLED      (0 << 2)
 #define SCTLR_MMU_DISABLED          (0 << 0)
 #define SCTLR_MMU_ENABLED           (1 << 0)
 
-#define SCTLR_VALUE_MMU_DISABLED	(SCTLR_EE | SCTLR_I_CACHE_DISABLED | SCTLR_D_CACHE_DISABLED | SCTLR_MMU_DISABLED)
+#define SCTLR_VALUE_MMU_DISABLED \
+	(SCTLR_EE | SCTLR_I_CACHE_DISABLED | SCTLR_D_CACHE_DISABLED | SCTLR_MMU_DISABLED)
 
 // ***************************************
 // HCR_EL2, Hypervisor Configuration Register (EL2), Page 1923 of AArch64-Reference-Manual.
@@ -30,7 +39,8 @@
 //   0b0: This control does not cause any instructions to be trapped
 //   0b1: The specified EL1 assesses to ID group 5 registers are trapped to EL2
 // EnSCXT[53] Enable access to the SCXTNUM_EL1 and SCXTNUM_EL0 registers
-//   0b0: EL1 accesses to SCXTNUM_EL0 and SCXTNUM_EL1 are disabled, causing an exception to EL2
+//   0b0: EL1 accesses to SCXTNUM_EL0 and SCXTNUM_EL1 are disabled,
+//        causing an exception to EL2
 //   0b1: This control does not cause accesses to SCXTNUM_EL0 and SCXTNUM_EL1 to be trapped
 // TID4[49] Trap ID group 4
 //   以下のレジスタアクセスを EL2 にトラップする
@@ -41,21 +51,33 @@
 // FIEN[47] Fault Injection Enable
 //   以下のレジスタアクセスを EL2 にトラップする
 //     ERXPFGCDN_EL1, ERXPFGCTL_EL1, and ERXPFGF_EL1
-//   0b0: Accesses to the specified registers from EL1 are trapped to EL2, when EL2 is enabled in the current Security state.
+//   0b0: Accesses to the specified registers from EL1 are trapped to EL2,
+//        when EL2 is enabled in the current Security state.
 //   0b1: This control does not cause any instructions to be trapped.
 // TERR[36] Trap accesses of Error Record registers
-//     MRS and MSR accesses to ERRSELR_EL1, ERXADDR_EL1, ERXCTLR_EL1, ERXMISC0_EL1, ERXMISC1_EL1, and ERXSTATUS_EL1.
+//     MRS and MSR accesses to ERRSELR_EL1, ERXADDR_EL1, ERXCTLR_EL1,
+//     ERXMISC0_EL1, ERXMISC1_EL1, and ERXSTATUS_EL1.
 //     MRS accesses to ERRIDR_EL1 and ERXFR_EL1.
 //   0b0: Accesses of the specified Error Record registers are not trapped by this mechanism.
-//   0b1: Accesses of the specified Error Record registers at EL1 are trapped to EL2, unless the instruction generates a higher priority exception.
+//   0b1: Accesses of the specified Error Record registers at EL1 are trapped to EL2,
+//        unless the instruction generates a higher priority exception.
 // TLOR[35] Trap LOR registers
-//   Traps Non-secure EL1 accesses to LORSA_EL1, LOREA_EL1, LORN_EL1, LORC_EL1, and LORID_EL1 registers to EL2.
+//   Traps Non-secure EL1 accesses to LORSA_EL1, LOREA_EL1,
+//   LORN_EL1, LORC_EL1, and LORID_EL1 registers to EL2.
 //     LORegions: limited ordering regions
 //   0b0: This control does not cause any instructions to be trapped.
 //   0b1: Non-secure EL1 accesses to the LOR registers are trapped to EL2.
-// TRVM[30]
-// Trap Reads of Virtual Memory controls. Traps reads of the virtual memory control registers to EL2.
-
+// TRVM[30] Trap Reads of Virtual Memory controls.
+//   Traps reads of the virtual memory control registers to EL2.
+//   SCTLR_EL1, TTBR0_EL1, TTBR1_EL1, TCR_EL1, ESR_EL1, FAR_EL1, AFSR0_EL1,
+//   AFSR1_EL1, MAIR_EL1, AMAIR_EL1, and CONTEXTIDR_EL1.
+// TDZ[28] Trap DC ZVA instructions
+//   DC ZVA(Data Cache Zero by VA): 指定された領域のキャッシュをゼロクリアする
+//   todo: なぜこの命令をトラップする必要がある？
+// TVM[26] Trap Virtual memory controls.
+//   Traps writes to the virtual memory control registers to EL2.
+//   SCTLR_EL1, TTBR0_EL1, TTBR1_EL1, TCR_EL1, ESR_EL1, FAR_EL1,
+//   AFSR0_EL1, AFSR1_EL1, MAIR_EL1, AMAIR_EL1, and CONTEXTIDR_EL1.
 #define HCR_TID5        (1 << 58)
 #define HCR_ENSCXT      (0 << 53)
 #define HCR_TID4        (1 << 49)
