@@ -1,8 +1,8 @@
 #include "sync_exc.h"
-#include "irq.h"
 #include "mm.h"
 #include "sched.h"
 #include "debug.h"
+#include "task.h"
 #include "arm/sysregs.h"
 
 // ***************************************
@@ -86,17 +86,20 @@ static const char *sync_error_reasons[] = {
 	"BRK instruction execution in AArch64 state.",
 };
 
+void handle_trap_wfx() {
+	struct pt_regs *regs = task_pt_regs(current);
+	// WFI/WFE から復帰したときにまた同じ WFI/WFE 命令を実行してしまわないように、1命令文進める
+	regs->pc += INSN_LENGTH;
+	schedule();
+}
+
 void handle_sync_exception(unsigned long esr, unsigned long elr, unsigned long far, unsigned long hvc_nr) {
 	int eclass = (esr >> ESR_EL2_EC_SHIFT) & 0x3f;
 	switch (eclass)
 	{
 	case ESR_EL2_EC_TRAP_WFX:
 		// ゲスト VM が WFI/WFE を実行したら VM を切り替える
-		// todo: pc += 4
-		extern void _schedule(void);
-		enable_irq();
-		_schedule();
-		disable_irq();
+		handle_trap_wfx();
 		break;
 	case ESR_EL2_EC_TRAP_FP_REG:
 		INFO("TRAP_FP_REG");

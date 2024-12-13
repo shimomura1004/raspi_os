@@ -1,6 +1,9 @@
 #ifndef _SYSREGS_H
 #define _SYSREGS_H
 
+// 命令長
+#define INSN_LENGTH 4
+
 // ***************************************
 // SCTLR_EL2, System Control Register (EL2), Page 2025 of AArch64-Reference-Manual.
 // ***************************************

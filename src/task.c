@@ -6,7 +6,7 @@
 #include "debug.h"
 
 // 各スレッド用の領域の末尾に置かれた task_struct へのポインタを返す
-static struct pt_regs * task_pt_regs(struct task_struct *tsk) {
+struct pt_regs * task_pt_regs(struct task_struct *tsk) {
 	unsigned long p = (unsigned long)tsk + THREAD_SIZE - sizeof(struct pt_regs);
 	return (struct pt_regs *)p;
 }
