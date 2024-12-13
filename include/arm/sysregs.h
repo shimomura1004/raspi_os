@@ -88,6 +88,16 @@
 #define HCR_TDZ         (1 << 28)
 #define HCR_TVM         (1 << 26)
 
+// TACR[21] Trap Auxiliary Control Registers.
+//   Traps EL1 accesses to the Auxiliary Control Registers to EL2
+//     0b0: This control does not cause any instructions to be trapped.
+//     0b1: EL1 accesses to the specified registers are trapped to EL2
+// TID3[18], TID2[17], TID1[16]
+//   Trap ID group 1,2,3. Traps EL1 reads of group 1,2,3 ID registers to EL2
+// TWE[14] Traps EL0 and EL1 execution of WFE instructions to EL2
+// TWI[13] Traps EL0 and EL1 execution of WFI instructions to EL2
+//   0b0: トラップしない
+//   0b1: EL0 か EL1 で WFI 命令を実行すると EL2 でトラップされる
 #define HCR_TACR        (1 << 21)
 #define HCR_TID3        (1 << 18)
 #define HCR_TID2        (1 << 17)
@@ -106,9 +116,6 @@
 //        すべての仮想割込みは無効化される
 //        割込み処理後、EL1 に戻ることを禁止する
 //        など
-// TWI[13] (traps el0 and el1 exection of wfi instructions to el2)
-//   0b0: トラップしない
-//   0b1: EL0 か EL1 で WFI 命令を実行すると EL2 でトラップされる
 // AMO[5] (physical serror exception routing)
 //   0b0: 特に効果なし
 //   0b1: physical serror 例外は EL2 で処理される、など
@@ -128,7 +135,6 @@
 #define HCR_E2H         (0 << 34)
 #define HCR_RW	    	(1 << 31)
 #define HCR_TGE         (0 << 27)
-#define HCR_TWI         (1 << 13)
 // Asynchronous external Aborts and SError interrupt routing
 #define HCR_AMO         (1 << 5)    // routing to EL2
 // Physical IRQ routing
@@ -138,7 +144,11 @@
 #define HCR_SWIO        (1 << 1)
 #define HCR_VM          (1 << 0)    // stage 2 translation enable
 
-#define HCR_VALUE   	(HCR_E2H | HCR_RW | HCR_TGE | HCR_TWI | HCR_AMO| HCR_IMO| HCR_FMO | HCR_SWIO | HCR_VM)
+#define HCR_VALUE \
+    (HCR_TID5 | HCR_ENSCXT | HCR_TID4 | HCR_FIEN | HCR_TERR | HCR_TLOR | \
+     HCR_TRVM | HCR_TDZ | HCR_TVM | HCR_TACR | HCR_TID3 | HCR_TID2 | HCR_TID1 | \
+     HCR_TWE | HCR_TWI | HCR_E2H | HCR_RW | HCR_TGE | HCR_AMO | HCR_IMO | \
+     HCR_FMO | HCR_SWIO | HCR_VM)
 
 // ***************************************
 // SCR_EL3, Secure Configuration Register (EL3), Page 2022 of AArch64-Reference-Manual.
