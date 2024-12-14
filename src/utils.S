@@ -73,18 +73,53 @@ set_stage2_pgd:
 	ret
 
 // x0 が指すメモリアドレスに保存された値を各システムレジスタに復元する
+// sched.h で定義された struct cpu_sysregs のメンバの並び順に依存する
 .globl _set_sysregs
 _set_sysregs:
+	// 2変数分読みだしてセットする、の繰り返し
 	ldp x1, x2, [x0], #16
 	msr sctlr_el1, x1
-	msr spsr_el1, x2
-	ldp x1, x2, [x0], #16
 	msr ttbr0_el1, x1
-	msr ttbr1_el1, x2
 	ldp x1, x2, [x0], #16
+	msr ttbr1_el1, x2
 	msr tcr_el1, x1
-	msr mair_el1, x2
-	// TTBR を復元してメモリ空間が変わるので、念のためブロックしている？　
+	ldp x1, x2, [x0], #16
+	msr esr_el1, x1
+	msr far_el1, x2
+	ldp x1, x2, [x0], #16
+	msr afsr0_el1, x1
+	msr afsr1_el1, x2
+	ldp x1, x2, [x0], #16
+	msr mair_el1, x1
+	msr amair_el1, x2
+	ldp x1, x2, [x0], #16
+	msr contextidr_el1, x1
+	msr cpacr_el1, x2
+	ldp x1, x2, [x0], #16
+	msr dczid_el0, x1
+	msr elr_el1, x2
+	ldp x1, x2, [x0], #16
+	msr fpcr, x1
+	msr fpsr, x2
+	ldp x1, x2, [x0], #16
+	msr isr_el1, x1
+	msr midr_el1, x2
+	ldp x1, x2, [x0], #16
+	msr mpidr_el1, x1
+	msr par_el1, x2
+	ldp x1, x2, [x0], #16
+	msr sp_el0, x1
+	msr sp_el1, x2
+	ldp x1, x2, [x0], #16
+	msr spsr_el1, x1
+	msr tpidr_el0, x2
+	ldp x1, x2, [x0], #16
+	msr tpidr_el1, x1
+	msr tpidrro_el0, x2
+	// 最後は1変数しかない
+	ldr x1, [x0]
+	mrs x1, vbar_el1
+  	// TTBR を復元してメモリ空間が変わるので、念のためブロックしている？　
 	dsb ish
 	isb
 	ret
@@ -93,35 +128,116 @@ _set_sysregs:
 .globl _get_sysregs
 _get_sysregs:
 	mrs x1, sctlr_el1
-	mrs x2, spsr_el1
+	mrs x2, ttbr0_el1
 	stp x1, x2, [x0], #16
-	mrs x1, ttbr0_el1
-	mrs x2, ttbr1_el1
+	mrs x1, ttbr1_el1
+	mrs x2, tcr_el1
 	stp x1, x2, [x0], #16
-	mrs x1, tcr_el1
-	mrs x2, mair_el1
+	mrs x1, esr_el1
+	mrs x2, far_el1
 	stp x1, x2, [x0], #16
-	ret
-
-.globl _get_spsr_el2
-_get_spsr_el2:
-	mrs x0, spsr_el2
-	ret
-
-.globl _get_sctlr_el1
-_get_sctlr_el1:
-	mrs x0, sctlr_el1
-	ret
-
-.globl _get_vttbr_el2
-_get_vttbr_el2:
-	mrs x0, vttbr_el2
-	ret
-
-.globl _get_id_aa64mmfr0_el1
-_get_id_aa64mmfr0_el1:
-	// id_aa64mmfr0_el1: information about the implemented memory model and memory management support in the AArch64 Execution state.
-	mrs x0, id_aa64mmfr0_el1
+	mrs x1, esr_el1
+	mrs x2, far_el1
+	stp x1, x2, [x0], #16
+	mrs x1, afsr0_el1
+	mrs x2, afsr1_el1
+	stp x1, x2, [x0], #16
+	mrs x1, mair_el1
+	mrs x2, amair_el1
+	stp x1, x2, [x0], #16
+	mrs x1, contextidr_el1
+	mrs x2, cpacr_el1
+	stp x1, x2, [x0], #16
+	mrs x1, dczid_el0
+	mrs x2, elr_el1
+	stp x1, x2, [x0], #16
+	mrs x1, fpcr
+	mrs x2, fpsr
+	stp x1, x2, [x0], #16
+	mrs x1, isr_el1
+	mrs x2, midr_el1
+	stp x1, x2, [x0], #16
+	mrs x1, mpidr_el1
+	mrs x2, par_el1
+	stp x1, x2, [x0], #16
+	mrs x1, sp_el0
+	mrs x2, sp_el1
+	stp x1, x2, [x0], #16
+	mrs x1, spsr_el1
+	mrs x2, tpidr_el0
+	stp x1, x2, [x0], #16
+	mrs x1, tpidr_el1
+	mrs x2, tpidrro_el0
+	stp x1, x2, [x0], #16
+	mrs x1, vbar_el1		// set_sysregs で戻すのはここまで
+	mrs x2, actlr_el1		// ここから先は控えるだけ
+	stp x1, x2, [x0], #16
+	mrs x1, id_pfr0_el1
+	mrs x2, id_pfr1_el1
+	stp x1, x2, [x0], #16
+	mrs x1, id_mmfr0_el1
+	mrs x2, id_mmfr1_el1
+	stp x1, x2, [x0], #16
+	mrs x1, id_mmfr2_el1
+	mrs x2, id_mmfr3_el1
+	stp x1, x2, [x0], #16
+	mrs x1, id_isar0_el1
+	mrs x2, id_isar1_el1
+	stp x1, x2, [x0], #16
+	mrs x1, id_isar2_el1
+	mrs x2, id_isar3_el1
+	stp x1, x2, [x0], #16
+	mrs x1, id_isar4_el1
+	mrs x2, id_isar5_el1
+	stp x1, x2, [x0], #16
+	mrs x1, mvfr0_el1
+	mrs x2, mvfr1_el1
+	stp x1, x2, [x0], #16
+	mrs x1, mvfr2_el1
+	mrs x2, id_aa64pfr0_el1
+	stp x1, x2, [x0], #16
+	mrs x1, id_aa64pfr1_el1
+	mrs x2, id_aa64dfr0_el1
+	stp x1, x2, [x0], #16
+	mrs x1, id_aa64dfr1_el1
+	mrs x2, id_aa64isar0_el1
+	stp x1, x2, [x0], #16
+	mrs x1, id_aa64isar1_el1
+	mrs x2, id_aa64mmfr0_el1
+	stp x1, x2, [x0], #16
+	mrs x1, id_aa64mmfr1_el1
+	mrs x2, id_aa64afr0_el1
+	stp x1, x2, [x0], #16
+	mrs x1, id_aa64afr1_el1
+	mrs x2, ctr_el0
+	stp x1, x2, [x0], #16
+	mrs x1, ccsidr_el1
+	mrs x2, clidr_el1
+	stp x1, x2, [x0], #16
+	mrs x1, csselr_el1
+	mrs x2, aidr_el1
+	stp x1, x2, [x0], #16
+	mrs x1, revidr_el1
+	mrs x2, cntfrq_el0
+	stp x1, x2, [x0], #16
+	mrs x1, cntkctl_el1
+	mrs x2, cntp_ctl_el0
+	stp x1, x2, [x0], #16
+	mrs x1, cntp_cval_el0
+	mrs x2, cntp_tval_el0
+	stp x1, x2, [x0], #16
+	mrs x1, cntpct_el0
+	mov x2, xzr				// cntps_ctl_el1 のところは固定で 0
+	stp x1, x2, [x0], #16
+	mov x1, xzr				// cntps_cval_el1 のところは固定で 0
+	mov x2, xzr				// cntps_tval_el1 のところは固定で 0
+	stp x1, x2, [x0], #16
+	mrs x1, cntv_ctl_el0
+	mrs x2, cntv_cval_el0
+	stp x1, x2, [x0], #16
+	mrs x1, cntv_tval_el0
+	mrs x2, cntvct_el0
+	stp x1, x2, [x0], #16
 	ret
 
 // 引数として仮想アドレスを取り、Stage1 と 2 のアドレス変換を行った値を返す 
