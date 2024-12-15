@@ -96,16 +96,13 @@ _set_sysregs:
 	msr contextidr_el1, x1
 	msr cpacr_el1, x2
 	ldp x1, x2, [x0], #16
-	msr dczid_el0, x1
 	msr elr_el1, x2
-	ldp x1, x2, [x0], #16
 	msr fpcr, x1
+	ldp x1, x2, [x0], #16
 	msr fpsr, x2
+	msr vpidr_el2, x2		// for virtualization
 	ldp x1, x2, [x0], #16
-	msr isr_el1, x1
-	msr midr_el1, x2
-	ldp x1, x2, [x0], #16
-	msr mpidr_el1, x1
+	msr vmpidr_el2, x1		// for virtualization
 	msr par_el1, x2
 	ldp x1, x2, [x0], #16
 	msr sp_el0, x1
@@ -148,16 +145,13 @@ _get_sysregs:
 	mrs x1, contextidr_el1
 	mrs x2, cpacr_el1
 	stp x1, x2, [x0], #16
-	mrs x1, dczid_el0
-	mrs x2, elr_el1
+	mrs x1, elr_el1
+	mrs x2, fpcr
 	stp x1, x2, [x0], #16
-	mrs x1, fpcr
 	mrs x2, fpsr
+	mrs x2, midr_el1		// todo: 読み出し時は midr_el1 だけど書き込み時は vpidr_el2
 	stp x1, x2, [x0], #16
-	mrs x1, isr_el1
-	mrs x2, midr_el1
-	stp x1, x2, [x0], #16
-	mrs x1, mpidr_el1
+	mrs x1, mpidr_el1		// todo: 読み出し時は mpidr_el1 だけど書き込み時は vmpidr_el2
 	mrs x2, par_el1
 	stp x1, x2, [x0], #16
 	mrs x1, sp_el0

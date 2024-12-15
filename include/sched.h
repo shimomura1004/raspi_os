@@ -55,13 +55,11 @@ struct cpu_sysregs {
     unsigned long contextidr_el1;
 
     unsigned long cpacr_el1;
-    unsigned long dczid_el0;
     unsigned long elr_el1;
     unsigned long fpcr;
     unsigned long fpsr;
-    unsigned long isr_el1;
-    unsigned long midr_el1;
-    unsigned long mpidr_el1;
+    unsigned long midr_el1;     // todo: vpidr_el2 では？
+    unsigned long mpidr_el1;    // todo: vmpidr_el2 では？
     unsigned long par_el1;
     unsigned long sp_el0;
     unsigned long sp_el1;

@@ -141,6 +141,7 @@ static void handle_trap_system(unsigned long esr) {
 
 	INFO("trap_system: op0=%d, op2=%d, op1=%d, crn=%d, rt=%d, crm=%d, dir=%d",
 		 op0, op2, op1, crn, rt, crm, dir);
+	INFO("id_aa64mmfr0_el1 = %d", current->cpu_sysregs.id_aa64mmfr0_el1);
 
 	// todo: (op0 & 2) の意図が分からない 
 	if ((op0 & 2) && dir == 0) {
