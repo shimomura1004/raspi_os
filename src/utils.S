@@ -62,8 +62,8 @@ set_stage2_pgd:
 	//   ST: DSB operation that waits only for stores to complete
 	//   ISH: DSB operation only to the inner shareable domain
 	//   ISHST: DST operation that waits only for stores to complete, and only to the inner shareable domain.
-	dsb ishst
-	tlbi vmalls12e1is
+
+	tlbi vmalls12e1
 	// out-of-order 実行で勝手に実行しないように
 	// data synchronization barrier
 	dsb ish				// ensure completion of TLB invalidation

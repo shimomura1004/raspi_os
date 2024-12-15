@@ -222,13 +222,13 @@
 #define VTCR_VS         (0 << 19)   // 8bit VMID
 #define VTCR_PS         (2 << 16)   // 40bit, 1TB
 #define VTCR_TG0        (0 << 14)   // 4KB
-#define VCTR_SH0        (3 << 12)   // Inner shareable
-#define VCTR_ORGN0      (1 << 10)   // outer write-back ...
-#define VCTR_IRGN0      (1 << 8)    // inner write-back ...
+#define VTCR_SH0        (3 << 12)   // Inner shareable
+#define VTCR_ORGN0      (0 << 10)   // outer write-back ...
+#define VTCR_IRGN0      (0 << 8)    // inner write-back ...
 #define VTCR_SL0        (1 << 6)    // start at level1?
 #define VTCR_T0SZ       (64 - 38)   // 仮想アドレスのサイズは 2^38 = 256GB
 #define VTCR_VALUE \
     (VTCR_NSA | VTCR_NSW | VTCR_VS | VTCR_PS | VTCR_TG0 | \
-     VCTR_SH0 | VCTR_ORGN0 | VCTR_IRGN0 | VTCR_SL0 | VTCR_T0SZ)
+     VTCR_SH0 | VTCR_ORGN0 | VTCR_IRGN0 | VTCR_SL0 | VTCR_T0SZ)
 
 #endif

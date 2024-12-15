@@ -22,7 +22,7 @@ enable_irq:
 	// 最下位ビットは SP の使い方を指示する
 	// 0b0: SP_EL0 をどの EL でも使う
 	// 0b1: SP_ELx をそれぞれの EL で使う
-	msr		SPSel, #1
+	//msr		SPSel, #1
 	ret
 
 // 割込みを無効にする

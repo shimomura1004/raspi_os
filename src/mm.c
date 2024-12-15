@@ -129,20 +129,37 @@ void map_stage2_page(struct task_struct *task, unsigned long va, unsigned long p
 	task->mm.user_pages_count++;
 }
 
-#define ISS_ABORT_S1PTW			(1<<7)
-
-#define ISS_ABORT_IFSC			0b111111
-#define IFSC_TRANS_FAULT_EL1	0b000101
+// ESR_EL2.ISS encoding for an exception from a Data Abort
+// S1PTW[7] For a stage 2 fault, indicates whether the fault was a stage 2 fault
+//          on an access made for a stage 1 translation table walk:
+//   0b0: Fault not on a stage 2 translation for a stage 1 translation table walk.
+//   0b1: Fault on the stage 2 translation of an access for a stage 1 translation table walk.
+// WnR[6] Write not Read
+//   同期アボートがメモリに書いて発生したか、読み込んで発生したかを表す
+//   0b0: Abort caused by an instruction reading from a memory location.
+//   0b1: Abort caused by an instruction writing to a memory location.
+// DFSC[5:0] Data Fault Status Code
+//   0b000000: Address size fault, level 0 of translation or translation table base register.
+//   0b000001: Address size fault, level 1.
+//   0b000010: Address size fault, level 2.
+//   0b000011: Address size fault, level 3.
+//   0b000100: Translation fault, level 0.
+//   0b000101: Translation fault, level 1.
+//   0b000110: Translation fault, level 2.
+//   0b000111: Translation fault, level 3.
+//   0b001001: Access flag fault, level 1.
+//   ...
+#define ISS_ABORT_DFSC_MASK		0x3f
 
 // メモリアボートが発生した場合に割込みハンドラから呼ばれる
 // addr: アクセスしようとしたアドレス
 // esr: exception syndrome register
 // HV になっても do_mem_abort 自体の処理は変わらないが、引数として渡される値が変わっている
 int handle_mem_abort(unsigned long addr, unsigned long esr) {
-	// メモリアボートは、アクセス権限のエラーなどでも発生する
-	// ページテーブルが未割当の場合のみ処理したいので esr の値を見て分岐する
-	if ((esr & ISS_ABORT_S1PTW) == ISS_ABORT_S1PTW) {
-		// stage 2 translation fault
+	// メモリアボートは様々な要因で発生する
+	// ESR の3ビット目が 1 すなわち Translation fault かどうかを判定
+	if (((esr & ISS_ABORT_DFSC_MASK) >> 2) == 0x1) {
+		// translation fault
 		unsigned long page = get_free_page();
 		if (page == 0) {
 			return -1;

@@ -17,6 +17,7 @@ void timer_init ( void )
 	put32(TIMER_C1, curVal);
 }
 
+// todo: 一度しか呼ばれない → handle_irq 自体が一度しか呼ばれない
 void handle_timer_irq( void ) 
 {
 	curVal += interval;
