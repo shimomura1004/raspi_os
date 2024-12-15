@@ -86,7 +86,7 @@ struct cpu_sysregs {
     unsigned long id_isar2_el1;     // r
     unsigned long id_isar3_el1;     // r
     unsigned long id_isar4_el1;     // r
-    unsigned long id_dsar5_el1;     // r
+    unsigned long id_isar5_el1;     // r
     unsigned long mvfr0_el1;        // r
     unsigned long mvfr1_el1;        // r
     unsigned long mvfr2_el1;        // r
@@ -105,7 +105,7 @@ struct cpu_sysregs {
     unsigned long ctr_el0;          // r
     unsigned long ccsidr_el1;       // r
     unsigned long clidr_el1;        // r
-    unsigned long csselrel1;        // rw
+    unsigned long csselr_el1;       // rw
 
     // HCR_EL2.TID1 がセットされている場合にトラップされる
     unsigned long aidr_el1;         // r

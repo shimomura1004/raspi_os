@@ -41,7 +41,7 @@ void enable_interrupt_controller()
 
 void show_invalid_entry_message(int type, unsigned long esr, unsigned long address)
 {
-	PANIC("uncaught exception(%s) ESR: %x, address: %x\n", entry_error_messages[type], esr, address);
+	PANIC("uncaught exception(%s) ESR: %x, address: %x", entry_error_messages[type], esr, address);
 }
 
 // 割込みベクタがジャンプしてくる先
@@ -53,6 +53,6 @@ void handle_irq(void)
 			handle_timer_irq();
 			break;
 		default:
-			WARN("unknown pending irq: %x\n", irq);
+			WARN("unknown pending irq: %x", irq);
 	}
 }
