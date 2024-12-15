@@ -18,6 +18,7 @@ void timer_init ( void )
 }
 
 // todo: 一度しか呼ばれない → handle_irq 自体が一度しか呼ばれない
+//       割込みが無効化されたままになっている可能性がある
 void handle_timer_irq( void ) 
 {
 	curVal += interval;
