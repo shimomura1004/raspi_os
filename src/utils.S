@@ -79,10 +79,10 @@ _set_sysregs:
 	// 2変数分読みだしてセットする、の繰り返し
 	ldp x1, x2, [x0], #16
 	msr sctlr_el1, x1
-	msr ttbr0_el1, x1
+	msr ttbr0_el1, x2
 	ldp x1, x2, [x0], #16
-	msr ttbr1_el1, x2
-	msr tcr_el1, x1
+	msr ttbr1_el1, x1
+	msr tcr_el1, x2
 	ldp x1, x2, [x0], #16
 	msr esr_el1, x1
 	msr far_el1, x2
@@ -96,10 +96,10 @@ _set_sysregs:
 	msr contextidr_el1, x1
 	msr cpacr_el1, x2
 	ldp x1, x2, [x0], #16
-	msr elr_el1, x2
-	msr fpcr, x1
+	msr elr_el1, x1
+	msr fpcr, x2
 	ldp x1, x2, [x0], #16
-	msr fpsr, x2
+	msr fpsr, x1
 	msr vpidr_el2, x2		// for virtualization
 	ldp x1, x2, [x0], #16
 	msr vmpidr_el2, x1		// for virtualization
@@ -133,9 +133,6 @@ _get_sysregs:
 	mrs x1, esr_el1
 	mrs x2, far_el1
 	stp x1, x2, [x0], #16
-	mrs x1, esr_el1
-	mrs x2, far_el1
-	stp x1, x2, [x0], #16
 	mrs x1, afsr0_el1
 	mrs x2, afsr1_el1
 	stp x1, x2, [x0], #16
@@ -148,7 +145,7 @@ _get_sysregs:
 	mrs x1, elr_el1
 	mrs x2, fpcr
 	stp x1, x2, [x0], #16
-	mrs x2, fpsr
+	mrs x1, fpsr
 	mrs x2, midr_el1		// todo: 読み出し時は midr_el1 だけど書き込み時は vpidr_el2
 	stp x1, x2, [x0], #16
 	mrs x1, mpidr_el1		// todo: 読み出し時は mpidr_el1 だけど書き込み時は vmpidr_el2
