@@ -88,6 +88,7 @@ static const char *sync_error_reasons[] = {
 
 static void handle_trap_wfx() {
 	schedule();
+	increment_current_pc(4);
 }
 
 static void handle_hvc64(unsigned long hvc_nr) {
@@ -186,25 +187,27 @@ static void handle_trap_system(unsigned long esr) {
 		DEFINE_SYSREG_MRS(revidr_el1, 0, 0, 0, 6);
 	}
 sys_fin:
+	increment_current_pc(4);
 	return;
+}
+
+// todo: util.c とかに移すべきでは？
+void increment_current_pc(int ilen) {
+	struct pt_regs *regs = task_pt_regs(current);
+	regs->pc += ilen;
 }
 
 // ESR_EL2
 // https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/ESR-EL2--Exception-Syndrome-Register--EL2-?lang=en#fieldset_0-24_0
 void handle_sync_exception(unsigned long esr, unsigned long elr, unsigned long far, unsigned long hvc_nr) {
-	struct pt_regs *regs = task_pt_regs(current);
-
 	// EC(error class)を取得
 	int eclass = (esr >> ESR_EL2_EC_SHIFT) & 0x3f;
-
-	int ilen = ((esr >> 25) & 1) ? 4 : 2;
 
 	switch (eclass)
 	{
 	case ESR_EL2_EC_TRAP_WFX:
 		// ゲスト VM が WFI/WFE を実行したら VM を切り替える
 		handle_trap_wfx();
-		regs->pc += ilen;
 		break;
 	case ESR_EL2_EC_TRAP_FP_REG:
 		WARN("TRAP_FP_REG is not implemented.");
@@ -214,7 +217,6 @@ void handle_sync_exception(unsigned long esr, unsigned long elr, unsigned long f
 		break;
 	case ESR_EL2_EC_TRAP_SYSTEM:
 		handle_trap_system(esr);
-		regs->pc += ilen;
 		break;
 	case ESR_EL2_EC_TRAP_SVE:
 		WARN("TRAP_SVE is not implemented.");

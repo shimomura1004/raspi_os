@@ -147,7 +147,10 @@ void map_stage2_page(struct task_struct *task, unsigned long va, unsigned long p
 //   0b000101: Translation fault, level 1.
 //   0b000110: Translation fault, level 2.
 //   0b000111: Translation fault, level 3.
+//   0b001000: Access flag fault, level 0.
 //   0b001001: Access flag fault, level 1.
+//   0b001010: Access flag fault, level 2.
+//   0b001011: Access flag fault, level 3.
 //   ...
 #define ISS_ABORT_DFSC_MASK		0x3f
 
@@ -156,16 +159,24 @@ void map_stage2_page(struct task_struct *task, unsigned long va, unsigned long p
 // esr: exception syndrome register
 // HV になっても do_mem_abort 自体の処理は変わらないが、引数として渡される値が変わっている
 int handle_mem_abort(unsigned long addr, unsigned long esr) {
-	// メモリアボートは様々な要因で発生する
-	// ESR の3ビット目が 1 すなわち Translation fault かどうかを判定
-	if (((esr & ISS_ABORT_DFSC_MASK) >> 2) == 0x1) {
-		// translation fault
+	unsigned int dfsc = esr & ISS_ABORT_DFSC_MASK;
+
+	if (dfsc >> 2 == 0x1) {
+		// ESR の3ビット目が 1 すなわち Translation fault の場合
+		// Translation fault: アクセスしたアドレスのエントリが invalid だった場合に発生
 		unsigned long page = get_free_page();
 		if (page == 0) {
 			return -1;
 		}
 		map_stage2_page(current, addr & PAGE_MASK, page);
 		return 0;
+	}
+	else if (dfsc >> 2 == 0x2) {
+		// ESR の4ビット目が 1 すなわち access flag fault の場合
+		// Access flag fault: access flag が 0 のページテーブルエントリを
+		// TLB に読み込もうとしたときに発生
+
+		// todo: これを mmio の場合として扱っているが、なぜ？
 	}
 	return -1;
 }
