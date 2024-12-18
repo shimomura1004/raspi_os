@@ -151,8 +151,16 @@ void map_stage2_page(struct task_struct *task, unsigned long va, unsigned long p
 //   0b001001: Access flag fault, level 1.
 //   0b001010: Access flag fault, level 2.
 //   0b001011: Access flag fault, level 3.
+//   0b001100: Permission fault, level 0.
+//   0b001101: Permission fault, level 1.
+//   0b001110: Permission fault, level 2.
+//   0b001111: Permission fault, level 3.
 //   ...
 #define ISS_ABORT_DFSC_MASK		0x3f
+
+// Translation fault: アクセスしたアドレスのエントリが invalid だった場合に発生
+// Access flag fault: access flag が 0 のページテーブルエントリを
+//                    TLB に読み込もうとしたときに発生
 
 // メモリアボートが発生した場合に割込みハンドラから呼ばれる
 // addr: アクセスしようとしたアドレス
@@ -163,7 +171,8 @@ int handle_mem_abort(unsigned long addr, unsigned long esr) {
 
 	if (dfsc >> 2 == 0x1) {
 		// ESR の3ビット目が 1 すなわち Translation fault の場合
-		// Translation fault: アクセスしたアドレスのエントリが invalid だった場合に発生
+		// つまりまだページテーブルエントリがないときにここにくる
+		// なにも考えずにページを確保してマッピングを追加する
 		unsigned long page = get_free_page();
 		if (page == 0) {
 			return -1;
@@ -171,12 +180,16 @@ int handle_mem_abort(unsigned long addr, unsigned long esr) {
 		map_stage2_page(current, addr & PAGE_MASK, page);
 		return 0;
 	}
-	else if (dfsc >> 2 == 0x2) {
-		// ESR の4ビット目が 1 すなわち access flag fault の場合
-		// Access flag fault: access flag が 0 のページテーブルエントリを
-		// TLB に読み込もうとしたときに発生
-
+	else if (dfsc >> 2 == 0x3) {
+		// ESR の[3:2]ビット目が 0b11 すなわち permission fault の場合
 		// todo: これを mmio の場合として扱っているが、なぜ？
+		// 違いは MT_NORMAL_CACHEABLE or MT_DEVICE_nGnRnE だけ
+
+// #define MMU_FLAGS \
+//     (MM_TYPE_BLOCK | (MT_NORMAL_CACHEABLE << 2) | MM_nG | MM_ACCESS)
+// #define MMU_DEVICE_FLAGS \
+//     (MM_TYPE_BLOCK | (MT_DEVICE_nGnRnE << 2) | MM_nG | MM_ACCESS)
+
 
 		int sas = esr & 0x40;
 		int srt = esr & 0x40;
