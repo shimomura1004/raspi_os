@@ -177,6 +177,20 @@ int handle_mem_abort(unsigned long addr, unsigned long esr) {
 		// TLB に読み込もうとしたときに発生
 
 		// todo: これを mmio の場合として扱っているが、なぜ？
+
+		int sas = esr & 0x40;
+		int srt = esr & 0x40;
+		int wnr = esr & 0x40;
+
+		if (wnr == 0) {
+			// handle_mmio_read(addr, sas);
+		}
+		else {
+			// handle_mmio_write(addr, val, sas);
+		}
+
+		increment_current_pc(4);
+		return 0;
 	}
 	return -1;
 }
