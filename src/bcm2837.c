@@ -38,21 +38,60 @@ struct bcm2837_state {
     } systimer;
 };
 
-// todo: 各初期値の意味を調べる
+// BCM2837-ARM-Peripherals.-.Revised.-.V2-1.pdf
+// IIR: Interrupt Identity Register?
+//   [31:8] Reserved
+//   [7:6]  FIFO enables
+//   [5:4]  Always read as zero
+//   [3]    Always read as zero as the mini UART has no timeout function
+//   [2:1]  READ: Interrupt ID bits
+//                00: No interrupts
+//                01: Transmit holding register empty
+//                10: Receiver holds valid byte
+//                11: Not possible
+//          WRITE: FIFO clear bits
+//                Writing with bit 1 set will clear the receive FIFO
+//                Writing with bit 2 set will clear the transmit FIFO
+//   [0]    Interrupt pending
+//          This bit is clear whenever an interrupt is pending
+// LSR: Line Status Register?
+//   [31:8] Reserved
+//   [7]    Reserved
+//   [6]    Transmitter idle
+//          This bit is set if the transmit FIFO is empty and the transmitter is idle.
+//   [5]    Transmitter empty
+//          This bit is set if the transmit FIFO can accept at least one byte.
+//   [4:2]  Reserved
+//   [1]    Receiver Overrun
+//          This bit is set if there was a receiver overrun.
+//          - one or more characters arrived whilst the receive FIFO was full.
+//          - The newly arrived character was discarded.
+//          This bit is cleared each time this register is read.
+//   [0]    Data ready
+//          This bit is set if the receive FIFO holds at least 1 symbol
+// MSR: Modem Status Register?
+//   [31:8] Reserved
+//   [7:6]  Reserved
+//   [5]    CTS status
+//          This bit is the inverse of the UART1_CTS input Thus:
+//            If set the UART1_CTS pin is low
+//            If clear the UART1_CTS pin is high
+//   [4]?
+//   [3:0]  reserved
 const struct bcm2837_state initial_state = {
     .aux = {
         .aux_irq        = 0x0,
         .aux_enables    = 0x0,
         .aux_mu_io      = 0x0,
         .aux_mu_ier     = 0x0,
-        .aux_mu_iir     = 0xc1,
+        .aux_mu_iir     = 0xc1,     // 0xc1 はリセット時の初期値
         .aux_mu_lcr     = 0x0,
         .aux_mu_mcr     = 0x0,
-        .aux_mu_lsr     = 0x40,
-        .aux_mu_msr     = 0x20,
+        .aux_mu_lsr     = 0x40,     // 0x40 はリセット時の初期値
+        .aux_mu_msr     = 0x20,     // 0x20 はリセット時の初期値
         .aux_mu_scratch = 0x0,
-        .aux_mu_cntl    = 0x3,
-        .aux_mu_stat    = 0x30c,
+        .aux_mu_cntl    = 0x3,      // 0x3 はリセット時の初期値
+        .aux_mu_stat    = 0x30c,    // 0x30c はリセット時の初期値
         .aux_mu_baud    = 0x0,
     },
     .systimer = {
