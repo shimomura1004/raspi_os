@@ -15,6 +15,8 @@
 #define TASK_RUNNING                0
 #define TASK_ZOMBIE                	1
 
+struct board_ops;
+
 extern struct task_struct *current;
 extern struct task_struct * task[NR_TASKS];
 extern int nr_tasks;
@@ -108,50 +110,6 @@ struct cpu_sysregs {
     // HCR_EL2.TID1 がセットされている場合にトラップされる
     unsigned long aidr_el1;         // r
     unsigned long revidr_el1;       // r
-
-    // system timer
-    /*
-    unsigned long cntfrq_el0;
-    unsigned long cntkctl_el1;
-    unsigned long cntp_ctl_el0;
-    unsigned long cntp_cval_el0;
-    unsigned long cntp_tval_el0;
-    unsigned long cntpct_el0;
-    unsigned long cntps_ctl_el1;
-    unsigned long cntps_cval_el1;
-    unsigned long cntps_tval_el1;
-    unsigned long cntv_ctl_el0;
-    unsigned long cntv_cval_el0;
-    unsigned long cntv_tval_el0;
-    unsigned long cntvct_el0;
-    */
-};
-
-struct bcm2835 {
-    struct aux_peripherals_regs {
-        unsigned int aux_enables;
-        unsigned int aux_mu_io;
-        unsigned int aux_mu_ier;
-        unsigned int aux_mu_iir;
-        unsigned int aux_mu_lcr;
-        unsigned int aux_mu_mcr;
-        unsigned int aux_mu_lsr;
-        unsigned int aux_mu_msr;
-        unsigned int aux_mu_scratch;
-        unsigned int aux_mu_cntl;
-        unsigned int aux_mu_stat;
-        unsigned int aux_mu_baud;
-    } aux;
-
-    struct systimer_regs {
-        unsigned long cs;
-        unsigned long clo;
-        unsigned long chi;
-        unsigned long c0;
-        unsigned long c1;
-        unsigned long c2;
-        unsigned long c3;
-    } systimer_regs;
 };
 
 struct mm_struct {
@@ -171,9 +129,10 @@ struct task_struct {
     long preempt_count;             // 0 以外の値が入っている場合はタスク切り替えが無視される
     long pid;                       // VMID
     unsigned long flags;
+    const struct board_ops *board_ops;
+    void *board_data;
     struct mm_struct mm;
     struct cpu_sysregs cpu_sysregs;
-    struct bcm2835 bcm2835;
 };
 
 extern void sched_init(void);
@@ -189,11 +148,17 @@ extern void exit_task(void);
 // kernel_main の task_struct の初期値
 #define INIT_TASK \
     { \
-        /* cpu_context */ {0}, \
-        /* state etc   */ 0, 0, 15, 0, 0, 0, \
-        /* mm          */ {0}, \
-        /* cpu_sysregs */ {0}, \
-        /* bcm2835     */ {{0}, {0}}, \
+        /* cpu_context   */ {0}, \
+        /* state         */ 0, \
+        /* counter       */ 0, \
+        /* priority      */ 15, \
+        /* preempt_count */ 0, \
+        /* pid           */ 0, \
+        /* flags         */ 0, \
+        /* board_ops     */ 0, \
+        /* board_data    */ 0, \
+        /* mm            */ {0}, \
+        /* cpu_sysregs   */ {0}, \
     }
 
 #endif
