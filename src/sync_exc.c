@@ -191,12 +191,6 @@ sys_fin:
 	return;
 }
 
-// todo: util.c とかに移すべきでは？
-void increment_current_pc(int ilen) {
-	struct pt_regs *regs = task_pt_regs(current);
-	regs->pc += ilen;
-}
-
 // ESR_EL2
 // https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/ESR-EL2--Exception-Syndrome-Register--EL2-?lang=en#fieldset_0-24_0
 void handle_sync_exception(unsigned long esr, unsigned long elr, unsigned long far, unsigned long hvc_nr) {

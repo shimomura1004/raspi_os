@@ -49,6 +49,11 @@ static void prepare_initial_sysregs(void) {
 	is_first_call = 0;
 }
 
+void increment_current_pc(int ilen) {
+	struct pt_regs *regs = task_pt_regs(current);
+	regs->pc += ilen;
+}
+
 // EL2 で動くタスクを作る
 int create_task(loader_func_t loader, unsigned long arg) {
 	// copy_process の処理中はスケジューラによるタスク切り替えを禁止
