@@ -51,11 +51,11 @@
 
 unsigned long get_free_page();
 void free_page(unsigned long p);
-void map_stage2_page(struct task_struct *task, unsigned long va, unsigned long page);
-
-int copy_virt_memory(struct task_struct *dst);
-unsigned long allocate_kernel_page();
-unsigned long allocate_user_page(struct task_struct *task, unsigned long va);
+void map_stage2_page(struct task_struct *task, unsigned long va,
+                     unsigned long page, unsigned long flags);
+unsigned long allocate_page();
+unsigned long allocate_task_page(struct task_struct *task, unsigned long va);
+void set_task_page_notaccessable(struct task_struct *task, unsigned long va);
 
 int handle_mem_abort(unsigned long addr, unsigned long esr);
 

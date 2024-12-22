@@ -5,9 +5,9 @@
 // ページの使用状況を表す領域
 static unsigned short mem_map [ PAGING_PAGES ] = {0,};
 
-// カーネル空間で使うためのページを確保し、その仮想アドレスを返す
+// ハイパーバイザで使うためのページを確保し、その仮想アドレスを返す
 // RPi OS では "カーネルのアドレス空間" はないのでマッピングの追加は行わない
-unsigned long allocate_kernel_page() {
+unsigned long allocate_page() {
 	// 未使用ページを探す
 	unsigned long page = get_free_page();
 	if (page == 0) {
@@ -18,8 +18,8 @@ unsigned long allocate_kernel_page() {
 	return page + VA_START;
 }
 
-// ユーザ空間で使うためのページを確保し、その仮想アドレスを返す
-unsigned long allocate_user_page(struct task_struct *task, unsigned long va) {
+// VM で使うためのページを確保し、その仮想アドレスを返す
+unsigned long allocate_task_page(struct task_struct *task, unsigned long va) {
 	// 未使用ページを探す、page は仮想アドレスではなくオフセット
 	unsigned long page = get_free_page();
 	if (page == 0) {

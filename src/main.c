@@ -45,7 +45,7 @@ int test_program_loader(unsigned long arg, unsigned long *pc, unsigned long *sp)
 
 	// 現在実行中のタスクのページテーブルにマッピングを追加
 	// current タスク用のアドレス空間にページを追加するので、仮想アドレスは任意の値でいい
-	unsigned long code_page = allocate_user_page(current, 0);
+	unsigned long code_page = allocate_task_page(current, 0);
 	if (code_page == 0) {
 		return -1;
 	}

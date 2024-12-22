@@ -61,7 +61,7 @@ int create_task(loader_func_t loader, unsigned long arg) {
 	struct task_struct *p;
 
 	// 新たなページを確保
-	unsigned long page = allocate_kernel_page();
+	unsigned long page = allocate_page();
 	// ページの先頭に task_struct を置く
 	p = (struct task_struct *) page;
 	// ページの末尾を pt_regs 用の領域とする
