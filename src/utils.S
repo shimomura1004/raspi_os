@@ -209,6 +209,8 @@ _get_sysregs:
 	mrs x2, aidr_el1
 	stp x1, x2, [x0], #16
 	mrs x1, revidr_el1
+	str x1, [x0]
+	/*
 	mrs x2, cntfrq_el0
 	stp x1, x2, [x0], #16
 	mrs x1, cntkctl_el1
@@ -229,6 +231,7 @@ _get_sysregs:
 	mrs x1, cntv_tval_el0
 	mrs x2, cntvct_el0
 	stp x1, x2, [x0], #16
+	*/
 	ret
 
 // 引数として仮想アドレスを取り、Stage1 と 2 のアドレス変換を行った値を返す 

@@ -3,6 +3,8 @@
 
 #include "peripherals/base.h"
 
+// BCM2837-ARM-Peripherals.-.Revised.-.V2-1.pdf
+
 #define AUX_IRQ         (PBASE+0x00215000)
 #define AUX_ENABLES     (PBASE+0x00215004)
 #define AUX_MU_IO_REG   (PBASE+0x00215040)

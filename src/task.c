@@ -67,8 +67,9 @@ int create_task(loader_func_t loader, unsigned long arg) {
 	// ページの末尾を pt_regs 用の領域とする
 	struct pt_regs *childregs = task_pt_regs(p);
 
-	if (!p)
+	if (!p) {
 		return -1;
+	}
 
 	// switch_from_kthread 内で x19 のアドレスにジャンプする
 	p->cpu_context.x19 = (unsigned long)prepare_task;
