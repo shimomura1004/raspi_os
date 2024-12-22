@@ -110,7 +110,7 @@ void bcm2837_initialize(struct task_struct *tsk) {
     *state = initial_state;
     tsk->board_data = state;
 
-    // todo: これはどういう初期化をしている？
+    // デバイスの初期化(MMIO ページの準備)
     unsigned long begin = DEVICE_BASE;
     unsigned long end = PHYS_MEMORY_SIZE - SECTION_SIZE;
     for (; begin < end; begin += PAGE_SIZE) {

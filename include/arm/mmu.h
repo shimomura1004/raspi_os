@@ -82,15 +82,22 @@
 #define MM_STAGE2_AP        (3 << 6)    // read/write
 #define MM_STAGE2_MEMATTR   (0xf << 2)  // Write-back cacheable
 
+// 通常のメモリのエントリ
 #define MMU_STAGE2_PAGE_FLAGS \
-    (MM_TYPE_PAGE | MM_STAGE2_ACCESS | MM_STAGE2_SH | MM_STAGE2_AP | MM_STAGE2_MEMATTR)
+    (MM_TYPE_PAGE | MM_STAGE2_ACCESS | MM_STAGE2_SH | \
+     MM_STAGE2_AP | MM_STAGE2_MEMATTR)
 
-#define MM_STAGE2_AP_NONE           (0 << 6)
-#define MM_STAGE2_DEVICE_MEMATTR    (0x0 << 2)
+#define MM_STAGE2_AP_NONE           (0 << 6)    // No access permitted
+#define MM_STAGE2_DEVICE_MEMATTR    (0x0 << 2)  // Strongly-ordered memory
+
+// デバイスの MMIO 用のエントリ
+// MM_STAGE2_AP -> MM_STAGE2_AP_NONE に変更
+//   (read/write) -> (no access)
+// MM_STAGE2_MEMATTR -> MM_STAGE2_DEVICE_MEMATTR に変更
+//   (inner write-back cacheable) -> (strongly-ordered)
 #define MMU_STAGE2_MMIO_FLAGS \
-    (MM_TYPE_PAGE | MM_STAGE2_ACCESS | MM_STAGE2_SH | MM_STAGE2_AP_NONE | \
-     MM_STAGE2_DEVICE_MEMATTR)
-
+    (MM_TYPE_PAGE | MM_STAGE2_ACCESS | MM_STAGE2_SH | \
+     MM_STAGE2_AP_NONE | MM_STAGE2_DEVICE_MEMATTR)
 
 #define TCR_T0SZ			(64 - 48)
 #define TCR_TG0_4K			(0 << 14)

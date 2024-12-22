@@ -195,6 +195,7 @@ int handle_mem_abort(unsigned long addr, unsigned long esr) {
 
 		const struct board_ops *ops = current->board_ops;
 		if (ops) {
+			// todo: ESR の中身を理解する
 			int sas = (esr >> 22) & 0x03;
 			int srt = (esr >> 16) & 0x1f;
 			int wnr = (esr >>  6) & 0x01;
