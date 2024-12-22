@@ -1,6 +1,9 @@
 #include "mm.h"
 #include "arm/mmu.h"
 #include "utils.h"
+#include "debug.h"
+#include "board.h"
+#include "task.h"
 
 // ページの使用状況を表す領域
 static unsigned short mem_map [ PAGING_PAGES ] = {0,};
@@ -27,9 +30,13 @@ unsigned long allocate_task_page(struct task_struct *task, unsigned long va) {
 	}
 	// 新たに確保したページをこのタスクのアドレス空間にマッピングする
 	// todo: これは VA->IPA の変換なので map_stage1_page とするべきでは？
-	map_stage2_page(task, va, page);
+	map_stage2_page(task, va, page, MMU_STAGE2_PAGE_FLAGS);
 	// 新たに確保したページの仮想アドレスを返す(リニアマッピングなのでオフセットを足すだけ)
 	return page + VA_START;
+}
+
+void set_task_page_notaccessable(struct task_struct *task, unsigned long va) {
+	map_stage2_page(task, va, 0, MMU_STAGE2_MMIO_FLAGS);
 }
 
 // 未使用のページを探してその場所(DRAM 内のオフセット)を返す
@@ -58,12 +65,12 @@ void free_page(unsigned long p){
 // ページエントリを追加する
 // RPi3 では DRAM が物理アドレス 0 のところから配置されている
 // つまり DRAM 上のインデックスは物理アドレスと同じ扱いになる
-void map_stage2_table_entry(unsigned long *pte, unsigned long va, unsigned long pa) {
+void map_stage2_table_entry(unsigned long *pte, unsigned long va, unsigned long pa, unsigned long flags) {
 	// ページエントリのオフセットを index に入れる
 	unsigned long index = va >> PAGE_SHIFT;
 	index = index & (PTRS_PER_TABLE - 1);
 	// エントリのオフセットを計算し書き込み
-	unsigned long entry = pa | MMU_STAGE2_PAGE_FLAGS;
+	unsigned long entry = pa | flags;
 	pte[index] = entry;
 }
 
@@ -98,7 +105,7 @@ unsigned long map_stage2_table(unsigned long *table, unsigned long shift, unsign
 
 // task のアドレス空間のアドレス va に、指定されたページ page を割り当てる
 // stage1/2 のどちらも差はない
-void map_stage2_page(struct task_struct *task, unsigned long va, unsigned long page){
+void map_stage2_page(struct task_struct *task, unsigned long va, unsigned long page, unsigned long flags) {
 	// 最上位のページテーブル
 	unsigned long lv1_table;
 
@@ -124,7 +131,7 @@ void map_stage2_page(struct task_struct *task, unsigned long va, unsigned long p
 		task->mm.kernel_pages_count++;
 	}
 	// Level 3 のテーブル(lv3_table)の対応するエントリを探してページを登録
-	map_stage2_table_entry((unsigned long *)(lv3_table + VA_START), va, page);
+	map_stage2_table_entry((unsigned long *)(lv3_table + VA_START), va, page, flags);
 	// ユーザ空間用のページ数をカウントアップする　
 	task->mm.user_pages_count++;
 }
@@ -167,6 +174,7 @@ void map_stage2_page(struct task_struct *task, unsigned long va, unsigned long p
 // esr: exception syndrome register
 // HV になっても do_mem_abort 自体の処理は変わらないが、引数として渡される値が変わっている
 int handle_mem_abort(unsigned long addr, unsigned long esr) {
+	struct pt_regs *regs = task_pt_regs(current);
 	unsigned int dfsc = esr & ISS_ABORT_DFSC_MASK;
 
 	if (dfsc >> 2 == 0x1) {
@@ -177,7 +185,7 @@ int handle_mem_abort(unsigned long addr, unsigned long esr) {
 		if (page == 0) {
 			return -1;
 		}
-		map_stage2_page(current, addr & PAGE_MASK, page);
+		map_stage2_page(current, addr & PAGE_MASK, page, MMU_STAGE2_PAGE_FLAGS);
 		return 0;
 	}
 	else if (dfsc >> 2 == 0x3) {
@@ -185,21 +193,21 @@ int handle_mem_abort(unsigned long addr, unsigned long esr) {
 		// todo: これを mmio の場合として扱っているが、なぜ？
 		// 違いは MT_NORMAL_CACHEABLE or MT_DEVICE_nGnRnE だけ
 
-// #define MMU_FLAGS \
-//     (MM_TYPE_BLOCK | (MT_NORMAL_CACHEABLE << 2) | MM_nG | MM_ACCESS)
-// #define MMU_DEVICE_FLAGS \
-//     (MM_TYPE_BLOCK | (MT_DEVICE_nGnRnE << 2) | MM_nG | MM_ACCESS)
-
-
-		int sas = esr & 0x40;
-		int srt = esr & 0x40;
-		int wnr = esr & 0x40;
-
-		if (wnr == 0) {
-			// handle_mmio_read(addr, sas);
-		}
-		else {
-			// handle_mmio_write(addr, val, sas);
+		const struct board_ops *ops = current->board_ops;
+		if (ops) {
+			int sas = (esr >> 22) & 0x03;
+			int srt = (esr >> 16) & 0x1f;
+			int wnr = (esr >>  6) & 0x01;
+			if (wnr == 0) {
+				if (ops->mmio_read) {
+					regs->regs[srt] = ops->mmio_read(addr, sas);
+				}
+			}
+			else {
+				if (ops->mmio_write) {
+					ops->mmio_write(addr, regs->regs[srt], sas);
+				}
+			}
 		}
 
 		increment_current_pc(4);
