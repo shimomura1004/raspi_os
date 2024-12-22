@@ -4,6 +4,8 @@
 #include "utils.h"
 #include "entry.h"
 #include "debug.h"
+#include "bcm2837.h"
+#include "board.h"
 
 // 各スレッド用の領域の末尾に置かれた task_struct へのポインタを返す
 struct pt_regs * task_pt_regs(struct task_struct *tsk) {
@@ -73,6 +75,12 @@ int create_task(loader_func_t loader, unsigned long arg) {
 	p->state = TASK_RUNNING;
 	p->counter = p->priority;
 	p->preempt_count = 1; 	// disable preemtion until schedule_tail
+
+	// このプロセス(vm)で再現するハードウェア(BCM2837)を初期化
+	p->board_ops = &bcm2837_board_ops;
+	if (p->board_ops->initialize) {
+		p->board_ops->initialize(p);
+	}
 
 	prepare_initial_sysregs();
 	memcpy((unsigned long)&p->cpu_sysregs, (unsigned long)&initial_sysregs, sizeof(struct cpu_sysregs));
