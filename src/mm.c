@@ -137,6 +137,15 @@ void map_stage2_page(struct task_struct *task, unsigned long va, unsigned long p
 }
 
 // ESR_EL2.ISS encoding for an exception from a Data Abort
+// https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/ESR-EL2--Exception-Syndrome-Register--EL2-?lang=en#fieldset_0-24_0
+// SAS[23:22] Syndrome Access Size: indicates the size of the access
+//            attempted by the faulting operation
+//	 0b00: Byte
+//	 0b01: Halfword
+//	 0b10: Word
+//	 0b11: Doubleword
+// SRT[20:16] Syndrome Register Transfer: The register number of
+//            the Wt/Wt/Rt operand of the faulting instruction
 // S1PTW[7] For a stage 2 fault, indicates whether the fault was a stage 2 fault
 //          on an access made for a stage 1 translation table walk:
 //   0b0: Fault not on a stage 2 translation for a stage 1 translation table walk.
@@ -173,6 +182,8 @@ void map_stage2_page(struct task_struct *task, unsigned long va, unsigned long p
 // addr: アクセスしようとしたアドレス
 // esr: exception syndrome register
 // HV になっても do_mem_abort 自体の処理は変わらないが、引数として渡される値が変わっている
+// ESR_EL2
+// https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/ESR-EL2--Exception-Syndrome-Register--EL2-?lang=en#fieldset_0-24_0
 int handle_mem_abort(unsigned long addr, unsigned long esr) {
 	struct pt_regs *regs = task_pt_regs(current);
 	unsigned int dfsc = esr & ISS_ABORT_DFSC_MASK;
@@ -190,21 +201,27 @@ int handle_mem_abort(unsigned long addr, unsigned long esr) {
 	}
 	else if (dfsc >> 2 == 0x3) {
 		// ESR の[3:2]ビット目が 0b11 すなわち permission fault の場合
-		// todo: これを mmio の場合として扱っているが、なぜ？
-		// 違いは MT_NORMAL_CACHEABLE or MT_DEVICE_nGnRnE だけ
+
+		// 現状 vm 用のページテーブルエントリのフラグは
+		// MMU_STAGE2_PAGE_FLAGS と MMU_STAGE2_MMIO_FLAGS の2種類しかない
+		// 上記2つの違いは MM_STAGE2_AP_NONE と MM_STAGE2_DEVICE_MEMATTR
+		// AP_NONE なのでアクセス不可で、permission fault が発生する
+		// VM からは直接 MMIO 領域に触れないように
+		// アクセス不可に設定してトラップできるようにしていると思われる
 
 		const struct board_ops *ops = current->board_ops;
 		if (ops) {
-			// todo: ESR の中身を理解する
-			int sas = (esr >> 22) & 0x03;
-			int srt = (esr >> 16) & 0x1f;
-			int wnr = (esr >>  6) & 0x01;
+			int sas = (esr >> 22) & 0x03;	// Syndrome access size
+			int srt = (esr >> 16) & 0x1f;	// Syndrome register transfer
+			int wnr = (esr >>  6) & 0x01;	// Write not read
 			if (wnr == 0) {
+				// read で例外が発生
 				if (ops->mmio_read) {
 					regs->regs[srt] = ops->mmio_read(addr, sas);
 				}
 			}
 			else {
+				// write で例外が発生
 				if (ops->mmio_write) {
 					ops->mmio_write(addr, regs->regs[srt], sas);
 				}

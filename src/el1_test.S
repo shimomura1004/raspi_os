@@ -6,9 +6,9 @@
 
 .globl el1_test_1
 el1_test_1:
-    ldr x0, =(TIMER_CS)
+    ldr x0, =(TIMER_CS) // Control Status Register のアドレスを x0 にロード
     mov w8, 777
-    str w8, [x0]
+    str w8, [x0]        // Control Status Register に 777 を書き込む
     str w8, [x0]
     str w8, [x0]
     hvc #0

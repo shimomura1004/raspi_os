@@ -46,6 +46,9 @@
     (MT_DEVICE_nGnRnE_FLAGS << (8 * MT_DEVICE_nGnRnE)) | \
     (MT_NORMAL_CACHEABLE_FLAGS << (8 * MT_NORMAL_CACHEABLE))
 
+// todo:
+// 以下2つのページ属性用のフラグは boot.S で EL2 の
+// ページテーブル設定に使っているので、Stage 2 のエントリ用のはず
 #define MMU_FLAGS \
     (MM_TYPE_BLOCK | (MT_NORMAL_CACHEABLE << 2) | MM_nG | MM_ACCESS)
 #define MMU_DEVICE_FLAGS \
@@ -81,6 +84,10 @@
 #define MM_STAGE2_SH        (3 << 8)    // inner shareable
 #define MM_STAGE2_AP        (3 << 6)    // read/write
 #define MM_STAGE2_MEMATTR   (0xf << 2)  // Write-back cacheable
+
+// todo:
+// MMU_STAGE2_PAGE_FLAGS/MMU_STAGE2_MMIO_FLAGS は
+// VM のページテーブル設定に使っているので、Stage 1 のエントリ用のはず
 
 // 通常のメモリのエントリ
 #define MMU_STAGE2_PAGE_FLAGS \

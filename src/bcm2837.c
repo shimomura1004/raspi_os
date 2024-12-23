@@ -27,14 +27,22 @@ struct bcm2837_state {
         uint16_t aux_mu_baud;
     } aux;
 
+    // BCM2837-ARM-Peripherals.-.Revised.-.V2-1.pdf
+    // CS Register
+    //   [31:4] Reserved
+    //   [3]    Timer 3 match
+    //          0: No Timer 3 match since last cleared
+    //          1: Timer 3 match detected
+    //   [2]    Timer 2 match
+    //   ...
     struct systimer_regs {
-        uint32_t cs;
-        uint32_t clo;
-        uint32_t chi;
-        uint32_t c0;
-        uint32_t c1;
-        uint32_t c2;
-        uint32_t c3;
+        uint32_t cs;        // System Timer Control/Status
+        uint32_t clo;       // System Timer Counter Lower 32 bits
+        uint32_t chi;       // System Timer Counter Higher 32 bits
+        uint32_t c0;        // System Timer Compare 0
+        uint32_t c1;        // System Timer Compare 1
+        uint32_t c2;        // System Timer Compare 2
+        uint32_t c3;        // System Timer Compare 3
     } systimer;
 };
 
