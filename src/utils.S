@@ -1,3 +1,5 @@
+// todo: サイズが8の倍数でない場合は誤作動する
+// todo: コピー元とコピー先の領域が重複していると誤作動する
 .globl memcpy
 memcpy:
 	ldr x3, [x1], #8
@@ -19,6 +21,8 @@ memzero:
 	b.gt memzero
 	ret
 
+// todo: サイズが8の倍数でない場合は誤作動する
+// todo: 書き込む値の下位8ビットしか使われない
 .globl memset
 memset:
 	str x1, [x0], #8
