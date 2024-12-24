@@ -3,15 +3,34 @@
 #include "debug.h"
 #include "bcm2837.h"
 #include "mm.h"
+#include "fifo.h"
 #include "peripherals/mini_uart.h"
 #include "peripherals/timer.h"
+#include "peripherals/irq.h"
 
 // BCM2837 SoC を表現するデータ構造と関数群
 // ハイパーバイザでは BCM2837 をエミュレートする
 
 // BCM2837 の内部レジスタ
 struct bcm2837_state {
+    // 7 Interrupt controller -> 7.5 Registers
+    struct intctrl_regs {
+        uint8_t irq_basic_pending;
+        uint8_t irq_pending_1;
+        uint8_t irq_pending_2;
+        uint8_t fiq_control;
+        uint8_t enable_irqs_1;
+        uint8_t enable_irqs_2;
+        uint8_t enable_basic_irqs;
+        uint8_t disable_irqs_1;
+        uint8_t disable_irqs_2;
+        uint8_t disable_basic_irqs;
+    } intctrl;
+
+    // aux_* は UART1, SPI1, SPI2 に関連するレジスタ
     struct aux_peripherals_regs {
+        struct fifo *mu_tx_fifo;
+        struct fifo *mu_rx_fifo;
         uint8_t  aux_irq;
         uint8_t  aux_enables;
         uint8_t  aux_mu_io;
@@ -47,7 +66,13 @@ struct bcm2837_state {
 };
 
 // BCM2837-ARM-Peripherals.-.Revised.-.V2-1.pdf
-// IIR: Interrupt Identity Register?
+// AUX_MU_IO_REG
+//   [31:8] Reserved
+//   [7:0]  Data
+//     DLAB=1, RW: Access the LS bits of the 16-bit baudrate register
+//     DLAB=0, W: Data written is put in the transmit FIFO
+//     DLAB=0, R: Data read is taken from the receive FIFO
+// AUX_MU_IIR_REG: Interrupt Identity Register?
 //   [31:8] Reserved
 //   [7:6]  FIFO enables
 //   [5:4]  Always read as zero
@@ -62,7 +87,19 @@ struct bcm2837_state {
 //                Writing with bit 2 set will clear the transmit FIFO
 //   [0]    Interrupt pending
 //          This bit is clear whenever an interrupt is pending
-// LSR: Line Status Register?
+// AUX_MU_LCR_REG: Line Control Register?
+//   [31:8] Reserved
+//   [7]    DLAB asscess
+//          If set the first to Mini UART register give access
+//          the Bauderate register. During operation this bit must be cleared.
+//   [6]    Break
+//          If set high the UART1_TX line is pulled low continuously.
+//          If held for at least 12 bits times that will indicate a break condition.
+//   [5:2]  Reserved
+//   [1:0]  Data size
+//            00: the UART works in 7-bit mode
+//            11: the UART works in 8-bit mode
+// AUX_MU_LSR_REG: Line Status Register?
 //   [31:8] Reserved
 //   [7]    Reserved
 //   [6]    Transmitter idle
@@ -77,7 +114,7 @@ struct bcm2837_state {
 //          This bit is cleared each time this register is read.
 //   [0]    Data ready
 //          This bit is set if the receive FIFO holds at least 1 symbol
-// MSR: Modem Status Register?
+// AUX_MU_MSR_REG: Modem Status Register?
 //   [31:8] Reserved
 //   [7:6]  Reserved
 //   [5]    CTS status
@@ -87,7 +124,20 @@ struct bcm2837_state {
 //   [4]?
 //   [3:0]  reserved
 const struct bcm2837_state initial_state = {
+    .intctrl = {
+        .irq_basic_pending   = 0x0,
+        .irq_pending_1       = 0x0,
+        .irq_pending_2       = 0x0,
+        .fiq_control         = 0x0,
+        .enable_irqs_1       = 0x0,
+        .enable_irqs_2       = 0x0,
+        .enable_basic_irqs   = 0x0,
+        .disable_irqs_1      = 0x0,
+        .disable_irqs_2      = 0x0,
+        .disable_basic_irqs  = 0x0,
+    },
     .aux = {
+        // fifo の初期化は bcm2837_initialize で行う
         .aux_irq        = 0x0,
         .aux_enables    = 0x0,
         .aux_mu_io      = 0x0,
@@ -115,7 +165,12 @@ const struct bcm2837_state initial_state = {
 
 void bcm2837_initialize(struct task_struct *tsk) {
     struct bcm2837_state *state = (struct bcm2837_state *)allocate_page();
+
     *state = initial_state;
+
+    state->aux.mu_tx_fifo = create_fifo();
+    state->aux.mu_rx_fifo = create_fifo();
+
     tsk->board_data = state;
 
     // デバイスの初期化(MMIO ページの準備)
@@ -126,8 +181,70 @@ void bcm2837_initialize(struct task_struct *tsk) {
     }
 }
 
-unsigned long handle_mini_uart_read(unsigned long addr, int accsz) {
+static unsigned long handle_intctrl_read(unsigned long addr, int accsz) {
     struct bcm2837_state *state = (struct bcm2837_state *)current->board_data;
+
+    switch (addr) {
+    case IRQ_BASIC_PENDING:
+        return state->intctrl.irq_basic_pending;
+    case IRQ_PENDING_1:
+        return state->intctrl.irq_pending_1;
+    case IRQ_PENDING_2:
+        return state->intctrl.irq_pending_2;
+    case FIQ_CONTROL:
+        return state->intctrl.fiq_control;
+    case ENABLE_IRQS_1:
+        return state->intctrl.enable_irqs_1;
+    case ENABLE_IRQS_2:
+        return state->intctrl.enable_irqs_2;
+    case ENABLE_BASIC_IRQS:
+        return state->intctrl.enable_basic_irqs;
+    case DISABLE_IRQS_1:
+        return state->intctrl.disable_irqs_1;
+    case DISABLE_IRQS_2:
+        return state->intctrl.disable_irqs_2;
+    case DISABLE_BASIC_IRQS:
+        return state->intctrl.disable_basic_irqs;
+    }
+
+    return 0;
+}
+
+static void handle_intctrl_write(unsigned long addr, unsigned long val, int accsz) {
+    struct bcm2837_state *state = (struct bcm2837_state *)current->board_data;
+
+    // 書き込めるレジスタは限定されている
+    switch (addr) {
+    case FIQ_CONTROL:
+        state->intctrl.fiq_control = val;
+        break;
+    case ENABLE_IRQS_1:
+        state->intctrl.enable_irqs_1 = val;
+        break;
+    case ENABLE_IRQS_2:
+        state->intctrl.enable_irqs_2 = val;
+        break;
+    case ENABLE_BASIC_IRQS:
+        state->intctrl.enable_basic_irqs = val;
+        break;
+    case DISABLE_IRQS_1:
+        state->intctrl.disable_irqs_1 = val;
+        break;
+    case DISABLE_IRQS_2:
+        state->intctrl.disable_irqs_2 = val;
+        break;
+    case DISABLE_BASIC_IRQS:
+        state->intctrl.disable_basic_irqs = val;
+        break;
+    }
+}
+
+static unsigned long handle_aux_read(unsigned long addr, int accsz) {
+    struct bcm2837_state *state = (struct bcm2837_state *)current->board_data;
+
+    if ((state->aux.aux_enables & 0x1) == 0 && ADDR_IN_AUX(addr)) {
+        return 0;
+    }
 
     switch (addr) {
     case AUX_IRQ:
@@ -135,7 +252,16 @@ unsigned long handle_mini_uart_read(unsigned long addr, int accsz) {
     case AUX_ENABLES:
         return state->aux.aux_enables;
     case AUX_MU_IO_REG:
+        // LCR の 8 ビット目を確認
+        if (AUX_MU_LCR_REG & 0x80) {
+            // todo: baudrate の下位 8 ビットを返すべき
         return state->aux.aux_mu_io;
+        }
+        else {
+            unsigned long data;
+            dequeue_fifo(state->aux.mu_rx_fifo, &data);
+            return data;
+        }
     case AUX_MU_IER_REG:
         return state->aux.aux_mu_ier;
     case AUX_MU_IIR_REG:
@@ -161,40 +287,61 @@ unsigned long handle_mini_uart_read(unsigned long addr, int accsz) {
     return 0;
 }
 
-unsigned long handle_mini_uart_write(unsigned long addr, unsigned long val, int accsz) {
+static void handle_aux_write(unsigned long addr, unsigned long val, int accsz) {
     struct bcm2837_state *state = (struct bcm2837_state *)current->board_data;
+
+    if ((state->aux.aux_enables & 0x1) == 0 && ADDR_IN_AUX(addr)) {
+        return;
+    }
 
     switch (addr) {
     case AUX_ENABLES:
-        return state->aux.aux_enables = val;
+        state->aux.aux_enables = val;
+        break;
     case AUX_MU_IO_REG:
-        return state->aux.aux_mu_io = val;
+        if (AUX_MU_LCR_REG & 0x80) {
+            // todo: baudrate の下位 8 ビットを設定するべき
+            state->aux.aux_mu_io = val;
+        }
+        else {
+            enqueue_fifo(state->aux.mu_tx_fifo, val && 0xff);
+        }
+        state->aux.aux_mu_io = val;
+        break;
     case AUX_MU_IER_REG:
-        return state->aux.aux_mu_ier = val;
+        state->aux.aux_mu_ier = val;
+        break;
     case AUX_MU_IIR_REG:
-        return state->aux.aux_mu_iir = val;
+        state->aux.aux_mu_iir = val;
+        break;
     case AUX_MU_LCR_REG:
-        return state->aux.aux_mu_lcr = val;
+        state->aux.aux_mu_lcr = val;
+        break;
     case AUX_MU_MCR_REG:
-        return state->aux.aux_mu_mcr = val;
+        state->aux.aux_mu_mcr = val;
+        break;
     case AUX_MU_LSR_REG:
-        return state->aux.aux_mu_lsr = val;
+        state->aux.aux_mu_lsr = val;
+        break;
     case AUX_MU_MSR_REG:
-        return state->aux.aux_mu_msr = val;
+        state->aux.aux_mu_msr = val;
+        break;
     case AUX_MU_SCRATCH:
-        return state->aux.aux_mu_scratch = val;
+        state->aux.aux_mu_scratch = val;
+        break;
     case AUX_MU_CNTL_REG:
-        return state->aux.aux_mu_cntl = val;
+        state->aux.aux_mu_cntl = val;
+        break;
     case AUX_MU_STAT_REG:
-        return state->aux.aux_mu_stat = val;
+        state->aux.aux_mu_stat = val;
+        break;
     case AUX_MU_BAUD_REG:
-        return state->aux.aux_mu_baud = val;
+        state->aux.aux_mu_baud = val;
+        break;
     }
-
-    return 0;
 }
 
-unsigned long handle_systimer_read(unsigned long addr, int accsz) {
+static unsigned long handle_systimer_read(unsigned long addr, int accsz) {
     struct bcm2837_state *state = (struct bcm2837_state *)current->board_data;
 
     switch (addr) {
@@ -217,6 +364,7 @@ unsigned long handle_systimer_read(unsigned long addr, int accsz) {
     return 0;
 }
 
+// todo: 戻り値は void では
 unsigned long handle_systimer_write(unsigned long addr, unsigned long val, int accsz) {
     struct bcm2837_state *state = (struct bcm2837_state *)current->board_data;
 
