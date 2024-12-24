@@ -163,6 +163,10 @@ const struct bcm2837_state initial_state = {
     },
 };
 
+#define ADDR_IN_INTCTRL(a)  (IRQ_BASIC_PENDING <= (a) && (a) <= DISABLE_BASIC_IRQS)
+#define ADDR_IN_AUX(a)      (AUX_IRQ <= (a) && (a) <= AUX_MU_BAUD_REG)
+#define ADDR_IN_SYSTIMER(a) (TIMER_CS <= (a) && (a) < TIMER_C3)
+
 void bcm2837_initialize(struct task_struct *tsk) {
     struct bcm2837_state *state = (struct bcm2837_state *)allocate_page();
 
@@ -255,7 +259,7 @@ static unsigned long handle_aux_read(unsigned long addr, int accsz) {
         // LCR の 8 ビット目を確認
         if (AUX_MU_LCR_REG & 0x80) {
             // todo: baudrate の下位 8 ビットを返すべき
-        return state->aux.aux_mu_io;
+            return state->aux.aux_mu_io;
         }
         else {
             unsigned long data;
@@ -389,22 +393,28 @@ unsigned long handle_systimer_write(unsigned long addr, unsigned long val, int a
 }
 
 // mmio 領域へのアクセスがあった場合、アドレスに応じてアクセスするデバイスを切りかえる
-unsigned long bcm2837_mmio_read(unsigned long addr, int accsz) {
-    if (AUX_IRQ <= addr && addr <= AUX_MU_BAUD_REG) {
-        return handle_mini_uart_read(addr, accsz);
+static unsigned long bcm2837_mmio_read(unsigned long addr, int accsz) {
+    if (ADDR_IN_INTCTRL(addr)) {
+        return handle_intctrl_read(addr, accsz);
     }
-    else if (TIMER_CS <= addr && addr < TIMER_C3) {
+    else if (ADDR_IN_AUX(addr)) {
+        return handle_aux_read(addr, accsz);
+    }
+    else if (ADDR_IN_SYSTIMER(addr)) {
         return handle_systimer_read(addr, accsz);
     }
 
     return 0;
 }
 
-void bcm2837_mmio_write(unsigned long addr, unsigned long val, int accsz) {
-    if (AUX_IRQ <= addr && addr <= AUX_MU_BAUD_REG) {
-        handle_mini_uart_write(addr, val, accsz);
+static void bcm2837_mmio_write(unsigned long addr, unsigned long val, int accsz) {
+    if (ADDR_IN_INTCTRL(addr)) {
+        handle_intctrl_write(addr, val, accsz);
     }
-    else if (TIMER_CS <= addr && addr < TIMER_C3) {
+    else if (ADDR_IN_AUX(addr)) {
+        handle_aux_write(addr, val, accsz);
+    }
+    else if (ADDR_IN_SYSTIMER(addr)) {
         handle_systimer_write(addr, val, accsz);
     }
 }
