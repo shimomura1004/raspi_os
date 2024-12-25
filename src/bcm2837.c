@@ -31,18 +31,18 @@ struct bcm2837_state {
     struct aux_peripherals_regs {
         struct fifo *mu_tx_fifo;
         struct fifo *mu_rx_fifo;
+        int mu_rx_overrun;
         uint8_t  aux_irq;
         uint8_t  aux_enables;
+        // todo: 不要では？
         uint8_t  aux_mu_io;
         uint8_t  aux_mu_ier;
         uint8_t  aux_mu_iir;
         uint8_t  aux_mu_lcr;
         uint8_t  aux_mu_mcr;
-        uint8_t  aux_mu_lsr;
         uint8_t  aux_mu_msr;
         uint8_t  aux_mu_scratch;
         uint8_t  aux_mu_cntl;
-        uint32_t aux_mu_stat;
         uint16_t aux_mu_baud;
     } aux;
 
@@ -117,10 +117,11 @@ struct bcm2837_state {
 // AUX_MU_MSR_REG: Modem Status Register?
 //   [31:8] Reserved
 //   [7:6]  Reserved
-//   [5]    CTS status
+//   [5]    CTS status (CTS: clear to send)
 //          This bit is the inverse of the UART1_CTS input Thus:
 //            If set the UART1_CTS pin is low
 //            If clear the UART1_CTS pin is high
+//          CTS と RTS はクロスして通信相手とつなぎ、CTS が low のときに送信可能という意味
 //   [4]?
 //   [3:0]  reserved
 const struct bcm2837_state initial_state = {
@@ -145,11 +146,10 @@ const struct bcm2837_state initial_state = {
         .aux_mu_iir     = 0xc1,     // 0xc1 はリセット時の初期値
         .aux_mu_lcr     = 0x0,
         .aux_mu_mcr     = 0x0,
-        .aux_mu_lsr     = 0x40,     // 0x40 はリセット時の初期値
-        .aux_mu_msr     = 0x20,     // 0x20 はリセット時の初期値
+        // todo: MSR.CTS=1 にしたいなら 0x20(0b0010_0000) では？
+        .aux_mu_msr     = 0x10,     // AUX_M_MSR_REG.CTS=1 なので UART1_CTS=0、つまり送信可能
         .aux_mu_scratch = 0x0,
         .aux_mu_cntl    = 0x3,      // 0x3 はリセット時の初期値
-        .aux_mu_stat    = 0x30c,    // 0x30c はリセット時の初期値
         .aux_mu_baud    = 0x0,
     },
     .systimer = {
@@ -243,6 +243,8 @@ static void handle_intctrl_write(unsigned long addr, unsigned long val, int accs
     }
 }
 
+#define LCR_DLAB 0x80
+
 static unsigned long handle_aux_read(unsigned long addr, int accsz) {
     struct bcm2837_state *state = (struct bcm2837_state *)current->board_data;
 
@@ -256,10 +258,11 @@ static unsigned long handle_aux_read(unsigned long addr, int accsz) {
     case AUX_ENABLES:
         return state->aux.aux_enables;
     case AUX_MU_IO_REG:
-        // LCR の 8 ビット目を確認
-        if (AUX_MU_LCR_REG & 0x80) {
-            // todo: baudrate の下位 8 ビットを返すべき
-            return state->aux.aux_mu_io;
+        if (state->aux.aux_mu_lcr & LCR_DLAB) {
+            // todo: なぜ DLAB をクリアする？
+            state->aux.aux_mu_lcr &= ~LCR_DLAB;
+            // DLAB=1 のときは baudrate の下位 8 ビットを返す
+            return state->aux.aux_mu_baud & 0xff;
         }
         else {
             unsigned long data;
@@ -267,23 +270,51 @@ static unsigned long handle_aux_read(unsigned long addr, int accsz) {
             return data;
         }
     case AUX_MU_IER_REG:
-        return state->aux.aux_mu_ier;
+        if (state->aux.aux_mu_lcr & LCR_DLAB) {
+            // DLAB=1 のときは baudrate の上位 8 ビットを返す
+            return state->aux.aux_mu_baud >> 8;
+        }
+        else {
+            return state->aux.aux_mu_ier;
+        }
     case AUX_MU_IIR_REG:
         return state->aux.aux_mu_iir;
     case AUX_MU_LCR_REG:
         return state->aux.aux_mu_lcr;
     case AUX_MU_MCR_REG:
         return state->aux.aux_mu_mcr;
-    case AUX_MU_LSR_REG:
-        return state->aux.aux_mu_lsr;
+    case AUX_MU_LSR_REG: {
+        int dready = !is_empty_fifo(state->aux.mu_rx_fifo);
+        int rx_overrun = state->aux.mu_rx_overrun;
+        int tx_empty = !is_full_fifo(state->aux.mu_tx_fifo);
+        int tx_idle = is_empty_fifo(state->aux.mu_tx_fifo);
+        // overrun は LSR レジスタを読み込むとクリアされる仕様
+        state->aux.mu_rx_overrun = 0;
+        // レジスタの値を生成して返す
+        return (dready << 0) | (rx_overrun << 1) | (tx_empty << 5) | (tx_idle << 6);
+    }
     case AUX_MU_MSR_REG:
         return state->aux.aux_mu_msr;
     case AUX_MU_SCRATCH:
         return state->aux.aux_mu_scratch;
     case AUX_MU_CNTL_REG:
         return state->aux.aux_mu_cntl;
-    case AUX_MU_STAT_REG:
-        return state->aux.aux_mu_stat;
+    case AUX_MU_STAT_REG: {
+        #define MIN(a, b) ((a) < (b) ? (a) : (b))
+        int sym_avail = !is_empty_fifo(state->aux.mu_rx_fifo);
+        int space_avail = !is_full_fifo(state->aux.mu_tx_fifo);
+        int rx_idle = is_empty_fifo(state->aux.mu_rx_fifo);
+        int tx_idle = is_empty_fifo(state->aux.mu_tx_fifo);
+        int rx_overrun = state->aux.mu_rx_overrun;
+        int tx_full = !space_avail;
+        int tx_empty = is_empty_fifo(state->aux.mu_tx_fifo);
+        int tx_done = rx_idle & tx_empty;
+        int rx_fill_level = MIN(used_of_fifo(state->aux.mu_rx_fifo), 8);
+        int tx_fill_level = MIN(used_of_fifo(state->aux.mu_tx_fifo), 8);
+        return (sym_avail << 0) | (space_avail << 1) | (rx_idle << 2) | (tx_idle << 3) |
+               (rx_overrun << 4) | (tx_full << 5) | (tx_empty << 8) | (tx_done << 9) |
+               (rx_fill_level << 16) | (tx_fill_level << 24);
+    }
     case AUX_MU_BAUD_REG:
         return state->aux.aux_mu_baud;
     }
@@ -298,25 +329,38 @@ static void handle_aux_write(unsigned long addr, unsigned long val, int accsz) {
         return;
     }
 
+    // todo: 一部のレジスタの READ しかできないビットにも値が書き込まれてしまう
     switch (addr) {
     case AUX_ENABLES:
         state->aux.aux_enables = val;
         break;
     case AUX_MU_IO_REG:
-        if (AUX_MU_LCR_REG & 0x80) {
-            // todo: baudrate の下位 8 ビットを設定するべき
-            state->aux.aux_mu_io = val;
+        if (state->aux.aux_mu_lcr & LCR_DLAB) {
+            // todo: なぜクリア？
+            state->aux.aux_mu_lcr &= ~LCR_DLAB;
+            // DLAB=1 のときは baudrate の下位 8 ビットを設定
+            state->aux.aux_mu_baud = (state->aux.aux_mu_baud & 0xff00) | (val & 0xff);
         }
         else {
             enqueue_fifo(state->aux.mu_tx_fifo, val && 0xff);
         }
-        state->aux.aux_mu_io = val;
         break;
     case AUX_MU_IER_REG:
-        state->aux.aux_mu_ier = val;
+        if (state->aux.aux_mu_lcr & LCR_DLAB) {
+            // DLAB=1 のときは baudrate の上位 8 ビットを設定
+            state->aux.aux_mu_baud = (state->aux.aux_mu_baud & 0x00ff) | ((val & 0xff) << 8);
+        }
+        else {
+            state->aux.aux_mu_ier = val;
+        }
         break;
     case AUX_MU_IIR_REG:
-        state->aux.aux_mu_iir = val;
+        if (val & 0x2) {
+            clear_fifo(state->aux.mu_rx_fifo);
+        }
+        if (val & 0x4) {
+            clear_fifo(state->aux.mu_tx_fifo);
+        }
         break;
     case AUX_MU_LCR_REG:
         state->aux.aux_mu_lcr = val;
@@ -324,20 +368,11 @@ static void handle_aux_write(unsigned long addr, unsigned long val, int accsz) {
     case AUX_MU_MCR_REG:
         state->aux.aux_mu_mcr = val;
         break;
-    case AUX_MU_LSR_REG:
-        state->aux.aux_mu_lsr = val;
-        break;
-    case AUX_MU_MSR_REG:
-        state->aux.aux_mu_msr = val;
-        break;
     case AUX_MU_SCRATCH:
         state->aux.aux_mu_scratch = val;
         break;
     case AUX_MU_CNTL_REG:
         state->aux.aux_mu_cntl = val;
-        break;
-    case AUX_MU_STAT_REG:
-        state->aux.aux_mu_stat = val;
         break;
     case AUX_MU_BAUD_REG:
         state->aux.aux_mu_baud = val;
