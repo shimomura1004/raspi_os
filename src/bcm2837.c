@@ -170,60 +170,91 @@ void bcm2837_initialize(struct task_struct *tsk) {
     }
 }
 
-static unsigned long handle_intctrl_read(unsigned long addr, int accsz) {
-    struct bcm2837_state *state = (struct bcm2837_state *)current->board_data;
+// Registers and their offsets for interrupts
+// 0x200: IRQ basic pending  
+// 0x204: IRQ pending 1  
+// 0x208: IRQ pending 2  
+// 0x20C: FIQ control  
+// 0x210: Enable IRQs 1  
+// 0x214: Enable IRQs 2  
+// 0x218: Enable Basic IRQs  
+// 0x21C: Disable IRQs 1  
+// 0x220: Disable IRQs 2  
+// 0x224: Disable Basic IRQs
+
+#define BIT(v, n) ((v) & (1 << (n)))
+static unsigned long handle_intctrl_read(struct task_struct *tsk, unsigned long addr) {
+    struct bcm2837_state *state = (struct bcm2837_state *)tsk->board_data;
 
     switch (addr) {
-    case IRQ_BASIC_PENDING:
-        return state->intctrl.irq_basic_pending;
-    case IRQ_PENDING_1:
-        return state->intctrl.irq_pending_1;
+    case IRQ_BASIC_PENDING: {
+        // todo: 8,9 ビット目以外のフィールドの実装が必要
+        int pending1 = handle_intctrl_read(tsk, IRQ_PENDING_1) != 0;
+        int pending2 = handle_intctrl_read(tsk, IRQ_PENDING_2) != 0;
+        return (pending1 << 8) | (pending2 << 9);
+    }
+    case IRQ_PENDING_1: {
+        unsigned long systimer_match1 =
+            BIT(state->intctrl.irqs_1_enabled, 1) && (state->systimer.cs & 0x02);
+        unsigned long systimer_match3 =
+            BIT(state->intctrl.irqs_1_enabled, 3) && (state->systimer.cs & 0x08);
+        // todo: uart の irq 番号は 57 だが、なぜ32を引く？
+        //       irqs_register の 2 にわけてあって、後半は32ビット目からのビット数になっているから？
+        //       だとしたら BIT(state->intctrl.irqs_2_enabled, (57 - 32)) では？
+        unsigned long int uart_int =
+            BIT(state->intctrl.irqs_1_enabled, (57 - 32)) &&
+            (handle_aux_read(tsk, AUX_IRQ) &  0x01);    // AUXIRQ レジスタの0ビット目が UART
+        // todo: BASIC_PENDING や IRQ_PENDING など、割込み関係のレジスタは32ビットしかない
+        //       勝手に64ビット値として返してはダメでは？
+        return (systimer_match1 << 1) | (systimer_match3 << 3) | (uart_int << 57);
+    }
     case IRQ_PENDING_2:
-        return state->intctrl.irq_pending_2;
+        // todo: 仮実装？ IRQ_PENDING_1 の上位32ビットをこっちで返すべきでは？
+        return 0;
     case FIQ_CONTROL:
         return state->intctrl.fiq_control;
     case ENABLE_IRQS_1:
-        return state->intctrl.enable_irqs_1;
+        return state->intctrl.irqs_1_enabled;
     case ENABLE_IRQS_2:
-        return state->intctrl.enable_irqs_2;
+        return state->intctrl.irqs_2_enabled;
     case ENABLE_BASIC_IRQS:
-        return state->intctrl.enable_basic_irqs;
+        return state->intctrl.basic_irqs_enabled;
     case DISABLE_IRQS_1:
-        return state->intctrl.disable_irqs_1;
+        return ~state->intctrl.irqs_1_enabled;
     case DISABLE_IRQS_2:
-        return state->intctrl.disable_irqs_2;
+        return ~state->intctrl.irqs_2_enabled;
     case DISABLE_BASIC_IRQS:
-        return state->intctrl.disable_basic_irqs;
+        return ~state->intctrl.basic_irqs_enabled;
     }
 
     return 0;
 }
 
-static void handle_intctrl_write(unsigned long addr, unsigned long val, int accsz) {
-    struct bcm2837_state *state = (struct bcm2837_state *)current->board_data;
+static void handle_intctrl_write(struct task_struct *tsk, unsigned long addr, unsigned long val) {
+    struct bcm2837_state *state = (struct bcm2837_state *)tsk->board_data;
 
-    // 書き込めるレジスタは限定されている
+    // 書き込みができないレジスタもあるので handle_intctrl_read と一対一で対応しない
     switch (addr) {
     case FIQ_CONTROL:
         state->intctrl.fiq_control = val;
         break;
     case ENABLE_IRQS_1:
-        state->intctrl.enable_irqs_1 = val;
+        state->intctrl.irqs_1_enabled |= val;
         break;
     case ENABLE_IRQS_2:
-        state->intctrl.enable_irqs_2 = val;
+        state->intctrl.irqs_2_enabled |= val;
         break;
     case ENABLE_BASIC_IRQS:
-        state->intctrl.enable_basic_irqs = val;
+        state->intctrl.basic_irqs_enabled |= val;
         break;
     case DISABLE_IRQS_1:
-        state->intctrl.disable_irqs_1 = val;
+        state->intctrl.irqs_1_enabled &= ~val;
         break;
     case DISABLE_IRQS_2:
-        state->intctrl.disable_irqs_2 = val;
+        state->intctrl.irqs_2_enabled &= ~val;
         break;
     case DISABLE_BASIC_IRQS:
-        state->intctrl.disable_basic_irqs = val;
+        state->intctrl.basic_irqs_enabled &= ~val;
         break;
     }
 }
