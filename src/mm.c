@@ -211,19 +211,20 @@ int handle_mem_abort(unsigned long addr, unsigned long esr) {
 
 		const struct board_ops *ops = current->board_ops;
 		if (ops) {
-			int sas = (esr >> 22) & 0x03;	// Syndrome access size
+			// (今のところは)アクセスサイズは 4byte 固定なので SAS は不要
+			//int sas = (esr >> 22) & 0x03;	// Syndrome access size
 			int srt = (esr >> 16) & 0x1f;	// Syndrome register transfer
 			int wnr = (esr >>  6) & 0x01;	// Write not read
 			if (wnr == 0) {
-				// read で例外が発生
+				// mmio を read しようとして例外が発生
 				if (ops->mmio_read) {
-					regs->regs[srt] = ops->mmio_read(addr, sas);
+					regs->regs[srt] = ops->mmio_read(current, addr);
 				}
 			}
 			else {
-				// write で例外が発生
+				// mmio を write しようとして例外が発生
 				if (ops->mmio_write) {
-					ops->mmio_write(addr, regs->regs[srt], sas);
+					ops->mmio_write(current, addr, regs->regs[srt]);
 				}
 			}
 		}
