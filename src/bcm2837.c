@@ -152,7 +152,7 @@ const struct bcm2837_state initial_state = {
 #define ADDR_IN_AUX(a)      (AUX_IRQ <= (a) && (a) <= AUX_MU_BAUD_REG)
 #define ADDR_IN_SYSTIMER(a) (TIMER_CS <= (a) && (a) < TIMER_C3)
 
-void bcm2837_initialize(struct task_struct *tsk) {
+static void bcm2837_initialize(struct task_struct *tsk) {
     struct bcm2837_state *state = (struct bcm2837_state *)allocate_page();
 
     *state = initial_state;
@@ -182,6 +182,7 @@ void bcm2837_initialize(struct task_struct *tsk) {
 // 0x220: Disable IRQs 2  
 // 0x224: Disable Basic IRQs
 
+static unsigned long handle_aux_read(struct task_struct *tsk, unsigned long addr);
 #define BIT(v, n) ((v) & (1 << (n)))
 static unsigned long handle_intctrl_read(struct task_struct *tsk, unsigned long addr) {
     struct bcm2837_state *state = (struct bcm2837_state *)tsk->board_data;
@@ -459,34 +460,60 @@ static void handle_systimer_write(struct task_struct *tsk, unsigned long addr, u
 }
 
 // mmio 領域へのアクセスがあった場合、アドレスに応じてアクセスするデバイスを切りかえる
-static unsigned long bcm2837_mmio_read(unsigned long addr, int accsz) {
+static unsigned long bcm2837_mmio_read(struct task_struct *tsk, unsigned long addr) {
     if (ADDR_IN_INTCTRL(addr)) {
-        return handle_intctrl_read(addr, accsz);
+        return handle_intctrl_read(tsk, addr);
     }
     else if (ADDR_IN_AUX(addr)) {
-        return handle_aux_read(addr, accsz);
+        return handle_aux_read(tsk, addr);
     }
     else if (ADDR_IN_SYSTIMER(addr)) {
-        return handle_systimer_read(addr, accsz);
+        return handle_systimer_read(tsk, addr);
     }
 
     return 0;
 }
 
-static void bcm2837_mmio_write(unsigned long addr, unsigned long val, int accsz) {
+static void bcm2837_mmio_write(struct task_struct *tsk, unsigned long addr, unsigned long val) {
     if (ADDR_IN_INTCTRL(addr)) {
-        handle_intctrl_write(addr, val, accsz);
+        handle_intctrl_write(tsk, addr, val);
     }
     else if (ADDR_IN_AUX(addr)) {
-        handle_aux_write(addr, val, accsz);
+        handle_aux_write(tsk, addr, val);
     }
     else if (ADDR_IN_SYSTIMER(addr)) {
-        handle_systimer_write(addr, val, accsz);
+        handle_systimer_write(tsk, addr, val);
     }
+}
+
+static void bcm2837_timer_tick(struct task_struct *tsk) {
+    struct bcm2837_state *state = (struct bcm2837_state *)tsk->board_data;
+
+    state->systimer.counter++;
+
+    // todo: 32ビットだから 0xffffffff では？
+    uint32_t clo = state->systimer.counter & /* 0xffff */ 0xffffffff;
+    int matched = ((clo == state->systimer.c0) << 0) |
+                  ((clo == state->systimer.c1) << 1) |
+                  ((clo == state->systimer.c2) << 2) |
+                  ((clo == state->systimer.c3) << 3);
+    
+    // ~state->systimer.cs: 前回まだ発火していなかったタイマのビットが立っている
+    // matched: 今発火したタイマのビットが立っている
+    // (~state->systimer.cs) & matched: 今回始めて発火したタイマのビットが立っている
+    // todo: 結局 or を取っているだけでは？
+    int fired = (~state->systimer.cs) & matched;
+    state->systimer.cs |= fired;
+}
+
+static int bcm2837_is_interrupt_required(struct task_struct *tsk) {
+    return handle_intctrl_read(tsk, IRQ_BASIC_PENDING) != 0;
 }
 
 const struct board_ops bcm2837_board_ops = {
     .initialize = bcm2837_initialize,
     .mmio_read = bcm2837_mmio_read,
     .mmio_write = bcm2837_mmio_write,
+    .timer_tick = bcm2837_timer_tick,
+    .is_interrupt_required = bcm2837_is_interrupt_required,
 };
