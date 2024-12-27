@@ -17,4 +17,8 @@ extern void _set_sysregs(struct cpu_sysregs *);
 // 各システムレジスタの値を取り出し、x0 が指すメモリアドレスに保存する
 extern void _get_sysregs(struct cpu_sysregs *);
 
+extern void generate_vfiq(void);
+extern void generate_virq(void);
+extern void generate_vserror(void);
+
 #endif  /*_UTILS_H */

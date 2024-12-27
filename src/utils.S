@@ -245,6 +245,29 @@ _get_sysregs:
 	*/
 	ret
 
+// todo: これは仮想割込みを発生させないのでは？
+.globl generate_vfiq
+generate_vfiq:
+	mrs x0, hcr_el2
+	and x1, x0, #0x40	// VF(Virtual FIQ) を x1 に取り出し
+	msr hcr_el2, x1		// VF 以外をクリアして HCR_EL2 に戻す？
+	ret
+
+.globl generate_virq
+generate_virq:
+	mrs x0, hcr_el2
+	and x1, x0, #0x80	// VI(Virtual IRQ) を x1 に取り出し
+	msr hcr_el2, x1		// VI 以外をクリアして HCR_EL2 に戻す？
+	ret
+
+.globl generate_vserror
+generate_vserror:
+	mrs x0, hcr_el2
+	and x1, x0, #0x100	// VSI(Virtual SError) を x1 に取り出し
+	msr hcr_el2, x1		// VSI 以外をクリアして HCR_EL2 に戻す？
+	ret
+
+// 使っていない
 // 引数として仮想アドレスを取り、Stage1 と 2 のアドレス変換を行った値を返す 
 .globl do_at
 do_at:
