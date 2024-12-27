@@ -2,6 +2,8 @@
 #include "irq.h"
 #include "utils.h"
 #include "mm.h"
+#include "debug.h"
+#include "board.h"
 
 static struct task_struct init_task = INIT_TASK;
 // 現在実行中のタスクの task_struct
@@ -83,11 +85,24 @@ void set_cpu_sysregs(struct task_struct *task) {
 // 指定したタスクに切り替える
 void switch_to(struct task_struct * next)
 {
-	if (current == next)
+	if (current == next) {
 		return;
+	}
+
 	struct task_struct * prev = current;
 	current = next;
-	set_cpu_sysregs(next);
+
+	// 既に current は next(切り替え先のタスク)になっている
+	set_cpu_sysregs(current);
+	// 割込みが必要なら仮想割込みを生成する
+	//   ハイパーバイザ環境では vCPU に対し割込みを発生させる必要があるので
+	//   vCPU に pCPU が割当たったタイミングで割込みを生成しないといけない
+	if (current->board_ops->is_interrupt_required) {
+		if (current->board_ops->is_interrupt_required(current)) {
+			generate_virq();
+		}
+	}
+
 	// レジスタを控えて実際にタスクを切り替える
 	// 戻ってくるときは別のタスクになっている
 	cpu_switch_to(prev, next);
@@ -110,9 +125,10 @@ void timer_tick()
 	current->counter = 0;
 	// 割込みハンドラは割込み無効状態で開始される
 	// _schedule 関数の処理中に割込みを使う部分があるので割込みを有効にする
-	enable_irq();
+	// todo: なぜ無効のままでよくなった？ EL2 だと割込み発生しない？
+	//enable_irq();
 	_schedule();
-	disable_irq();
+	//disable_irq();
 }
 
 void exit_task(){
