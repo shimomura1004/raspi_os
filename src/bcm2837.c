@@ -261,16 +261,21 @@ static void handle_intctrl_write(struct task_struct *tsk, unsigned long addr, un
 
 #define LCR_DLAB 0x80
 
-static unsigned long handle_aux_read(unsigned long addr, int accsz) {
-    struct bcm2837_state *state = (struct bcm2837_state *)current->board_data;
+static unsigned long handle_aux_read(struct task_struct *tsk, unsigned long addr) {
+    struct bcm2837_state *state = (struct bcm2837_state *)tsk->board_data;
 
+    // AUX が無効だったら 0 を返す
     if ((state->aux.aux_enables & 0x1) == 0 && ADDR_IN_AUX(addr)) {
         return 0;
     }
 
     switch (addr) {
-    case AUX_IRQ:
-        return state->aux.aux_irq;
+    case AUX_IRQ: {
+        // 0 ビット目の UART だけ設定。1,2ビット目の SPI1,2 は未実装
+        int mu_pending = (state->aux.aux_enables & 0x1) &&
+                          ~(handle_aux_read(tsk, AUX_MU_IIR_REG) & 0x1);
+        return mu_pending;
+    }
     case AUX_ENABLES:
         return state->aux.aux_enables;
     case AUX_MU_IO_REG:
@@ -293,8 +298,19 @@ static unsigned long handle_aux_read(unsigned long addr, int accsz) {
         else {
             return state->aux.aux_mu_ier;
         }
-    case AUX_MU_IIR_REG:
-        return state->aux.aux_mu_iir;
+    case AUX_MU_IIR_REG: {
+        int tx_int = (state->aux.aux_mu_ier & 0x2) && 
+                      is_empty_fifo(state->aux.mu_tx_fifo);
+        int rx_int = (state->aux.aux_mu_ier & 0x1) &&
+                      !is_empty_fifo(state->aux.mu_rx_fifo);
+        int int_id = (tx_int << 0) | (rx_int << 1);
+        if (int_id == 0x3) {
+            // 仕様上 tx/rx の両方の割込みありで返すことはないので tx だけ割込みありとする
+            int_id = 0x1;
+        }
+        // 0x3 << 6 なので IIR[7:6] FIFO enables は常に有効 
+        return (!int_id) | (int_id << 1) | (0x3 << 6);
+    }
     case AUX_MU_LCR_REG:
         return state->aux.aux_mu_lcr;
     case AUX_MU_MCR_REG:
@@ -338,8 +354,8 @@ static unsigned long handle_aux_read(unsigned long addr, int accsz) {
     return 0;
 }
 
-static void handle_aux_write(unsigned long addr, unsigned long val, int accsz) {
-    struct bcm2837_state *state = (struct bcm2837_state *)current->board_data;
+static void handle_aux_write(struct task_struct *tsk, unsigned long addr, unsigned long val) {
+    struct bcm2837_state *state = (struct bcm2837_state *)tsk->board_data;
 
     if ((state->aux.aux_enables & 0x1) == 0 && ADDR_IN_AUX(addr)) {
         return;
