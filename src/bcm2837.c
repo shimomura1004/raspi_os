@@ -12,32 +12,26 @@
 // ハイパーバイザでは BCM2837 をエミュレートする
 
 // BCM2837 の内部レジスタ
+// todo: 実機にあるのにここで定義されないレジスタは、別の状態から都度計算しているから？確認する
 struct bcm2837_state {
     // 7 Interrupt controller -> 7.5 Registers
     struct intctrl_regs {
-        uint8_t irq_basic_pending;
-        uint8_t irq_pending_1;
-        uint8_t irq_pending_2;
+        // Arm peripherals interrupt table(IRQ 0-64, Timer, Mailbox...)
+        uint8_t irq_enabled[72];
         uint8_t fiq_control;
-        uint8_t enable_irqs_1;
-        uint8_t enable_irqs_2;
-        uint8_t enable_basic_irqs;
-        uint8_t disable_irqs_1;
-        uint8_t disable_irqs_2;
-        uint8_t disable_basic_irqs;
+        uint8_t irqs_1_enabled;
+        uint8_t irqs_2_enabled;
+        uint8_t basic_irqs_enabled;
     } intctrl;
 
     // aux_* は UART1, SPI1, SPI2 に関連するレジスタ
     struct aux_peripherals_regs {
         struct fifo *mu_tx_fifo;
         struct fifo *mu_rx_fifo;
-        int mu_rx_overrun;
-        uint8_t  aux_irq;
+        int      mu_rx_overrun;
         uint8_t  aux_enables;
-        // todo: 不要では？
-        uint8_t  aux_mu_io;
+        uint8_t  aux_mu_io;         // todo: 不要では？
         uint8_t  aux_mu_ier;
-        uint8_t  aux_mu_iir;
         uint8_t  aux_mu_lcr;
         uint8_t  aux_mu_mcr;
         uint8_t  aux_mu_msr;
@@ -56,8 +50,7 @@ struct bcm2837_state {
     //   ...
     struct systimer_regs {
         uint32_t cs;        // System Timer Control/Status
-        uint32_t clo;       // System Timer Counter Lower 32 bits
-        uint32_t chi;       // System Timer Counter Higher 32 bits
+        uint64_t counter;   // System Timer Counter Lower/Higher (clo, chi) を合わせて表現
         uint32_t c0;        // System Timer Compare 0
         uint32_t c1;        // System Timer Compare 1
         uint32_t c2;        // System Timer Compare 2
@@ -126,24 +119,17 @@ struct bcm2837_state {
 //   [3:0]  reserved
 const struct bcm2837_state initial_state = {
     .intctrl = {
-        .irq_basic_pending   = 0x0,
-        .irq_pending_1       = 0x0,
-        .irq_pending_2       = 0x0,
         .fiq_control         = 0x0,
-        .enable_irqs_1       = 0x0,
-        .enable_irqs_2       = 0x0,
-        .enable_basic_irqs   = 0x0,
-        .disable_irqs_1      = 0x0,
-        .disable_irqs_2      = 0x0,
-        .disable_basic_irqs  = 0x0,
+        .irqs_1_enabled       = 0x0,
+        .irqs_2_enabled       = 0x0,
+        .basic_irqs_enabled   = 0x0,
     },
     .aux = {
         // fifo の初期化は bcm2837_initialize で行う
-        .aux_irq        = 0x0,
+        .mu_rx_overrun  = 0,
         .aux_enables    = 0x0,
         .aux_mu_io      = 0x0,
         .aux_mu_ier     = 0x0,
-        .aux_mu_iir     = 0xc1,     // 0xc1 はリセット時の初期値
         .aux_mu_lcr     = 0x0,
         .aux_mu_mcr     = 0x0,
         // todo: MSR.CTS=1 にしたいなら 0x20(0b0010_0000) では？
@@ -153,13 +139,12 @@ const struct bcm2837_state initial_state = {
         .aux_mu_baud    = 0x0,
     },
     .systimer = {
-        .cs  = 0x0,
-        .clo = 0x0,
-        .chi = 0x0,
-        .c0  = 0x0,
-        .c1  = 0x0,
-        .c2  = 0x0,
-        .c3  = 0x0,
+        .cs      = 0x0,
+        .counter = 0x0,
+        .c0      = 0x0,
+        .c1      = 0x0,
+        .c2      = 0x0,
+        .c3      = 0x0,
     },
 };
 
