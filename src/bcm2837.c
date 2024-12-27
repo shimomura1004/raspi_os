@@ -412,16 +412,16 @@ static void handle_aux_write(struct task_struct *tsk, unsigned long addr, unsign
     }
 }
 
-static unsigned long handle_systimer_read(unsigned long addr, int accsz) {
-    struct bcm2837_state *state = (struct bcm2837_state *)current->board_data;
+static unsigned long handle_systimer_read(struct task_struct *tsk, unsigned long addr) {
+    struct bcm2837_state *state = (struct bcm2837_state *)tsk->board_data;
 
     switch (addr) {
     case TIMER_CS:
         return state->systimer.cs;
     case TIMER_CLO:
-        return state->systimer.clo;
+        return state->systimer.counter & 0xffffffff;
     case TIMER_CHI:
-        return state->systimer.chi;
+        return state->systimer.counter >> 32;
     case TIMER_C0:
         return state->systimer.c0;
     case TIMER_C1:
@@ -435,28 +435,27 @@ static unsigned long handle_systimer_read(unsigned long addr, int accsz) {
     return 0;
 }
 
-// todo: 戻り値は void では
-unsigned long handle_systimer_write(unsigned long addr, unsigned long val, int accsz) {
-    struct bcm2837_state *state = (struct bcm2837_state *)current->board_data;
+static void handle_systimer_write(struct task_struct *tsk, unsigned long addr, unsigned long val) {
+    struct bcm2837_state *state = (struct bcm2837_state *)tsk->board_data;
 
     switch (addr) {
     case TIMER_CS:
-        return state->systimer.cs = val;
-    case TIMER_CLO:
-        return state->systimer.clo = val;
-    case TIMER_CHI:
-        return state->systimer.chi = val;
+        // todo: これは正しい？指定したところだけクリアするような振る舞い
+        state->systimer.cs &= ~val;
+        break;
     case TIMER_C0:
-        return state->systimer.c0 = val;
+        state->systimer.c0 = val;
+        break;
     case TIMER_C1:
-        return state->systimer.c1 = val;
+        state->systimer.c1 = val;
+        break;
     case TIMER_C2:
-        return state->systimer.c2 = val;
+        state->systimer.c2 = val;
+        break;
     case TIMER_C3:
-        return state->systimer.c3 = val;
+        state->systimer.c3 = val;
+        break;
     }
-
-    return 0;
 }
 
 // mmio 領域へのアクセスがあった場合、アドレスに応じてアクセスするデバイスを切りかえる
