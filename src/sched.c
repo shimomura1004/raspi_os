@@ -97,7 +97,8 @@ void switch_to(struct task_struct * next)
 	// 割込みが必要なら仮想割込みを生成する
 	//   ハイパーバイザ環境では vCPU に対し割込みを発生させる必要があるので
 	//   vCPU に pCPU が割当たったタイミングで割込みを生成しないといけない
-	if (current->board_ops->is_interrupt_required) {
+	// init task は board_ops が設定されていないのでガードが必要
+	if (HAVE_FUNC(current->board_ops, is_interrupt_required)) {
 		if (current->board_ops->is_interrupt_required(current)) {
 			generate_virq();
 		}

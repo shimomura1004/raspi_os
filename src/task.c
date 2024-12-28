@@ -84,7 +84,7 @@ int create_task(loader_func_t loader, unsigned long arg) {
 
 	// このプロセス(vm)で再現するハードウェア(BCM2837)を初期化
 	p->board_ops = &bcm2837_board_ops;
-	if (p->board_ops->initialize) {
+	if (HAVE_FUNC(p->board_ops, initialize)) {
 		p->board_ops->initialize(p);
 	}
 

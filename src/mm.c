@@ -210,22 +210,20 @@ int handle_mem_abort(unsigned long addr, unsigned long esr) {
 		// アクセス不可に設定してトラップできるようにしていると思われる
 
 		const struct board_ops *ops = current->board_ops;
-		if (ops) {
-			// (今のところは)アクセスサイズは 4byte 固定なので SAS は不要
-			//int sas = (esr >> 22) & 0x03;	// Syndrome access size
-			int srt = (esr >> 16) & 0x1f;	// Syndrome register transfer
-			int wnr = (esr >>  6) & 0x01;	// Write not read
-			if (wnr == 0) {
-				// mmio を read しようとして例外が発生
-				if (ops->mmio_read) {
-					regs->regs[srt] = ops->mmio_read(current, addr);
-				}
+		// (今のところは)アクセスサイズは 4byte 固定なので SAS は不要
+		//int sas = (esr >> 22) & 0x03;	// Syndrome access size
+		int srt = (esr >> 16) & 0x1f;	// Syndrome register transfer
+		int wnr = (esr >>  6) & 0x01;	// Write not read
+		if (wnr == 0) {
+			// mmio を read しようとして例外が発生
+			if (HAVE_FUNC(ops, mmio_read)) {
+				regs->regs[srt] = ops->mmio_read(current, addr);
 			}
-			else {
-				// mmio を write しようとして例外が発生
-				if (ops->mmio_write) {
-					ops->mmio_write(current, addr, regs->regs[srt]);
-				}
+		}
+		else {
+			// mmio を write しようとして例外が発生
+			if (HAVE_FUNC(ops, mmio_write)) {
+				ops->mmio_write(current, addr, regs->regs[srt]);
 			}
 		}
 
