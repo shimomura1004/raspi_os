@@ -37,6 +37,7 @@ void wait_cycles(unsigned int n)
     if(n) while(n--) { asm volatile("nop"); }
 }
 
+// cntfrq_el0: Clock frequency. Indicates the system counter clock frequency in Hz.
 /**
  * Wait N microsec (ARM CPU only)
  */

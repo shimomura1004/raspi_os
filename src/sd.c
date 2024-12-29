@@ -23,11 +23,23 @@
  *
  */
 
-#include "gpio.h"
+#include "_gpio.h"
 #include "debug.h"
 #include "delays.h"
 #include "sd.h"
 
+// SD カードにアクセスするための規格を SDHCI と呼ぶ
+// SDHOST とは SDHCI 規格に準拠した標準的な実装を指す
+// Raspberry Pi には BCM2835-sdhost と、Arasan のコントローラの2つが搭載されている
+//   デフォルトでは SD カードは Arasan のコントローラに接続されている
+//   Arasan のコントローラは WiFi モジュールに搭載された eMMC を読み取る用途で使われているが、
+//     SD カードを読み取る用途でも使うことができる
+//   BCM2835 の SDHOST は SPI で SDHCI のコマンドを受け取るような実装になっている？
+// どちらも SDHCI 規格に準拠しているため、SD カードへのコマンドは共通
+
+// Raspberry Pi 3 での MMIO アドレス
+// BCM2837-ARM-Peripherals.-.Revised.-.V2-1.pdf
+// 5. External Mass Media Controller
 #define EMMC_ARG2           ((volatile unsigned int*)(MMIO_BASE+0x00300000))
 #define EMMC_BLKSIZECNT     ((volatile unsigned int*)(MMIO_BASE+0x00300004))
 #define EMMC_ARG1           ((volatile unsigned int*)(MMIO_BASE+0x00300008))

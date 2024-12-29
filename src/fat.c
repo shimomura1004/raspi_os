@@ -43,6 +43,8 @@ extern unsigned char _end;
 
 static unsigned int partitionlba = 0;
 
+// BPB は各パーティションの最初のセクタに存在する領域で
+// ファイルシステムの物理レイアウトやパラメータを記録するもの
 // the BIOS Parameter Block (in Volume Boot Record)
 typedef struct {
     char            jmp[3];
