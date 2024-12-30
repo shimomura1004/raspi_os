@@ -82,6 +82,26 @@ void set_cpu_sysregs(struct task_struct *task) {
 	_set_sysregs(&(task->cpu_sysregs));
 }
 
+void set_cpu_virtual_interrupt(struct task_struct *task) {
+	// もし current のタスク(VM)に対して irq が発生していたら、仮想割込みを設定する
+	if (HAVE_FUNC(task->board_ops, is_irq_asserted) && task->board_ops->is_irq_asserted(current)) {
+		assert_virq();
+	}
+	else {
+		clear_virq();
+	}
+
+	// fiq も同様
+	if (HAVE_FUNC(task->board_ops, is_fiq_asserted) && task->board_ops->is_fiq_asserted(current)) {
+		assert_vfiq();
+	}
+	else {
+		clear_vfiq();
+	}
+
+	// todo: vserror は？
+}
+
 // 指定したタスクに切り替える
 void switch_to(struct task_struct * next)
 {
@@ -94,15 +114,6 @@ void switch_to(struct task_struct * next)
 
 	// 既に current は next(切り替え先のタスク)になっている
 	set_cpu_sysregs(current);
-	// 割込みが必要なら仮想割込みを生成する
-	//   ハイパーバイザ環境では vCPU に対し割込みを発生させる必要があるので
-	//   vCPU に pCPU が割当たったタイミングで割込みを生成しないといけない
-	// init task は board_ops が設定されていないのでガードが必要
-	if (HAVE_FUNC(current->board_ops, is_interrupt_required)) {
-		if (current->board_ops->is_interrupt_required(current)) {
-			generate_virq();
-		}
-	}
 
 	// レジスタを控えて実際にタスクを切り替える
 	// 戻ってくるときは別のタスクになっている
