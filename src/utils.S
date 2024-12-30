@@ -246,25 +246,49 @@ _get_sysregs:
 	ret
 
 // todo: これは仮想割込みを発生させないのでは？
-.globl generate_vfiq
-generate_vfiq:
+.globl assert_vfiq
+assert_vfiq:
 	mrs x0, hcr_el2
 	and x1, x0, #0x40	// VF(Virtual FIQ) を x1 に取り出し
 	msr hcr_el2, x1		// VF 以外をクリアして HCR_EL2 に戻す？
 	ret
 
-.globl generate_virq
-generate_virq:
+.globl assert_virq
+assert_virq:
 	mrs x0, hcr_el2
 	and x1, x0, #0x80	// VI(Virtual IRQ) を x1 に取り出し
 	msr hcr_el2, x1		// VI 以外をクリアして HCR_EL2 に戻す？
 	ret
 
-.globl generate_vserror
-generate_vserror:
+.globl assert_vserror
+assert_vserror:
 	mrs x0, hcr_el2
 	and x1, x0, #0x100	// VSI(Virtual SError) を x1 に取り出し
 	msr hcr_el2, x1		// VSI 以外をクリアして HCR_EL2 に戻す？
+	ret
+
+.globl clear_vfiq
+clear_vfiq:
+	mrs x0, hcr_el2
+	// bic(bit clear)
+	//   bic x0, x1, x2: x0 = x1 & ~x2
+	// つまり hcr_el2 の VF を 0 にしたものを x1 に入れる
+	bic x1, x0, #0x40
+	msr hcr_el2, x1
+	ret
+
+.globl clear_virq
+clear_virq:
+	mrs x0, hcr_el2
+	bic x1, x0, #0x80
+	msr hcr_el2, x1
+	ret
+
+.globl clear_vserror
+clear_vserror:
+	mrs x0, hcr_el2
+	bic x1, x0, #0x100
+	msr hcr_el2, x1
 	ret
 
 // 使っていない

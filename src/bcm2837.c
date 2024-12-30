@@ -506,8 +506,13 @@ static void bcm2837_timer_tick(struct task_struct *tsk) {
     state->systimer.cs |= fired;
 }
 
-static int bcm2837_is_interrupt_required(struct task_struct *tsk) {
+static int bcm2837_is_irq_asserted(struct task_struct *tsk) {
     return handle_intctrl_read(tsk, IRQ_BASIC_PENDING) != 0;
+}
+
+static int bcm2837_is_fiq_asserted(struct task_struct *tsk) {
+    // todo: 実装する
+    return 0;
 }
 
 const struct board_ops bcm2837_board_ops = {
@@ -515,5 +520,6 @@ const struct board_ops bcm2837_board_ops = {
     .mmio_read = bcm2837_mmio_read,
     .mmio_write = bcm2837_mmio_write,
     .timer_tick = bcm2837_timer_tick,
-    .is_interrupt_required = bcm2837_is_interrupt_required,
+    .is_irq_asserted = bcm2837_is_irq_asserted,
+    .is_fiq_asserted = bcm2837_is_fiq_asserted,
 };
