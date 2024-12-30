@@ -23,6 +23,7 @@
  *
  */
 
+#include "peripherals/base.h"
 #include "_gpio.h"
 #include "debug.h"
 #include "delays.h"
@@ -40,23 +41,23 @@
 // Raspberry Pi 3 での MMIO アドレス
 // BCM2837-ARM-Peripherals.-.Revised.-.V2-1.pdf
 // 5. External Mass Media Controller
-#define EMMC_ARG2           ((volatile unsigned int*)(MMIO_BASE+0x00300000))
-#define EMMC_BLKSIZECNT     ((volatile unsigned int*)(MMIO_BASE+0x00300004))
-#define EMMC_ARG1           ((volatile unsigned int*)(MMIO_BASE+0x00300008))
-#define EMMC_CMDTM          ((volatile unsigned int*)(MMIO_BASE+0x0030000C))
-#define EMMC_RESP0          ((volatile unsigned int*)(MMIO_BASE+0x00300010))
-#define EMMC_RESP1          ((volatile unsigned int*)(MMIO_BASE+0x00300014))
-#define EMMC_RESP2          ((volatile unsigned int*)(MMIO_BASE+0x00300018))
-#define EMMC_RESP3          ((volatile unsigned int*)(MMIO_BASE+0x0030001C))
-#define EMMC_DATA           ((volatile unsigned int*)(MMIO_BASE+0x00300020))
-#define EMMC_STATUS         ((volatile unsigned int*)(MMIO_BASE+0x00300024))
-#define EMMC_CONTROL0       ((volatile unsigned int*)(MMIO_BASE+0x00300028))
-#define EMMC_CONTROL1       ((volatile unsigned int*)(MMIO_BASE+0x0030002C))
-#define EMMC_INTERRUPT      ((volatile unsigned int*)(MMIO_BASE+0x00300030))
-#define EMMC_INT_MASK       ((volatile unsigned int*)(MMIO_BASE+0x00300034))
-#define EMMC_INT_EN         ((volatile unsigned int*)(MMIO_BASE+0x00300038))
-#define EMMC_CONTROL2       ((volatile unsigned int*)(MMIO_BASE+0x0030003C))
-#define EMMC_SLOTISR_VER    ((volatile unsigned int*)(MMIO_BASE+0x003000FC))
+#define EMMC_ARG2           ((volatile unsigned int*)(PBASE+0x00300000))
+#define EMMC_BLKSIZECNT     ((volatile unsigned int*)(PBASE+0x00300004))
+#define EMMC_ARG1           ((volatile unsigned int*)(PBASE+0x00300008))
+#define EMMC_CMDTM          ((volatile unsigned int*)(PBASE+0x0030000C))
+#define EMMC_RESP0          ((volatile unsigned int*)(PBASE+0x00300010))
+#define EMMC_RESP1          ((volatile unsigned int*)(PBASE+0x00300014))
+#define EMMC_RESP2          ((volatile unsigned int*)(PBASE+0x00300018))
+#define EMMC_RESP3          ((volatile unsigned int*)(PBASE+0x0030001C))
+#define EMMC_DATA           ((volatile unsigned int*)(PBASE+0x00300020))
+#define EMMC_STATUS         ((volatile unsigned int*)(PBASE+0x00300024))
+#define EMMC_CONTROL0       ((volatile unsigned int*)(PBASE+0x00300028))
+#define EMMC_CONTROL1       ((volatile unsigned int*)(PBASE+0x0030002C))
+#define EMMC_INTERRUPT      ((volatile unsigned int*)(PBASE+0x00300030))
+#define EMMC_INT_MASK       ((volatile unsigned int*)(PBASE+0x00300034))
+#define EMMC_INT_EN         ((volatile unsigned int*)(PBASE+0x00300038))
+#define EMMC_CONTROL2       ((volatile unsigned int*)(PBASE+0x0030003C))
+#define EMMC_SLOTISR_VER    ((volatile unsigned int*)(PBASE+0x003000FC))
 
 // command flags
 #define CMD_NEED_APP        0x80000000
@@ -188,6 +189,8 @@ int sd_cmd(unsigned int code, unsigned int arg)
  * read a block from sd card and return the number of bytes read
  * returns 0 on error.
  */
+// todo: 第一引数に lba 以外を渡して使われている箇所がある
+//       fat_getcluster の中とか
 int sd_readblock(unsigned int lba, unsigned char *buffer, unsigned int num)
 {
     int r,c=0,d;
