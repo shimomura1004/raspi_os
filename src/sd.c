@@ -175,14 +175,14 @@ int sd_cmd(unsigned int code, unsigned int arg)
     if (code & CMD_NEED_APP) {
         r = sd_cmd(CMD_APP_CMD | (sd_rca ? CMD_RSPNS_48 : 0), sd_rca);
         if (sd_rca && !r) {
-            PANIC("ERROR: failed to send SD APP command");
+            WARN("ERROR: failed to send SD APP command");
             sd_err = SD_ERROR;
             return 0;
         }
         code &= ~CMD_NEED_APP;
     }
     if (sd_status(SR_CMD_INHIBIT)) {
-        PANIC("ERROR: EMMC busy");
+        WARN("ERROR: EMMC busy");
         sd_err = SD_TIMEOUT;
         return 0;
     }
@@ -198,7 +198,7 @@ int sd_cmd(unsigned int code, unsigned int arg)
     }
 
     if ((r = sd_int(INT_CMD_DONE))) {
-        PANIC("ERROR: failed to send EMMC command");
+        WARN("ERROR: failed to send EMMC command");
         sd_err = r;
         return 0;
     }
@@ -273,7 +273,7 @@ int sd_readblock(unsigned int lba, unsigned char *buffer, unsigned int num) {
             }
         }
         if ((r = sd_int(INT_READ_RDY))) {
-            PANIC("ERROR: Timeout waiting for ready to read");
+            WARN("ERROR: Timeout waiting for ready to read");
             sd_err = r;
             return 0;
         }
@@ -300,7 +300,7 @@ int sd_clk(unsigned int f) {
         wait_msec(1);
     }
     if (cnt <= 0) {
-        PANIC("ERROR: timeout waiting for inhibit flag");
+        WARN("ERROR: timeout waiting for inhibit flag");
         return SD_ERROR;
     }
 
@@ -362,7 +362,7 @@ int sd_clk(unsigned int f) {
         wait_msec(10);
     }
     if (cnt <= 0) {
-        PANIC("ERROR: failed to get stable clock");
+        WARN("ERROR: failed to get stable clock");
         return SD_ERROR;
     }
     return SD_OK;
@@ -419,7 +419,7 @@ int sd_init() {
         wait_msec(10);
     } while ((get32(EMMC_CONTROL1) & C1_SRST_HC) && cnt--);
     if (cnt <= 0) {
-        PANIC("ERROR: failed to reset EMMC");
+        WARN("ERROR: failed to reset EMMC");
         return SD_ERROR;
     }
     INFO("EMMC: reset OK");
@@ -458,7 +458,7 @@ int sd_init() {
         }
         INFO("EMMC: CMD_SEND_OP_COND returned %s %x %x", ret, r >> 32, r);
         if (sd_err != SD_TIMEOUT && sd_err != SD_OK) {
-            PANIC("ERROR: EMMC ACMD41 returned error");
+            WARN("ERROR: EMMC ACMD41 returned error");
             return sd_err;
         }
     }
