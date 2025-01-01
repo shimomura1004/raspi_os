@@ -66,13 +66,15 @@ struct fat32_boot {
 
 // file system info
 struct fat32_fsi {
-    uint32_t    FSI_LeadSig;
-    uint8_t     FSI_Reserved1[480];
-    uint32_t    FSI_StrucSig;
-    uint32_t    FSI_Free_Count;
-    uint32_t    FSI_Nxt_Free;
-    uint8_t     FSI_Reserved2[12];
-    uint32_t    FSI_TrailSig;
+    uint32_t    FSI_LeadSig;        // 0x41615252
+    uint8_t     FSI_Reserved1[480]; // 予約領域
+    uint32_t    FSI_StrucSig;       // 0x61417272
+    uint32_t    FSI_Free_Count;     // ボリューム内で未使用のクラスタ数(0xffffffff なら不明)
+                                    // 間違っている可能性があるので信じず検証したほうがいい
+    uint32_t    FSI_Nxt_Free;       // ドライバが次の空きクラスタを探すときに使うべきクラスタ番号
+                                    // 0xffffffff なら不明なので 2(root) から探し始めないといけない
+    uint8_t     FSI_Reserved2[12];  // 予約領域
+    uint32_t    FSI_TrailSig;       // 0xaa550000
 } __attribute__((__packed__));
 
 #define ATTR_READ_ONLY   0x01
