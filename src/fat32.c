@@ -24,38 +24,44 @@
 #define FAT32_MAX_FILENAME_LEN  255
 #define BLOCKSIZE               512
 
-// todo: メンバ名を変更する
 // the BIOS Parameter Block (in Volume Boot Record)
+// https://wiki.osdev.org/FAT#FAT_32
 struct fat32_boot {
-    uint8_t     BS_JmpBoot[3];
-    uint8_t     BS_OEMName[8];
-    uint16_t    BPB_BytsPerSec;
-    uint8_t     BPB_SecPerClus;
-    uint16_t    BPB_RsvdSecCnt;
-    uint8_t     BPB_NumFATs;
-    uint16_t    BPB_RootEntCnt;
-    uint16_t    BPB_TotSec16;
-    uint8_t     BPB_Media;
-    uint16_t    BPB_FATSz16;
-    uint16_t    BPB_SecPerTrk;
-    uint16_t    BPB_NumHeads;
-    uint32_t    BPB_HiddSec;
-    uint32_t    BPB_TotSec32;
-    uint32_t    BPB_FATSz32;
-    uint32_t    BPB_ExtFlags;
-    uint32_t    BPB_FSVer;
-    uint32_t    BPB_RootClus;
-    uint16_t    BPB_FSInfo;
-    uint16_t    BPB_BkBootSec;
-    uint8_t     BPB_Reserved[12];
-    uint8_t     BS_DrvNum;
-    uint8_t     BS_Reserved1;
-    uint8_t     BS_BootSig;
-    uint32_t    BS_VolID;
-    uint8_t     BS_VolLab[11];
-    uint8_t     BS_FilSysType[8];
+    // FAT12/FAT16 で定義
+    uint8_t     BS_JmpBoot[3];      // ジャンプ命令
+    uint8_t     BS_OEMName[8];      // OEM 名だが無視されることが多い
+    uint16_t    BPB_BytsPerSec;     // セクタあたりのバイト数
+    uint8_t     BPB_SecPerClus;     // クラスタあたりのセクタ数
+    uint16_t    BPB_RsvdSecCnt;     // 予約領域のセクタ数
+    uint8_t     BPB_NumFATs;        // FAT(file allocation table)の数
+                                    // 通常は 2 で、多重化されている
+    uint16_t    BPB_RootEntCnt;     // ルートディレクトリのエントリ数
+    uint16_t    BPB_TotSec16;       // ボリューム内の総セクタ数
+                                    // 0 の場合は 65535 以上のセクタがあり、BPB_TotSec32 が使われる
+    uint8_t     BPB_Media;          // media descriptor type(メディアのインチ数とか、片面か両面か、とか)
+    uint16_t    BPB_FATSz16;        // FAT あたりのセクタ数(FAT12/FAT16 のみ)
+    uint16_t    BPB_SecPerTrk;      // トラックあたりのセクタ数
+    uint16_t    BPB_NumHeads;       // ヘッド数もしくはサイド数(片面、両面)
+    uint32_t    BPB_HiddSec;        // 隠しセクタ数
+    uint32_t    BPB_TotSec32;       // Large sector count: TotSec16(2バイト)で足りないときはこちらを使う
+    // FAT32 で追加された領域
+    uint32_t    BPB_FATSz32;        // FAT あたりのセクタ数(FAT32 のみ)
+    uint16_t    BPB_ExtFlags;       // 拡張フラグ(詳細不明)
+    uint16_t    BPB_FSVer;          // FAT のバージョン(上位バがメジャー、下位がマイナ番号)
+    uint32_t    BPB_RootClus;       // ルートディレクトリのクラスタ番号(通常は 2)
+    uint16_t    BPB_FSInfo;         // FSInfo が格納されたセクタのセクタ番号
+    uint16_t    BPB_BkBootSec;      // バックアップのブートセクタのセクタ番号
+    uint8_t     BPB_Reserved[12];   // 予約領域
+    uint8_t     BS_DrvNum;          // ドライブ番号(BIOS の INT 13h で使われるものと同じ定義)
+                                    // 0x80 がハードディスク、0x00 がフロッピーディスク
+    uint8_t     BS_Reserved1;       // Windows NT 用の予約領域
+    uint8_t     BS_BootSig;         // 0x29 か 0x28 が入る
+    uint32_t    BS_VolID;           // ボリュームのシリアル番号だが、無視していい
+                                    // コンピュータをまたいで一意にして、ドライブを区別するために使う想定
+    uint8_t     BS_VolLab[11];      // ボリュームラベル(末尾はスペースで埋める)
+    uint8_t     BS_FilSysType[8];   // ファイルシステムの種類だが、常に "FAT32   " が入る
     uint8_t     BS_BootCode32[420]; // ブートストラップのコード
-    uint16_t    BS_BootSign;        // 有効なブートセクタである場合 0xaa55
+    uint16_t    BS_BootSign;        // 有効なブートセクタである場合 0xaa55 が入る
 } __attribute__((__packed__));
 
 // file system info
