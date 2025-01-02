@@ -128,24 +128,25 @@ enum fat32_file_type {
     FAT32_DIR,
 };
 
+// ファイルを表す構造体
 struct fat32_file {
-    struct fat32_fs *fat32;
-    uint8_t attr;
-    uint32_t size;
-    uint32_t cluster;
+    struct      fat32_fs *fat32;    // このファイルが所属するファイルシステム
+    uint8_t     attr;               // ファイル属性
+    uint32_t    size;               // ファイルサイズ
+    uint32_t    cluster;            // ファイルの先頭クラスタ
 };
 
-// todo: 何を表す構造体なのかを把握する
+// ファイルシステムを表す構造体
 struct fat32_fs {
-    struct fat32_boot boot;
-    struct fat32_fsi fsi;
-    uint32_t fatstart;
-    uint32_t fatsectors;
-    uint32_t rootstart;
-    uint32_t rootsectors;
-    uint32_t datastart;
-    uint32_t datasectors;
-    struct fat32_file root;
+    struct      fat32_boot boot;    // BPB
+    struct      fat32_fsi fsi;      // FSInfo
+    uint32_t    fatstart;           // FAT 領域の先頭(セクタ単位のオフセット)
+    uint32_t    fatsectors;         // FAT 領域のセクタ数
+    uint32_t    rootstart;          // ルートディレクトリのエントリの開始位置(セクタ単位のオフセット)
+    uint32_t    rootsectors;        // ルートディレクトリのエントリに使われているセクタ数
+    uint32_t    datastart;          // (セクタ単位のオフセット)
+    uint32_t    datasectors;        //
+    struct      fat32_file root;    // ルートディレクトリ
 };
 
 // クラスタ番号
@@ -171,7 +172,7 @@ int strncmp(const char *s1, const char *s2, size_t n) {
     return (i != n) ? (*s1 - *s2) : 0;
 }
 
-// todo: 動作を把握する
+// 空きページを確保して、指定された LBA から 1ブロック分のデータを読み込む
 static uint8_t *alloc_and_readblock(unsigned int lba) {
     uint8_t *buf = (uint8_t *)allocate_page();
     if (sd_readblock(lba, buf, 1)) {
@@ -180,7 +181,7 @@ static uint8_t *alloc_and_readblock(unsigned int lba) {
     return buf;
 }
 
-// todo: 動作を把握する
+// BPB が正しいかどうかをチェックする
 static int fat32_is_valid_boot(struct fat32_boot *boot) {
     if (boot->BS_BootSign != 0xaa55) {
         return 0;
@@ -191,7 +192,7 @@ static int fat32_is_valid_boot(struct fat32_boot *boot) {
     return 1;
 }
 
-// todo: 動作を把握する
+// 指定されたファイルシステムにファイルを作る
 static void fat32_file_init(struct fat32_fs *fat32, struct fat32_file *fatfile,
                             uint8_t attr, uint32_t size, uint32_t cluster) {
     fatfile->fat32 = fat32;
@@ -200,24 +201,35 @@ static void fat32_file_init(struct fat32_fs *fat32, struct fat32_file *fatfile,
     fatfile->cluster = cluster;
 }
 
-// todo: 動作を把握する
+// ストレージから先頭の1ブロック(BPB)を読み込み、ルートディレクトリのエントリを初期化する
 int fat32_get_handle(struct fat32_fs *fat32) {
+    // 先頭の BPB を一時的にメモリ上に読み込む
     uint8_t *bbuf = alloc_and_readblock(FAT32_BOOT);
+    // boot 構造体を値コピーして一時的に確保した領域は解放
     fat32->boot = *(struct fat32_boot *)bbuf;
     struct fat32_boot *boot = &(fat32->boot);
     free_page(bbuf);
 
+    // 予約領域のバイト数分飛ばしたところに FAT 領域がある
     fat32->fatstart = boot->BPB_RsvdSecCnt;
+    // FAT 領域は隙間なく並んでいるので単純に FAT のセクタ数を FAT の数で掛ける
     fat32->fatsectors = boot->BPB_FATSz32 * boot->BPB_NumFATs;
+    // FAT 領域の直後からユーザデータ領域が始まる
     fat32->rootstart = fat32->fatstart + fat32->fatsectors;
+    // ルートディレクトリのエントリ数から、必要なセクタ数を計算
+    //   データ長 size とブロックの大きさ block_size から、必要なブロック数 count を計算
+    //   count = (size + block_size - 1) / block_size
+    // これと同じことをやっている
     fat32->rootsectors =
-        (sizeof(struct fat32_dent) * boot->BPB_RootEntCnt + boot->BPB_BytsPerSec - 1) /
+        (sizeof(struct fat32_direntry) * boot->BPB_RootEntCnt + boot->BPB_BytsPerSec - 1) /
         boot->BPB_BytsPerSec;
+    // ルートディレクトリ用のエントリのあとにある部分を data と呼ぶ？
     fat32->datastart = fat32->rootstart + fat32->rootsectors;
+    // 残りはすべてデータ領域
     fat32->datasectors = boot->BPB_TotSec32 - fat32->datastart;
 
-    // todo: 動作を把握する
-    // 65526 = 0xfff6
+    // BPB が無効だったり、データセクタ数が 65526 未満だったりしたらエラー
+    // todo: なぜデータのセクタ数が少ないとエラーになる？
     if (fat32->datasectors / boot->BPB_SecPerClus < 65526 || !fat32_is_valid_boot(boot)) {
         WARN("Bad fat32 filesystem.");
         return -1;

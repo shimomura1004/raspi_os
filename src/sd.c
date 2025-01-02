@@ -237,8 +237,6 @@ int sd_cmd(unsigned int code, unsigned int arg)
  * read a block from sd card and return the number of bytes read
  * returns 0 on error.
  */
-// todo: 第一引数に lba 以外を渡して使われている箇所がある
-//       fat_getcluster の中とか
 int sd_readblock(unsigned int lba, unsigned char *buffer, unsigned int num) {
     int r, c = 0, d;
     if (num < 1) {
