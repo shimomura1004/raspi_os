@@ -77,6 +77,7 @@ struct fat32_fsi {
     uint32_t    FSI_TrailSig;       // 0xaa550000
 } __attribute__((__packed__));
 
+// DIR_attribute
 #define ATTR_READ_ONLY   0x01
 #define ATTR_HIDDEN      0x02
 #define ATTR_SYSTEM      0x04
@@ -86,31 +87,40 @@ struct fat32_fsi {
 #define ATTR_LONG_NAME   (ATTR_READ_ONLY | ATTR_HIDDEN | ATTR_SYSTEM | ATTR_VOLUME_ID)
 
 // directory entry
-struct fat32_dent {
-    uint8_t     DIR_Name[11];
-    uint8_t     DIR_Attr;
-    uint8_t     DIR_NTRes;
-    uint8_t     DIR_CrtTimeTenth;
-    uint16_t    DIR_CrtTime;
-    uint16_t    DIR_CrtDate;
-    uint16_t    DIR_LstAccDate;
-    uint16_t    DIR_FstClusHI;
-    uint16_t    DIR_WrtTime;
-    uint16_t    DIR_WrtDate;
-    uint16_t    DIR_FstClusLO;
-    uint32_t    DIR_FileSize;
+struct fat32_direntry {
+    uint8_t     DIR_Name[11];       // ファイル名(8文字) + 拡張子(3文字)
+    uint8_t     DIR_Attr;           // ファイル属性
+    uint8_t     DIR_NTRes;          // Windows NT 用の予約領域
+    uint8_t     DIR_CrtTimeTenth;   // ファイル作成時のタイムスタンプ(1/100 秒)
+                                    // ただし Microsoft による仕様では 1/10 秒となっている
+    uint16_t    DIR_CrtTime;        // ファイル作成時のタイムスタンプ
+                                    // 時 5bit
+                                    // 分 6bit
+                                    // 秒 5bit(ただし2倍する)
+    uint16_t    DIR_CrtDate;        // ファイル作成時の日付
+                                    // 年 7bit (1980年からの差分)
+                                    // 月 4bit
+                                    // 日 5bit
+    uint16_t    DIR_LstAccDate;     // 最終アクセス日(フォーマットは DIR_CrtDate と同じ)
+    uint16_t    DIR_FstClusHI;      // このエントリの先頭のクラスタ番号の上位16ビット
+    uint16_t    DIR_WrtTime;        // 最終更新時間(フォーマットは DIR_CrtTime と同じ)
+    uint16_t    DIR_WrtDate;        // 最終更新日(フォーマットは DIR_CrtDate と同じ)
+    uint16_t    DIR_FstClusLO;      // このエントリの先頭のクラスタ番号の下位16ビット
+    uint32_t    DIR_FileSize;       // ファイルサイズ(バイト単位)
 } __attribute__((__packed__));
 
 // long file name entry
-struct fat32_lfnent {
-    uint8_t     LDIR_Ord;
-    uint8_t     LDIR_Name1[10];
-    uint8_t     LDIR_Attr;
-    uint8_t     LDIR_Type;
-    uint8_t     LDIR_Chksum;
-    uint8_t     LDIR_Name2[12];
-    uint16_t    LDIR_FstClusLO;
-    uint8_t     LDIR_Name3[4];
+struct fat32_lfnentry {
+    uint8_t     LDIR_Ord;           // このエントリの文字列(合計13文字)の位置を表す
+                                    // 複数のエントリを組み合わせて長いファイル名(255文字)を表す
+                                    // 255文字のうちこのエントリの13文字をどこに置くか？を表す
+    uint8_t     LDIR_Name1[10];     // 最初の5文字(1文字あたり2バイト)
+    uint8_t     LDIR_Attr;          // ファイル属性(LFN の場合は常に 0x0F)
+    uint8_t     LDIR_Type;          // Long entry type. ネームエントリの場合は 0
+    uint8_t     LDIR_Chksum;        // ショートファイル名のチェックサム
+    uint8_t     LDIR_Name2[12];     // 次の6文字
+    uint16_t    LDIR_FstClusLO;     // 常に 0
+    uint8_t     LDIR_Name3[4];      // 最後の2文字
 } __attribute__((__packed__));
 
 enum fat32_file_type {
