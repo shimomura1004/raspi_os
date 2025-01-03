@@ -310,26 +310,32 @@ static uint32_t cluster_to_sector(struct fat32_fs *fat32, uint32_t cluster) {
     return fat32->datastart + (cluster - 2) * fat32->boot.BPB_SecPerClus;
 }
 
-// todo: 動作を把握する
-static uint8_t create_sum(struct fat32_dent *entry) {
+// ショートファイル名(8文字 + 拡張子3文字)のチェックサムを計算する
+static uint8_t create_checksum(struct fat32_direntry *entry) {
     int i;
-    uint8_t sum;
+    uint8_t checksum;
 
-    for (i = 0, sum = 0; i < 11; i++) {
-        sum = (sum >> 1) + (sum << 7) + entry->DIR_Name[i];
+    // 11 = 8 + 3
+    for (i = 0, checksum = 0; i < 11; i++) {
+        checksum = (checksum >> 1) + (checksum << 7) + entry->DIR_Name[i];
     }
 
-    return sum;
+    return checksum;
 }
 
-// todo: 動作を把握する
-// short file name?
-static char *get_sfn(struct fat32_dent *sfnent) {
+// short file name を取得する
+// FAT では、ファイル名の先頭バイトには特別な意味がある
+//   0x00: 未使用のエントリ
+//   0xe5: ファイルが削除され、現在は未使用となっているエントリ
+//   0x05: 日本語のエンコーディングによっては 0xe5 が通常の文字として使われることがある
+//         これがファイル削除のマーカと間違えられないよう、0xe5 のかわりに 0x05 が使われる
+//         よってファイル名として読む場合には 0x05 は 0xe5 に置き換える必要がある
+static char *get_sfn(struct fat32_direntry *sfnent) {
     static char name[13];
     char *ptr = name;
+    // ファイル名
     for (int i = 0; i < 8; i++, ptr++) {
         *ptr = sfnent->DIR_Name[i];
-        // todo: 0x05 とは？
         if (*ptr == 0x05) {
             *ptr = 0xe5;
         }
@@ -340,6 +346,7 @@ static char *get_sfn(struct fat32_dent *sfnent) {
 
     if (sfnent->DIR_Name[8] != ' ') {
         *ptr++ = '.';
+        // 拡張子
         for (int i = 8; i < 11; i++, ptr++) {
             *ptr = sfnent->DIR_Name[i];
             if (*ptr == 0x05) {
