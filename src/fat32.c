@@ -263,25 +263,30 @@ static uint32_t fatentry_read(struct fat32_fs *fat32, uint32_t index) {
     return entry;
 }
 
-// todo: 動作を把握する
+// クラスタのリンクリストをたどって、指定されたオフセット位置に対応するクラスタ番号を返す
 static uint32_t walk_cluster_chain(struct fat32_fs *fat32, uint32_t offset, uint32_t cluster) {
-    int nlook = offset / (fat32->boot.BPB_SecPerClus * fat32->boot.BPB_BytsPerSec);
+    // オフセット位置が何クラスタ目にあるか(何回クラスタをたどらなくてはいけないか)を計算
+    int clusters_to_traverse =
+        offset / (fat32->boot.BPB_SecPerClus * fat32->boot.BPB_BytsPerSec);
 
     struct fat32_boot *boot = &fat32->boot;
     uint8_t *bbuf = NULL;
     uint32_t prevsector = 0;
 
-    for (int i = 0; i < nlook; i++) {
+    for (int i = 0; i < clusters_to_traverse; i++) {
+        // 今見ているクラスタの FAT エントリが含まれるクラスタ番号と、その中でのオフセットを計算
         uint32_t sector = fat32->fatstart + (cluster * 4 / boot->BPB_BytsPerSec);
         uint32_t offset = cluster * 4 % boot->BPB_BytsPerSec;
 
         if (prevsector != sector) {
+            // 直前に見ていたセクタと異なる場合は、新たにセクタを読み込む
             if (bbuf) {
                 free_page(bbuf);
             }
             bbuf = alloc_and_readblock(sector);
         }
 
+        // 次のクラスタ番号を取得
         cluster = *((uint32_t *)(bbuf + offset)) & 0x0fffffff;
         if (!is_active_cluster(cluster)) {
             cluster = BAD_CLUSTER;
