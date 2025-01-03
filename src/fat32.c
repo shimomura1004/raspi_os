@@ -7,6 +7,9 @@
 
 // FAT パーティションの先頭512バイトには BPB があり、その次に FAT がある
 // https://zenn.dev/hidenori3/articles/3ce349c02e79fa
+// 上記の図には書かれていないが、BPB のあとには予約領域として一定数のセクタが確保されている
+// https://us.mrtlab.com/filesystem/FAT-summary-two_2.html
+// ユーザデータ領域だけでなく、BPB や FAT といった領域もすべてセクタ単位で管理されている
 
 // BPB: 各パーティションの最初のセクタに存在する領域で
 //      ファイルシステムの物理レイアウトやパラメータを記録するもの
@@ -210,7 +213,7 @@ int fat32_get_handle(struct fat32_fs *fat32) {
     struct fat32_boot *boot = &(fat32->boot);
     free_page(bbuf);
 
-    // 予約領域のバイト数分飛ばしたところに FAT 領域がある
+    // BPB 領域のあと、いくつかのセクタが予約領域として確保されており、そのあとに FAT 領域がある
     fat32->fatstart = boot->BPB_RsvdSecCnt;
     // FAT 領域は隙間なく並んでいるので単純に FAT のセクタ数を FAT の数で掛ける
     fat32->fatsectors = boot->BPB_FATSz32 * boot->BPB_NumFATs;
@@ -240,12 +243,21 @@ int fat32_get_handle(struct fat32_fs *fat32) {
     return 0;
 }
 
-// todo: 動作を把握する
-static uint32_t fatent_read(struct fat32_fs *fat32, uint32_t index) {
+// ファイルシステム fs の index 番目の FAT エントリを読み込む
+static uint32_t fatentry_read(struct fat32_fs *fat32, uint32_t index) {
     struct fat32_boot *boot = &fat32->boot;
+    // FAT 領域も当然セクタで管理されているので、読みたい FAT エントリが入っているセクタを計算する
+    // FAT32 ではエントリ1つが4バイトなので、セクタあたりのバイト数で割ることで
+    // FAT 領域内のどのセクタに入っているかを計算できる
+    // そこに FAT 領域自体が入っているセクタ数(fatstart)を足すことで読み込むべきセクタ番号がわかる
     uint32_t sector = fat32->fatstart + (index * 4 / boot->BPB_BytsPerSec);
+    // 見つけたセクタ内でのエントリの位置は、上記の計算式の剰余
     uint32_t offset = index * 4 % boot->BPB_BytsPerSec;
+
+    // まずストレージからセクタを1つ分読み取る
     uint8_t *bbuf = alloc_and_readblock(sector);
+    // セクタ内のオフセットを考慮し、狙ったエントリを読み取る
+    // ただし FAT32 では上位4ビットは予約されており 0 にする必要があるので 0x0fffffff でマスクする
     uint32_t entry = *((uint32_t *)(bbuf + offset)) & 0x0fffffff;
     free_page(bbuf);
     return entry;
