@@ -439,21 +439,27 @@ static char *get_lfn(struct fat32_direntry *sfnent, size_t sfnoff, struct fat32_
     return name;
 }
 
-// todo: 動作を把握する
+// 指定されたクラスタ(ファイル)内の指定されたオフセット位置(file_off)に対応するセクタ番号を返す
+// file_off はバイト単位
 static uint32_t fat32_firstblk(struct fat32_fs *fat32, uint32_t cluster, size_t file_off) {
     uint32_t secs_per_clus = fat32->boot.BPB_SecPerClus;
+    // file_off % (...) は、クラスタ内でのオフセットを計算している
+    // それを BLOCKSIZE で割ることで、オフセット位置が含まれるブロックを計算
     uint32_t remblk = file_off % (secs_per_clus * BLOCKSIZE) / BLOCKSIZE;
     return cluster_to_sector(fat32, cluster) + remblk;
 }
 
-// todo: 動作を把握する
+// 次のブロック(セクタ)番号を返す
 static int fat32_nextblk(struct fat32_fs *fat32, int prevblk, uint32_t *cluster) {
   uint32_t secs_per_clus = fat32->boot.BPB_SecPerClus;
   if (prevblk % secs_per_clus != secs_per_clus - 1) {
+      // prevblk がクラスタ内の最後のブロック(セクタ)でない場合は、次のブロック(セクタ)番号を返す
     return prevblk + 1;
   } else {
+    // クラスタをまたぐときは、次のクラスタを cluster 変数に読み込み
+    // そして、そのクラスタの最初のブロック(セクタ)番号を返す
     // go over a cluster boundary
-    *cluster = fatent_read(fat32, *cluster);
+    *cluster = fatentry_read(fat32, *cluster);
     return fat32_firstblk(fat32, *cluster, 0);
   }
 }
