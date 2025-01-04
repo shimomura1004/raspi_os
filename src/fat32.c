@@ -476,8 +476,8 @@ static int fat32_lookup_main(struct fat32_file *fatfile, const char *name,
     for (int blkno = fat32_firstblk(fat32, current_cluster, 0);
          is_active_cluster(current_cluster);) {
         bbuf = alloc_and_readblock(blkno);
-        for (uint32_t i = 0; i < BLOCKSIZE; i += sizeof(struct fat32_dent)) {
-            struct fat32_dent *dent = (struct fat32_dent *)(bbuf + i);
+        for (uint32_t i = 0; i < BLOCKSIZE; i += sizeof(struct fat32_direntry)) {
+            struct fat32_direntry *dent = (struct fat32_direntry *)(bbuf + i);
             if (dent->DIR_Name[0] == 0x00)
                 break;
             if (dent->DIR_Name[0] == 0xe5)
@@ -487,7 +487,7 @@ static int fat32_lookup_main(struct fat32_file *fatfile, const char *name,
             char *dent_name = NULL;
             dent_name = get_lfn(
                 dent, i,
-                prevbuf ? prevbuf + (BLOCKSIZE - sizeof(struct fat32_dent))
+                prevbuf ? prevbuf + (BLOCKSIZE - sizeof(struct fat32_direntry))
                         : NULL);
             if (dent_name == NULL)
                 dent_name = get_sfn(dent);
@@ -556,12 +556,12 @@ int fat32_read(struct fat32_file *fatfile, void *buf, unsigned long offset,
     return read_bytes;
 }
 
-// todo: 動作を把握する
+// 指定したファイルのファイルサイズを返す
 int fat32_file_size(struct fat32_file *fatfile) {
     return fatfile->size;
 }
 
-// todo: 動作を把握する
+// 指定したファイルがディレクトリかどうかを返す
 int fat32_is_directory(struct fat32_file *fatfile) {
     return (fatfile->attr & ATTR_DIRECTORY) != 0;
 }
