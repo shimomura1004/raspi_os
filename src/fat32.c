@@ -117,9 +117,9 @@ struct fat32_direntry {
 
 // long file name entry
 struct fat32_lfnentry {
-    uint8_t     LDIR_Ord;           // このエントリの文字列(合計13文字)の位置を表す
-                                    // 複数のエントリを組み合わせて長いファイル名(255文字)を表す
-                                    // 255文字のうちこのエントリの13文字をどこに置くか？を表す
+    uint8_t     LDIR_Ord;           // このエントリが保持する文字列(合計13文字)が何番目かを表す
+                                    // FAT では複数の LFN エントリを使って長いファイル名(255文字)を表す
+                                    // 上記のシーケンス番号は 1~20 で、 0x40 は最終エントリを表す
     uint8_t     LDIR_Name1[10];     // 最初の5文字(1文字あたり2バイト)
     uint8_t     LDIR_Attr;          // ファイル属性(LFN の場合は常に 0x0F)
     uint8_t     LDIR_Type;          // Long entry type. ネームエントリの場合は 0
@@ -128,6 +128,10 @@ struct fat32_lfnentry {
     uint16_t    LDIR_FstClusLO;     // 常に 0
     uint8_t     LDIR_Name3[4];      // 最後の2文字
 } __attribute__((__packed__));
+
+// LFN エントリの終端を表す
+//  LFN エントリの配列は逆順になっているので、このフラグを持つエントリは先頭に置かれるので注意
+#define LAST_LONG_ENTRY 0x40
 
 enum fat32_file_type {
     FAT32_REGULAR,
@@ -311,7 +315,7 @@ static uint32_t cluster_to_sector(struct fat32_fs *fat32, uint32_t cluster) {
 }
 
 // ショートファイル名(8文字 + 拡張子3文字)のチェックサムを計算する
-static uint8_t create_checksum(struct fat32_direntry *entry) {
+static uint8_t calculate_checksum(struct fat32_direntry *entry) {
     int i;
     uint8_t checksum;
 
@@ -362,31 +366,56 @@ static char *get_sfn(struct fat32_direntry *sfnent) {
     return name;
 }
 
-// todo: 動作を把握する
-static char *get_lfn(struct fat32_dent *sfnent, size_t sfnoff, struct fat32_dent *prevblk_dent) {
-    struct fat32_lfnent *lfnent = (struct fat32_lfnent *)sfnent;
-    uint8_t sum = create_sum(sfnent);
+// LFN エントリから long file name を取得する
+// FAT では、ファイル名が長いとき、複数の連続したディレクトリエントリ(LFN)を使ってファイル名を保存する
+// 複数の LFN で長いファイル名を保持したあと、その直後には SFN が続く決まりになっている
+// よって、最後の SFN から逆順に LFN をたどっていくことで長いファイル名を取得できる
+//   長いファイル名自体も逆順に入っているので、LFN を逆順にたどりつつ先頭から順に読めばよい
+//   ファイル名が "Long File Name.txt" のときはこうなっている
+//     LFN: "e.txt" "      " "  "
+//     LFN: "Long " "File N" "am"
+//     SFN: "LONG FI~TXT"
+static char *get_lfn(struct fat32_direntry *sfnent, size_t sfnoff, struct fat32_direntry *prevblk_dent) {
+    struct fat32_lfnentry *lfnent = (struct fat32_lfnentry *)sfnent;
+    // ショートファイル名のチェックサムを計算
+    uint8_t checksum = calculate_checksum(sfnent);
+
+    // 読み込んだロングファイル名はスタティック変数に格納するので同時に呼び出してはいけない
     static char name[256];
     char *ptr = name;
     int seq = 1;
     int is_prev_blk = 0;
 
     while(1) {
+        // ブロック境界をまたぐときは別途受け取った prevblk_dent から読み込む
+        //   ファイル名は255文字以下で2回ブロックをまたぐことはないことを前提にしている
+        // BLOCKSIZE が 2 のべき乗であるとき
+        // (sfnoff & (BLOCKSIZE - 1)) == 0 は sfnoff % BLOCKSIZE == 0 と同じ
+        // つまり sfnoff が BLOCKSIZE の倍数かどうかをチェックしている
+        // ビット演算で剰余を高速に計算できる
         if (!is_prev_blk && (sfnoff & (BLOCKSIZE - 1)) == 0) {
             // block boundary
-            lfnent = (struct fat32_lfnent *)prevblk_dent;
+            lfnent = (struct fat32_lfnentry *)prevblk_dent;
             is_prev_blk = 1;
         }
         else {
+            // LFN エントリは連続して並んでいるので、単純にポインタをデクリメントすればいい
             lfnent--;
         }
 
-        if (lfnent == NULL || lfnent->LDIR_Chksum != sum ||
+        // ATTR_LONG_NAME
+        //   ATTR_LONG_NAME は複数のビットがセットされているので、ビット論理積を取ったあと、
+        //   それが ATTR_LONG_NAME と等しいかどうかをチェックしている
+        // LDIR_Ord
+        //   LFN のシーケンス番号(LDIR_Ord)は 1~20 なので、5ビットでおさまる
+        //   自分が管理しているシーケンス番号(seq)と一致しているかどうかをチェックする
+        if (lfnent == NULL || lfnent->LDIR_Chksum != checksum ||
             (lfnent->LDIR_Attr & ATTR_LONG_NAME) != ATTR_LONG_NAME ||
             (lfnent->LDIR_Ord & 0x1f) != seq++) {
             return NULL;
         }
 
+        // 3つに分かれた部分を順に読みだして name に格納していく
         for (int i = 0; i < 10; i += 2) {
             // UTF16-LE
             *ptr++ = lfnent->LDIR_Name1[i];
@@ -399,11 +428,12 @@ static char *get_lfn(struct fat32_dent *sfnent, size_t sfnoff, struct fat32_dent
             // UTF16-LE
             *ptr++ = lfnent->LDIR_Name3[i];
         }
-        if (lfnent->LDIR_Ord & 0x40) {
+        // LFN エントリの列を読み切ったら抜ける
+        if (lfnent->LDIR_Ord & LAST_LONG_ENTRY) {
             break;
         }
 
-        sfnoff -= sizeof(struct fat32_dent);
+        sfnoff -= sizeof(struct fat32_direntry);
     }
 
     return name;
