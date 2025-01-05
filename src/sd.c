@@ -32,12 +32,19 @@
 
 // SD カードにアクセスするための規格を SDHCI と呼ぶ
 // SDHOST とは SDHCI 規格に準拠した標準的な実装を指す
+// SD カードへのアクセスモードは主に SD モード(Native mode)と SPI モードの2つがある
+//   Native mode が現代の標準的なモードで、4ビット幅のバスを使い高速なアクセスが可能
+//   SPI モードはシリアル通信になるため低速だが実装が容易で組み込みシステムでよく使われる
+
 // Raspberry Pi には BCM2835-sdhost と、Arasan のコントローラの2つが搭載されている
 //   デフォルトでは SD カードは Arasan のコントローラに接続されている
 //   Arasan のコントローラは WiFi モジュールに搭載された eMMC を読み取る用途で使われているが、
 //     SD カードを読み取る用途でも使うことができる
 //   BCM2835 の SDHOST は SPI で SDHCI のコマンドを受け取るような実装になっている？
 // どちらも SDHCI 規格に準拠しているため、SD カードへのコマンドは共通
+
+// このコードでは C0_SPI_MODE_EN フラグを使っていないことから、
+// Native モードで SD カードにアクセスしていると思われる
 
 // Raspberry Pi 3 での MMIO アドレス
 // BCM2837-ARM-Peripherals.-.Revised.-.V2-1.pdf
@@ -67,16 +74,19 @@
 #define CMD_RCA_MASK        0xffff0000
 
 // COMMANDs
-#define CMD_GO_IDLE         0x00000000
-#define CMD_ALL_SEND_CID    0x02010000
-#define CMD_SEND_REL_ADDR   0x03020000
-#define CMD_CARD_SELECT     0x07030000
-#define CMD_SEND_IF_COND    0x08020000
-#define CMD_STOP_TRANS      0x0C030000
-#define CMD_READ_SINGLE     0x11220010
-#define CMD_READ_MULTI      0x12220032
-#define CMD_SET_BLOCKCNT    0x17020000
-#define CMD_APP_CMD         0x37000000
+// SPI Mode でのコマンド一覧
+// http://elm-chan.org/docs/mmc/mmc_e.html
+#define CMD_GO_IDLE         0x00000000  // Software reset
+#define CMD_ALL_SEND_CID    0x02010000  // ?
+#define CMD_SEND_REL_ADDR   0x03020000  // ?
+#define CMD_CARD_SELECT     0x07030000  // ?
+#define CMD_SEND_IF_COND    0x08020000  // For only SDC V2, Check voltage range.
+#define CMD_STOP_TRANS      0x0C030000  // Stop to read data
+#define CMD_READ_SINGLE     0x11220010  // Read a block
+#define CMD_READ_MULTI      0x12220032  // Read multiple blocks
+#define CMD_SET_BLOCKCNT    0x17020000  // For only MMC. Define number of blocks to transfer
+                                        // with next multi-block read/write command.
+#define CMD_APP_CMD         0x37000000  // Leading command of ACMD<n> command
 #define CMD_SET_BUS_WIDTH   (0x06020000 | CMD_NEED_APP)
 #define CMD_SEND_OP_COND    (0x29020000 | CMD_NEED_APP)
 #define CMD_SEND_SCR        (0x33220010 | CMD_NEED_APP)
