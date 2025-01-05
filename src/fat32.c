@@ -450,6 +450,7 @@ static uint32_t fat32_firstblk(struct fat32_fs *fat32, uint32_t cluster, size_t 
 }
 
 // 次のブロック(セクタ)番号を返す
+// 次のクラスタに続く場合は、そのクラスタの最初のブロック(セクタ)番号を返す
 static int fat32_nextblk(struct fat32_fs *fat32, int prevblk, uint32_t *cluster) {
   uint32_t secs_per_clus = fat32->boot.BPB_SecPerClus;
   if (prevblk % secs_per_clus != secs_per_clus - 1) {
@@ -492,10 +493,10 @@ static int fat32_lookup_main(struct fat32_file *fatfile, const char *name,
                 // Microsoft Extensible Firmware Initiative FAT32 File System Specification
                 //   If DIR_Name[0] == 0x00, then the directory entry is free (same as for 0xE5),
                 //   and there are no allocated directory entries after this one (all of
-                //   the DIR_Name[0] bytes in all of the entries after this one are also set to 0). 
+                //   the DIR_Name[0] bytes in all of the entries after this one are also set to 0).
                 //   The special 0 value, rather than the 0xE5 value, indicates to FAT file system
                 //   driver code that the rest of the entries in this directory do not need to be
-                //   examined because they are all free. 
+                //   examined because they are all free.
                 break;
             }
             if (dent->DIR_Name[0] == 0xe5) {
@@ -560,25 +561,30 @@ file_found:
     return 0;
 }
 
-// todo: 動作を把握する
+// ルートディレクトリからファイルを探す
 int fat32_lookup(struct fat32_fs *fat32, const char *name,
                  struct fat32_file *fatfile) {
     return fat32_lookup_main(&fat32->root, name, &fatfile);
 }
 
-// todo: 動作を把握する
+// 指定されたファイル(fatfile)から buf にデータを読み込む
 int fat32_read(struct fat32_file *fatfile, void *buf, unsigned long offset,
                size_t count) {
     struct fat32_fs *fat32 = fatfile->fat32;
-    if (offset < 0)
+    if (offset < 0) {
         return -1;
+    }
+
     uint32_t tail = MIN(count + offset, fatfile->size);
     uint32_t remain = tail - offset;
-    if (tail <= offset)
+    if (tail <= offset) {
         return 0;
+    }
+
     uint32_t current_cluster =
         walk_cluster_chain(fat32, offset, fatfile->cluster);
     uint32_t inblk_off = offset % BLOCKSIZE;
+
     for (int blkno = fat32_firstblk(fat32, current_cluster, offset);
          remain > 0 && is_active_cluster(current_cluster);
          blkno = fat32_nextblk(fat32, blkno, &current_cluster)) {
@@ -586,6 +592,7 @@ int fat32_read(struct fat32_file *fatfile, void *buf, unsigned long offset,
         uint32_t copylen = MIN(BLOCKSIZE - inblk_off, remain);
         memcpy(buf, bbuf + inblk_off, copylen);
         free_page(bbuf);
+
         buf += copylen;
         remain -= copylen;
         inblk_off = 0;
