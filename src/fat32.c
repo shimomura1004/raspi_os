@@ -202,7 +202,7 @@ static int fat32_is_valid_boot(struct fat32_boot *boot) {
     return 1;
 }
 
-// 指定されたファイルシステムにファイルを作る
+// 指定されたファイルに対し fat32_file 構造体を準備する
 static void fat32_file_init(struct fat32_fs *fat32, struct fat32_file *fatfile,
                             uint8_t attr, uint32_t size, uint32_t cluster) {
     fatfile->fat32 = fat32;
@@ -464,61 +464,99 @@ static int fat32_nextblk(struct fat32_fs *fat32, int prevblk, uint32_t *cluster)
   }
 }
 
-// todo: 動作を把握する
+// 指定されたディレクトリ(fatfile)ないから特定のファイル名(name)を探す
+// 子ディレクトリに対して再帰的に探索することはしない
 static int fat32_lookup_main(struct fat32_file *fatfile, const char *name,
                              struct fat32_file *found) {
     struct fat32_fs *fat32 = fatfile->fat32;
-    if (!(fatfile->attr & ATTR_DIRECTORY))
+    // fatfile がディレクトリでない場合はエラー終了
+    if (!(fatfile->attr & ATTR_DIRECTORY)) {
         return -1;
+    }
+
     uint8_t *prevbuf = NULL;
     uint8_t *bbuf = NULL;
     uint32_t current_cluster = fatfile->cluster;
-    for (int blkno = fat32_firstblk(fat32, current_cluster, 0);
-         is_active_cluster(current_cluster);) {
+
+    // ディレクトリの中身を保持するブロック(セクタ)番号を取得
+    int blkno = fat32_firstblk(fat32, current_cluster, 0);
+    while (is_active_cluster(current_cluster)) {
+        // ディレクトリの中身を読み込む
         bbuf = alloc_and_readblock(blkno);
+
+        // ブロックを先頭から順番に見ていく
         for (uint32_t i = 0; i < BLOCKSIZE; i += sizeof(struct fat32_direntry)) {
             struct fat32_direntry *dent = (struct fat32_direntry *)(bbuf + i);
-            if (dent->DIR_Name[0] == 0x00)
+            if (dent->DIR_Name[0] == 0x00) {
+                // 未使用エントリがきたら、このディレクトリにはこれ以上ファイルがない
+                // Microsoft Extensible Firmware Initiative FAT32 File System Specification
+                //   If DIR_Name[0] == 0x00, then the directory entry is free (same as for 0xE5),
+                //   and there are no allocated directory entries after this one (all of
+                //   the DIR_Name[0] bytes in all of the entries after this one are also set to 0). 
+                //   The special 0 value, rather than the 0xE5 value, indicates to FAT file system
+                //   driver code that the rest of the entries in this directory do not need to be
+                //   examined because they are all free. 
                 break;
-            if (dent->DIR_Name[0] == 0xe5)
+            }
+            if (dent->DIR_Name[0] == 0xe5) {
+                // 削除済みエントリ
                 continue;
-            if (dent->DIR_Attr & (ATTR_VOLUME_ID | ATTR_LONG_NAME))
+            }
+            if (dent->DIR_Attr & (ATTR_VOLUME_ID | ATTR_LONG_NAME)) {
+                // ボリューム ID やロングファイル名のエントリは無視
                 continue;
+            }
+
             char *dent_name = NULL;
+            // この LFN エントリの列がブロック境界をまたぐ可能性があるので
+            // 前のブロック(prevbuf)の末尾のエントリへのポインタを渡す
             dent_name = get_lfn(
                 dent, i,
                 prevbuf ? prevbuf + (BLOCKSIZE - sizeof(struct fat32_direntry))
                         : NULL);
-            if (dent_name == NULL)
+            if (dent_name == NULL) {
                 dent_name = get_sfn(dent);
+            }
+
             if (strncmp(name, dent_name, FAT32_MAX_FILENAME_LEN) == 0) {
+                // ファイル名が一致した場合は、そのファイルのクラスタ番号を計算
                 uint32_t dent_clus =
                     (dent->DIR_FstClusHI << 16) | dent->DIR_FstClusLO;
                 if (dent_clus == 0) {
                     // root directory
                     dent_clus = fat32->boot.BPB_RootClus;
                 }
+                // 見つけたエントリに対し fat32_file 構造体を準備して終了
                 fat32_file_init(fat32, found, dent->DIR_Attr,
                                 dent->DIR_FileSize, dent_clus);
                 goto file_found;
             }
         }
-        if (prevbuf != NULL)
+        // ブロックを読み切ったが見つからなかった場合は次のブロックに移動して繰り返す
+        if (prevbuf != NULL) {
             free_page(prevbuf);
+        }
         prevbuf = bbuf;
         bbuf = NULL;
         blkno = fat32_nextblk(fat32, blkno, &current_cluster);
     }
-    if (prevbuf != NULL)
+
+    // ファイルが見つからなかった場合はエラー終了
+    if (prevbuf != NULL) {
         free_page(prevbuf);
-    if (bbuf != NULL)
+    }
+    if (bbuf != NULL) {
         free_page(bbuf);
+    }
     return -1;
+
 file_found:
-    if (prevbuf != NULL)
+    if (prevbuf != NULL) {
         free_page(prevbuf);
-    if (bbuf != NULL)
+    }
+    if (bbuf != NULL) {
         free_page(bbuf);
+    }
     return 0;
 }
 
