@@ -397,6 +397,7 @@ static char *get_lfn(struct fat32_direntry *sfnent, size_t sfnoff, struct fat32_
         sfnoff -= sizeof(struct fat32_direntry);
     }
 
+    *ptr = '\0';
     return name;
 }
 
@@ -528,7 +529,7 @@ file_found:
 // ルートディレクトリからファイルを探す
 int fat32_lookup(struct fat32_fs *fat32, const char *name,
                  struct fat32_file *fatfile) {
-    return fat32_lookup_main(&fat32->root, name, &fatfile);
+    return fat32_lookup_main(&fat32->root, name, fatfile);
 }
 
 // 指定されたファイル(fatfile)から buf にデータを読み込む
