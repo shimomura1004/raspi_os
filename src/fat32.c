@@ -117,7 +117,7 @@ int strncmp(const char *s1, const char *s2, size_t n) {
 // 空きページを確保して、指定された LBA から 1ブロック分のデータを読み込む
 static uint8_t *alloc_and_readblock(unsigned int lba) {
     uint8_t *buf = (uint8_t *)allocate_page();
-    if (sd_readblock(lba, buf, 1)) {
+    if (sd_readblock(lba, buf, 1) < 0) {
         PANIC("sd_readblock() failed.");
     }
     return buf;
