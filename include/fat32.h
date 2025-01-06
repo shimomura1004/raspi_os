@@ -75,6 +75,7 @@ struct fat32_fs {
     uint32_t    rootsectors;        // ルートディレクトリのエントリに使われているセクタ数
     uint32_t    datastart;          // (セクタ単位のオフセット)
     uint32_t    datasectors;        //
+    uint32_t    first_lba;          // FAT32 パーティションの開始セクタ番号
     struct      fat32_file root;    // ルートディレクトリ
 };
 

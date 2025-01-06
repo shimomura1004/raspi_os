@@ -36,6 +36,19 @@
 #define ATTR_ARCHIVE     0x20
 #define ATTR_LONG_NAME   (ATTR_READ_ONLY | ATTR_HIDDEN | ATTR_SYSTEM | ATTR_VOLUME_ID)
 
+struct mbr {
+    uint8_t bootloader[446];
+    struct {
+        uint8_t bootflag;
+        uint8_t first_chs[3];
+        uint8_t type;
+        uint8_t last_chs[3];
+        uint32_t first_lba;
+        uint32_t total_sector;
+    } __attribute__((__packed__)) partitiontable[4];
+    uint8_t bootsig[2];
+} __attribute__((__packed__));
+
 // directory entry
 struct fat32_direntry {
     uint8_t     DIR_Name[11];       // ファイル名(8文字) + 拡張子(3文字)
@@ -131,8 +144,27 @@ static void fat32_file_init(struct fat32_fs *fat32, struct fat32_file *fatfile,
 
 // ストレージから先頭の1ブロック(BPB)を読み込み、ルートディレクトリのエントリを初期化する
 int fat32_get_handle(struct fat32_fs *fat32) {
-    // 先頭の BPB を一時的にメモリ上に読み込む
-    uint8_t *bbuf = alloc_and_readblock(FAT32_BOOT);
+    // 先頭の BPB を含むブロック(セクタ)をメモリ上に読み込む
+    uint8_t *bbuf = alloc_and_readblock(0);
+
+    struct mbr *mbr = (struct mbr *)bbuf;
+
+    if (mbr->bootsig[0] != 0x55 || mbr->bootsig[1] != 0xaa) {
+        WARN("invalid boot signature in MBR");
+        return -1;
+    }
+
+    if (mbr->partitiontable[0].type != 0x0c) {
+        WARN("not a FAT32 partition");
+        return -1;
+    }
+
+    uint32_t first_lba = mbr->partitiontable[0].first_lba;
+    free_page(bbuf);
+
+    // 最初のパーティションの BPB(最初の lba)を bbuf に読み込む
+    bbuf = alloc_and_readblock(first_lba);
+
     // boot 構造体を値コピーして一時的に確保した領域は解放
     fat32->boot = *(struct fat32_boot *)bbuf;
     struct fat32_boot *boot = &(fat32->boot);
@@ -142,6 +174,7 @@ int fat32_get_handle(struct fat32_fs *fat32) {
     fat32->fatstart = boot->BPB_RsvdSecCnt;
     // FAT 領域は隙間なく並んでいるので単純に FAT のセクタ数を FAT の数で掛ける
     fat32->fatsectors = boot->BPB_FATSz32 * boot->BPB_NumFATs;
+
     // FAT 領域の直後からユーザデータ領域が始まる
     fat32->rootstart = fat32->fatstart + fat32->fatsectors;
     // ルートディレクトリのエントリ数から、必要なセクタ数を計算
@@ -151,10 +184,14 @@ int fat32_get_handle(struct fat32_fs *fat32) {
     fat32->rootsectors =
         (sizeof(struct fat32_direntry) * boot->BPB_RootEntCnt + boot->BPB_BytsPerSec - 1) /
         boot->BPB_BytsPerSec;
+
     // ルートディレクトリ用のエントリのあとにある部分を data と呼ぶ？
     fat32->datastart = fat32->rootstart + fat32->rootsectors;
     // 残りはすべてデータ領域
     fat32->datasectors = boot->BPB_TotSec32 - fat32->datastart;
+
+    // このパーティションの最初のブロック番号を保存しておく
+    fat32->first_lba = first_lba;
 
     // BPB が無効だったり、データセクタ数が 65526 未満だったりしたらエラー
     // todo: なぜデータのセクタ数が少ないとエラーになる？
@@ -180,7 +217,7 @@ static uint32_t fatentry_read(struct fat32_fs *fat32, uint32_t index) {
     uint32_t offset = index * 4 % boot->BPB_BytsPerSec;
 
     // まずストレージからセクタを1つ分読み取る
-    uint8_t *bbuf = alloc_and_readblock(sector);
+    uint8_t *bbuf = alloc_and_readblock(sector + fat32->first_lba);
     // セクタ内のオフセットを考慮し、狙ったエントリを読み取る
     // ただし FAT32 では上位4ビットは予約されており 0 にする必要があるので 0x0fffffff でマスクする
     uint32_t entry = *((uint32_t *)(bbuf + offset)) & 0x0fffffff;
@@ -208,7 +245,7 @@ static uint32_t walk_cluster_chain(struct fat32_fs *fat32, uint32_t offset, uint
             if (bbuf) {
                 free_page(bbuf);
             }
-            bbuf = alloc_and_readblock(sector);
+            bbuf = alloc_and_readblock(sector + fat32->first_lba);
         }
 
         // 次のクラスタ番号を取得
@@ -401,7 +438,7 @@ static int fat32_lookup_main(struct fat32_file *fatfile, const char *name,
     int blkno = fat32_firstblk(fat32, current_cluster, 0);
     while (is_active_cluster(current_cluster)) {
         // ディレクトリの中身を読み込む
-        bbuf = alloc_and_readblock(blkno);
+        bbuf = alloc_and_readblock(blkno + fat32->first_lba);
 
         // ブロックを先頭から順番に見ていく
         for (uint32_t i = 0; i < BLOCKSIZE; i += sizeof(struct fat32_direntry)) {
@@ -437,6 +474,8 @@ static int fat32_lookup_main(struct fat32_file *fatfile, const char *name,
                 dent_name = get_sfn(dent);
             }
 
+            INFO("File: %s size=%d(%x)", dent_name, dent->DIR_FileSize, dent->DIR_FileSize);
+
             if (strncmp(name, dent_name, FAT32_MAX_FILENAME_LEN) == 0) {
                 // ファイル名が一致した場合は、そのファイルのクラスタ番号を計算
                 uint32_t dent_clus =
@@ -448,6 +487,7 @@ static int fat32_lookup_main(struct fat32_file *fatfile, const char *name,
                 // 見つけたエントリに対し fat32_file 構造体を準備して終了
                 fat32_file_init(fat32, found, dent->DIR_Attr,
                                 dent->DIR_FileSize, dent_clus);
+                INFO("found!");
                 goto file_found;
             }
         }
@@ -506,7 +546,7 @@ int fat32_read(struct fat32_file *fatfile, void *buf, unsigned long offset,
     for (int blkno = fat32_firstblk(fat32, current_cluster, offset);
          remain > 0 && is_active_cluster(current_cluster);
          blkno = fat32_nextblk(fat32, blkno, &current_cluster)) {
-        uint8_t *bbuf = alloc_and_readblock(blkno);
+        uint8_t *bbuf = alloc_and_readblock(blkno + fat32->first_lba);
         uint32_t copylen = MIN(BLOCKSIZE - inblk_off, remain);
         memcpy(buf, bbuf + inblk_off, copylen);
         free_page(bbuf);
