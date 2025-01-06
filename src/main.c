@@ -9,6 +9,9 @@
 #include "sched.h"
 #include "mini_uart.h"
 #include "mm.h"
+#include "sd.h"
+#include "fat32.h"
+#include "debug.h"
 
 // 元々(raspberry-pi-os)は
 //   カーネルの仮想メモリ空間(VA)と物理メモリ(PA)がリニアマッピング(boot.S で設定)
@@ -68,7 +71,36 @@ void hypervisor_main()
 	irq_vector_init();
 	timer_init();
 	enable_interrupt_controller();
-	enable_irq();
+	// enable_irq();
+
+	if (sd_init() < 0) {
+		PANIC("sd_init() failed");
+	}
+
+	struct fat32_fs hfat;
+	if (fat32_get_handle(&hfat) < 0) {
+		PANIC("failed to find fat32 filesystem");
+	}
+
+	struct fat32_file file;
+	if (fat32_lookup(&hfat, "test.txt", &file) < 0) {
+		PANIC("failed to find file");
+	}
+
+	INFO("file size is %d", fat32_file_size(&file));
+
+	uint8_t *buf = allocate_page();
+	int remain = fat32_file_size(&file);
+	int offset = 0;
+
+	while (remain > 0) {
+		int readsize = fat32_read(&file, buf, offset, 4096);
+		for (int i = 0; i < readsize; i++) {
+			printf("%c", buf[i]);
+		}
+		remain -= readsize;
+		offset += readsize;
+	}
 
 	// カーネルスレッドを作る
 	// create_task 内で task 配列(sched.c)に要素を追加されるので
