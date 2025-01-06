@@ -130,6 +130,12 @@ static int fat32_is_valid_boot(struct fat32_boot *boot) {
     if (boot->BPB_BytsPerSec != BLOCKSIZE) {
         return 0;
     }
+    if (!(boot->BS_FilSysType[0] == 'F' &&
+          boot->BS_FilSysType[1] == 'A' &&
+          boot->BS_FilSysType[2] == 'T')) {
+        return 0;
+    }
+
     return 1;
 }
 
