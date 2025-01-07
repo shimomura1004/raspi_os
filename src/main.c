@@ -83,7 +83,7 @@ void hypervisor_main()
 	}
 
 	struct fat32_file file;
-	if (fat32_lookup(&hfat, "test.txt", &file) < 0) {
+	if (fat32_lookup(&hfat, "TEST.TXT", &file) < 0) {
 		PANIC("failed to find file");
 	}
 

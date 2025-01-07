@@ -9,7 +9,7 @@ ASMOPS = -Iinclude -g
 BUILD_DIR = build
 SRC_DIR = src
 
-all : kernel8.img
+all : kernel8.img fs.img
 
 clean :
 	rm -rf $(BUILD_DIR) *.img 
@@ -18,6 +18,11 @@ debug : kernel8.img
 	gdb-multiarch -ex 'target remote :1234' \
 	-ex 'layout asm' \
 	-ex 'add-symbol-file build/kernel8.elf'
+
+fs.img:
+	dd if=/dev/zero of=fs.img bs=1M count=64
+	mformat -i fs.img -F ::
+	mcopy -i fs.img TEST.TXT ::
 
 $(BUILD_DIR)/%_c.o: $(SRC_DIR)/%.c
 	mkdir -p $(@D)
