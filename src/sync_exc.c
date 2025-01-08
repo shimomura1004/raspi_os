@@ -194,6 +194,10 @@ sys_fin:
 // ESR_EL2
 // https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/ESR-EL2--Exception-Syndrome-Register--EL2-?lang=en#fieldset_0-24_0
 void handle_sync_exception(unsigned long esr, unsigned long elr, unsigned long far, unsigned long hvc_nr) {
+	// esr にはハンドラ el01_sync により esr_el2 が渡されている
+	// esr_el2 の下位16ビットに hvc 実行時に指定した即値が入っている
+	// 今の実装では hvc に渡された数値は無視している
+
 	// EC(error class)を取得
 	int eclass = (esr >> ESR_EL2_EC_SHIFT) & 0x3f;
 
