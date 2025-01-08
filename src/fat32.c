@@ -473,7 +473,7 @@ static int fat32_lookup_main(struct fat32_file *fatfile, const char *name,
             // 前のブロック(prevbuf)の末尾のエントリへのポインタを渡す
             dent_name = get_lfn(
                 dent, i,
-                prevbuf ? prevbuf + (BLOCKSIZE - sizeof(struct fat32_direntry))
+                prevbuf ? (struct fat32_direntry *)(prevbuf + (BLOCKSIZE - sizeof(struct fat32_direntry)))
                         : NULL);
             if (dent_name == NULL) {
                 dent_name = get_sfn(dent);

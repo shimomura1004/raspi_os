@@ -50,7 +50,7 @@
 #include "sched.h"
 
 unsigned long get_free_page();
-void free_page(unsigned long p);
+void free_page(void *p);
 void map_stage2_page(struct task_struct *task, unsigned long va,
                      unsigned long page, unsigned long flags);
 unsigned long allocate_page();

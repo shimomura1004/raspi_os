@@ -89,7 +89,7 @@ int create_task(loader_func_t loader, unsigned long arg) {
 	}
 
 	prepare_initial_sysregs();
-	memcpy((unsigned long)&p->cpu_sysregs, (unsigned long)&initial_sysregs, sizeof(struct cpu_sysregs));
+	memcpy(&p->cpu_sysregs, &initial_sysregs, sizeof(struct cpu_sysregs));
 
 	// el1 のプロセスは最初 switch_from_kthread 関数から動き出す
 	p->cpu_context.pc = (unsigned long)switch_from_kthread;

@@ -52,7 +52,7 @@ int test_program_loader(unsigned long arg, unsigned long *pc, unsigned long *sp)
 	if (code_page == 0) {
 		return -1;
 	}
-	memcpy(code_page, begin, size);
+	memcpy((void *)code_page, (void *)begin, size);
 
 	*pc = entry_point;
 	*sp = 2 * PAGE_SIZE;
@@ -89,7 +89,7 @@ void hypervisor_main()
 
 	INFO("file size is %d", fat32_file_size(&file));
 
-	uint8_t *buf = allocate_page();
+	uint8_t *buf = (uint8_t *)allocate_page();
 	int remain = fat32_file_size(&file);
 	int offset = 0;
 

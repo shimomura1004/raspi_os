@@ -49,7 +49,7 @@ unsigned long get_free_page()
 			unsigned long page = LOW_MEMORY + i*PAGE_SIZE;
 			// RPi OS はリニアマッピングなので VA_START を足せば仮想アドレスになる
 			// そのアドレスを使ってページの内容をゼロクリアする
-			memzero(page + VA_START, PAGE_SIZE);
+			memzero((void *)(page + VA_START), PAGE_SIZE);
 			return page;
 		}
 	}
@@ -57,9 +57,9 @@ unsigned long get_free_page()
 }
 
 // 指定された仮想アドレスのぺージを解放する
-void free_page(unsigned long p){
+void free_page(void *p){
 	// 解放は単にフラグをクリアするだけ
-	mem_map[(p - LOW_MEMORY) / PAGE_SIZE] = 0;
+	mem_map[(((unsigned long)p) - LOW_MEMORY) / PAGE_SIZE] = 0;
 }
 
 // ページエントリを追加する
