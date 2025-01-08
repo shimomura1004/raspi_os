@@ -482,8 +482,6 @@ static int fat32_lookup_main(struct fat32_file *fatfile, const char *name,
                 dent_name = get_sfn(dent);
             }
 
-            INFO("File: %s size=%d(%x)", dent_name, dent->DIR_FileSize, dent->DIR_FileSize);
-
             if (strncmp(name, dent_name, FAT32_MAX_FILENAME_LEN) == 0) {
                 // ファイル名が一致した場合は、そのファイルのクラスタ番号を計算
                 uint32_t dent_clus =
@@ -495,7 +493,6 @@ static int fat32_lookup_main(struct fat32_file *fatfile, const char *name,
                 // 見つけたエントリに対し fat32_file 構造体を準備して終了
                 fat32_file_init(fat32, found, dent->DIR_Attr,
                                 dent->DIR_FileSize, dent_clus);
-                INFO("found!");
                 goto file_found;
             }
         }
