@@ -15,6 +15,20 @@
 // todo: 実機にあるのにここで定義されないレジスタは、別の状態から都度計算しているから？確認する
 struct bcm2837_state {
     // 7 Interrupt controller -> 7.5 Registers
+    // FIQ register
+    //   [31:8] unused
+    //   [7]    FIQ enable
+    //   [6:0]  Select FIQ Source
+    //     0-63   : GPU interrupts
+    //     64     : ARM Timer interrupt
+    //     65     : ARM Mailbox interrupt
+    //     66     : ARM Doorbell 0 interrupt
+    //     67     : ARM Doorbell 1 interrupt
+    //     68     : GPU0 Halted interrupt
+    //     69     : GPU1 Halted interrupt
+    //     70     : Illegal access type-1 interrupt
+    //     71     : Illegal access type-0 interrupt
+    //     72-127 : Do Not Use
     struct intctrl_regs {
         // Arm peripherals interrupt table(IRQ 0-64, Timer, Mailbox...)
         uint8_t irq_enabled[72];
@@ -181,6 +195,24 @@ static void bcm2837_initialize(struct task_struct *tsk) {
 // 0x21C: Disable IRQs 1  
 // 0x220: Disable IRQs 2  
 // 0x224: Disable Basic IRQs
+
+// Basic pending register
+//   [31:21] Unused
+//   [20:10] GPU IRQ 62, 57, 56, 55, 54, 53, 19, 18, 10, 9, 7
+//   [9] One or more bits set in pending register 2
+//   [8] One or more bits set in pending register 1
+//   [7] Illegal access type 0 IRQ pending
+//   [6] Illegal access type 1 IRQ pending
+//   [5] GPU 1 halted IRQ pending
+//   [4] GPU 0 halted IRQ pending
+//   [3] ARM Doorbell 1 IRQ pending
+//   [2] ARM Doorbell 0 IRQ pending
+//   [1] Arm Mailbox IRQ pending
+//   [0] Arm Timer IRQ pending
+// GPU pending 1 register (IRQ pending register?)
+//   [31:0] IRQ pending source 31:0 (See IRQ table above)
+// GPU pending 2 register (IRQ pending register?)
+//   [31:0] IRQ pending source 63:32 (See IRQ table above)
 
 static unsigned long handle_aux_read(struct task_struct *tsk, unsigned long addr);
 #define BIT(v, n) ((v) & (1 << (n)))
@@ -511,7 +543,27 @@ static int bcm2837_is_irq_asserted(struct task_struct *tsk) {
 }
 
 static int bcm2837_is_fiq_asserted(struct task_struct *tsk) {
-    // todo: 実装する
+    struct bcm2837_state *state = (struct bcm2837_state *)tsk->board_data;
+
+    // FIQ が有効でない場合は常に 0 を返す
+    if ((state->intctrl.fiq_control & 0x80) == 0) {
+        return 0;
+    }
+
+    int source = state->intctrl.fiq_control & 0x7f;
+    if (0 <= source && source <= 31) {
+        int pending = handle_intctrl_read(tsk, IRQ_PENDING_1);
+        return (pending & (1 << source)) != 0;
+    }
+    else if (32 <= source && source <=63) {
+        int pending = handle_intctrl_read(tsk, IRQ_PENDING_2);
+        return (pending & (1 << (source - 32))) != 0;
+    }
+    else if (64 <= source && source <= 71) {
+        int pending = handle_intctrl_read(tsk, IRQ_BASIC_PENDING);
+        return (pending & (1 << (source - 64))) != 0;
+    }
+
     return 0;
 }
 
