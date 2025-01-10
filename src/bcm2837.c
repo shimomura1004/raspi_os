@@ -4,6 +4,8 @@
 #include "bcm2837.h"
 #include "mm.h"
 #include "fifo.h"
+#include "timer.h"
+#include "utils.h"
 #include "peripherals/mini_uart.h"
 #include "peripherals/timer.h"
 #include "peripherals/irq.h"
@@ -63,12 +65,17 @@ struct bcm2837_state {
     //   [2]    Timer 2 match
     //   ...
     struct systimer_regs {
+        uint64_t last_physical_count;   // VM の切り替え前の最後のカウンタの値
+        uint64_t offset;                // 実時間と VM が使った時間との差分
         uint32_t cs;        // System Timer Control/Status
-        uint64_t counter;   // System Timer Counter Lower/Higher (clo, chi) を合わせて表現
         uint32_t c0;        // System Timer Compare 0
         uint32_t c1;        // System Timer Compare 1
         uint32_t c2;        // System Timer Compare 2
         uint32_t c3;        // System Timer Compare 3
+        uint64_t c0_long;
+        uint64_t c1_long;
+        uint64_t c2_long;
+        uint64_t c3_long;
     } systimer;
 };
 
@@ -154,7 +161,6 @@ const struct bcm2837_state initial_state = {
     },
     .systimer = {
         .cs      = 0x0,
-        .counter = 0x0,
         .c0      = 0x0,
         .c1      = 0x0,
         .c2      = 0x0,
@@ -173,6 +179,8 @@ static void bcm2837_initialize(struct task_struct *tsk) {
 
     state->aux.mu_tx_fifo = create_fifo();
     state->aux.mu_rx_fifo = create_fifo();
+
+    state->systimer.last_physical_count = get_physical_timer_count();
 
     tsk->board_data = state;
 
@@ -445,6 +453,12 @@ static void handle_aux_write(struct task_struct *tsk, unsigned long addr, unsign
     }
 }
 
+// virtual count は、実際に VM が動いている間に進んだ時間(カウント数)を表す
+#define TO_VIRTUAL_COUNT(s, p) (p - (s)->systimer.offset)
+// physical count は、VM が動いていない間の時間も含めた時間(カウント数)を表す
+#define TO_PHYSICAL_COUNT(s, v) (v + (s)->systimer.offset)
+
+// VM からタイマカウントを読み取る(VM が実際に実行された時間を返す)
 static unsigned long handle_systimer_read(struct task_struct *tsk, unsigned long addr) {
     struct bcm2837_state *state = (struct bcm2837_state *)tsk->board_data;
 
@@ -452,9 +466,9 @@ static unsigned long handle_systimer_read(struct task_struct *tsk, unsigned long
     case TIMER_CS:
         return state->systimer.cs;
     case TIMER_CLO:
-        return state->systimer.counter & 0xffffffff;
+        return TO_VIRTUAL_COUNT(state, get_physical_timer_count()) & 0xffffffff;
     case TIMER_CHI:
-        return state->systimer.counter >> 32;
+        return TO_VIRTUAL_COUNT(state, get_physical_timer_count()) >> 32;
     case TIMER_C0:
         return state->systimer.c0;
     case TIMER_C1:
@@ -468,8 +482,30 @@ static unsigned long handle_systimer_read(struct task_struct *tsk, unsigned long
     return 0;
 }
 
+void update_timer_cmpval(unsigned long new_cmpval) {
+    // タイマカウンタは64ビット、比較は下位32ビットで行われる
+    //   Each channel has an output compare register, which is compared against
+    //   the 32 least significant bits of the free running counter values.
+    unsigned long current_cmpval = get32(TIMER_C1) | ((unsigned long)get32(TIMER_CHI) << 32);
+
+    // 比較値を今の設定値より小さくしたり、現在のカウンタ値より小さくすることはできない
+    // todo: current_cmpval が大きくなったら変更できなくなるのでは？
+    if (current_cmpval < new_cmpval &&  get_physical_timer_count() < new_cmpval) {
+        put32(TIMER_C1, new_cmpval & 0xffffffff);
+    }
+}
+
 static void handle_systimer_write(struct task_struct *tsk, unsigned long addr, unsigned long val) {
     struct bcm2837_state *state = (struct bcm2837_state *)tsk->board_data;
+
+// todo: おそらく下位32ビットがマッチする次の64ビットカウンタ値の計算をしたいのだと思うが
+//       val は unsigned long で64ビット
+//       handle_systimer_read の戻り値も unsigned long だが、実際にはレジスタ値なので32ビット
+//       なので、一度カウンタが32ビットの範囲よりも大きくなると、三項演算子の条件部が常に真になる
+#define TO_LONG_COMPARE_VALUE(val) \
+    val > handle_systimer_read(tsk, TIMER_CLO) ? \
+        (handle_systimer_read(tsk, TIMER_CHI) << 32) | val : \
+        ((handle_systimer_read(tsk, TIMER_CHI) + 1) << 32) | val
 
     switch (addr) {
     case TIMER_CS:
@@ -478,15 +514,19 @@ static void handle_systimer_write(struct task_struct *tsk, unsigned long addr, u
         break;
     case TIMER_C0:
         state->systimer.c0 = val;
+        state->systimer.c0_long = TO_LONG_COMPARE_VALUE(val);
         break;
     case TIMER_C1:
         state->systimer.c1 = val;
+        state->systimer.c1_long = TO_LONG_COMPARE_VALUE(val);
         break;
     case TIMER_C2:
         state->systimer.c2 = val;
+        state->systimer.c2_long = TO_LONG_COMPARE_VALUE(val);
         break;
     case TIMER_C3:
         state->systimer.c3 = val;
+        state->systimer.c3_long = TO_LONG_COMPARE_VALUE(val);
         break;
     }
 }
@@ -518,24 +558,42 @@ static void bcm2837_mmio_write(struct task_struct *tsk, unsigned long addr, unsi
     }
 }
 
-static void bcm2837_timer_tick(struct task_struct *tsk) {
+// ハイパーバイザでの処理を終えて VM に処理を戻すときに呼ばれる
+void bcm2837_entering_vm(struct task_struct *tsk) {
     struct bcm2837_state *state = (struct bcm2837_state *)tsk->board_data;
 
-    state->systimer.counter++;
+    // update systimer's offset
+    unsigned long current_physical_count = get_physical_timer_count();
+    // この VM が動いていない間にすぎた時間を計算し、offset に積算する
+    state->systimer.offset += current_physical_count - state->systimer.last_physical_count;
 
-    // todo: 32ビットだから 0xffffffff では？
-    uint32_t clo = state->systimer.counter & /* 0xffff */ 0xffffffff;
-    int matched = ((clo == state->systimer.c0) << 0) |
-                  ((clo == state->systimer.c1) << 1) |
-                  ((clo == state->systimer.c2) << 2) |
-                  ((clo == state->systimer.c3) << 3);
-    
+    // update cs register
+    unsigned long current_virt_count = TO_VIRTUAL_COUNT(state, current_physical_count);
+    int matched = ((current_virt_count >= state->systimer.c0_long) << 0) |
+                  ((current_virt_count >= state->systimer.c1_long) << 1) |
+                  ((current_virt_count >= state->systimer.c2_long) << 2) |
+                  ((current_virt_count >= state->systimer.c3_long) << 3);
+
     // ~state->systimer.cs: 前回まだ発火していなかったタイマのビットが立っている
     // matched: 今発火したタイマのビットが立っている
     // (~state->systimer.cs) & matched: 今回始めて発火したタイマのビットが立っている
     // todo: 結局 or を取っているだけでは？
     int fired = (~state->systimer.cs) & matched;
     state->systimer.cs |= fired;
+
+    // update (physical) timer compare value for upcoming timer match
+    // freerunning カウンタは動き続けるので、比較する場合は physical な値にしないといけない
+    update_timer_cmpval(TO_PHYSICAL_COUNT(state, state->systimer.c0_long));
+    update_timer_cmpval(TO_PHYSICAL_COUNT(state, state->systimer.c1_long));
+    update_timer_cmpval(TO_PHYSICAL_COUNT(state, state->systimer.c2_long));
+    update_timer_cmpval(TO_PHYSICAL_COUNT(state, state->systimer.c3_long));
+}
+
+// VM での処理を抜けてハイパーバイザに処理に入るときに呼ばれる
+void bcm2837_leaving_vm(struct task_struct *tsk) {
+    struct bcm2837_state *state = (struct bcm2837_state *)tsk->board_data;
+    // VM が実行されていた最後のカウンタ値を保存しておく
+    state->systimer.last_physical_count = get_physical_timer_count();
 }
 
 static int bcm2837_is_irq_asserted(struct task_struct *tsk) {
@@ -571,7 +629,8 @@ const struct board_ops bcm2837_board_ops = {
     .initialize = bcm2837_initialize,
     .mmio_read = bcm2837_mmio_read,
     .mmio_write = bcm2837_mmio_write,
-    .timer_tick = bcm2837_timer_tick,
+    .entering_vm = bcm2837_entering_vm,
+    .leaving_vm = bcm2837_leaving_vm,
     .is_irq_asserted = bcm2837_is_irq_asserted,
     .is_fiq_asserted = bcm2837_is_fiq_asserted,
 };

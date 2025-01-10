@@ -62,18 +62,15 @@
 	// これらもメモリ上に保存 (x30 はリンクレジスタ)
 	stp	x30, x21, [sp, #16 * 15]
 	stp	x22, x23, [sp, #16 * 16]
+
+	bl vm_leaving_work
 	.endm
 
 	//-------- kernel_exit --------------------------------------------------
 
 	// 基本的には kernel_entry と逆のことをやっているだけ
 	.macro	kernel_exit
-	ldr x0, current
-
-	// 今実行を再開しようとしているタスク(VM)に対し仮想割込みを設定する
-	//   ハイパーバイザ環境では VM に対し割込みを発生させる必要があるので
-	//   VM が実行開始するタイミングで仮想割込みを生成しないといけない
-	bl set_cpu_virtual_interrupt
+	bl vm_entering_work
 
 	ldp	x22, x23, [sp, #16 * 16]
 	ldp	x30, x21, [sp, #16 * 15]

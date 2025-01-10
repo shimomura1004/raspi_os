@@ -156,3 +156,22 @@ void exit_task(){
 	preempt_enable();
 	schedule();
 }
+
+// ハイパーバイザでの処理を終えて VM に処理を戻すときに呼ばれる
+void vm_entering_work() {
+	// 今実行を再開しようとしているタスク(VM)に対し仮想割込みを設定する
+	//   ハイパーバイザ環境では VM に対し割込みを発生させる必要があるので
+	//   VM が実行開始するタイミングで仮想割込みを生成しないといけない
+	set_cpu_virtual_interrupt(current);
+
+	if (HAVE_FUNC(current->board_ops, entering_vm)) {
+		current->board_ops->entering_vm(current);
+	}
+}
+
+// VM での処理を抜けてハイパーバイザに処理に入るときに呼ばれる
+void vm_leaving_work() {
+	if (HAVE_FUNC(current->board_ops, leaving_vm)) {
+		current->board_ops->leaving_vm(current);
+	}
+}
