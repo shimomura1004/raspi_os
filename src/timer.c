@@ -6,21 +6,21 @@
 // 合計4個の比較用レジスタがあり、カウンタの値が一致すると対応する割込み線を発火させる
 
 const unsigned int interval = 20000;
-unsigned int curVal = 0;
+unsigned int current_value = 0;
 
 void timer_init ( void )
 {
 	// 今のカウンタの値を取り出す
-	curVal = get32(TIMER_CLO);
-	curVal += interval;
+	current_value = get32(TIMER_CLO);
+	current_value += interval;
 	// interval tick 後に発火するように2個目のレジスタに値をセットする
-	put32(TIMER_C1, curVal);
+	put32(TIMER_C1, current_value);
 }
 
 void handle_timer_irq( void ) 
 {
-	curVal += interval;
-	put32(TIMER_C1, curVal);
+	current_value += interval;
+	put32(TIMER_C1, current_value);
 	// TIMER_CS: timer control/status register
 	// todo: "acknowledge" がわからないが、割込みをクリアする？
 	put32(TIMER_CS, TIMER_CS_M1);
