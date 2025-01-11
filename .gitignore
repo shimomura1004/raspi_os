@@ -1,6 +1,7 @@
 *.img
 *.dtb
 *.map
+*.bin
 .vscode/
 build/
 tmp/
