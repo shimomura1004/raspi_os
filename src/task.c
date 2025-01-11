@@ -13,7 +13,7 @@ struct pt_regs * task_pt_regs(struct task_struct *tsk) {
 	return (struct pt_regs *)p;
 }
 
-static void prepare_task(loader_func_t loader, unsigned long arg) {
+static void prepare_task(loader_func_t loader, void *arg) {
 	INFO("loading... arg=%d, EL=%d", arg, get_el());
 
 	struct pt_regs *regs = task_pt_regs(current);
@@ -55,7 +55,7 @@ void increment_current_pc(int ilen) {
 }
 
 // EL2 で動くタスクを作る
-int create_task(loader_func_t loader, unsigned long arg) {
+int create_task(loader_func_t loader, void *arg) {
 	// copy_process の処理中はスケジューラによるタスク切り替えを禁止
 	preempt_disable();
 	struct task_struct *p;
@@ -74,7 +74,7 @@ int create_task(loader_func_t loader, unsigned long arg) {
 	// switch_from_kthread 内で x19 のアドレスにジャンプする
 	p->cpu_context.x19 = (unsigned long)prepare_task;
 	p->cpu_context.x20 = (unsigned long)loader;
-	p->cpu_context.x21 = arg;
+	p->cpu_context.x21 = (unsigned long)arg;
 	p->flags = 0;
 
 	p->priority = current->priority;
