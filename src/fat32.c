@@ -104,13 +104,6 @@ struct fat32_lfnentry {
 #define RESERVED_CLUSTER    1
 #define BAD_CLUSTER         0x0ffffff7
 
-int strncmp(const char *s1, const char *s2, size_t n) {
-    size_t i;
-    for (i = 0; i < n && *s1 && (*s1 == *s2); i++, s1++, s2++)
-        ;
-    return (i != n) ? (*s1 - *s2) : 0;
-}
-
 // 空きページを確保して、指定された LBA から 1ブロック分のデータを読み込む
 static uint8_t *alloc_and_readblock(unsigned int lba) {
     uint8_t *buf = (uint8_t *)allocate_page();
