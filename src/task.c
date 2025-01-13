@@ -6,6 +6,7 @@
 #include "debug.h"
 #include "bcm2837.h"
 #include "board.h"
+#include "fifo.h"
 
 // 各スレッド用の領域の末尾に置かれた task_struct へのポインタを返す
 struct pt_regs * task_pt_regs(struct task_struct *tsk) {
@@ -54,7 +55,7 @@ void increment_current_pc(int ilen) {
 	regs->pc += ilen;
 }
 
-// EL2 で動くタスクを作る
+// EL2 で動くタスク(=VM)を作る
 int create_task(loader_func_t loader, void *arg) {
 	// copy_process の処理中はスケジューラによるタスク切り替えを禁止
 	preempt_disable();
@@ -102,6 +103,9 @@ int create_task(loader_func_t loader, void *arg) {
 	// これでそのうち今作ったタスクに処理が切り替わり、switch_from_kthread から実行開始される
 	task[pid] = p;
 	p->pid = pid;
+
+	p->console.in_fifo = create_fifo();
+	p->console.out_fifo = create_fifo();
 
 	preempt_enable();
 	return pid;

@@ -130,6 +130,15 @@ struct mm_struct {
     int kernel_pages_count;
 };
 
+struct task_stat {
+    long trap_count;
+};
+
+struct task_console {
+    struct fifo *in_fifo;
+    struct fifo *out_fifo;
+};
+
 struct task_struct {
     struct cpu_context cpu_context;	// CPU 状態
     long state;                     // プロセスの状態(TASK_RUNNING とか)
@@ -143,6 +152,8 @@ struct task_struct {
     void *board_data;
     struct mm_struct mm;
     struct cpu_sysregs cpu_sysregs;
+    struct task_stat stat;
+    struct task_console console;
 };
 
 extern void sched_init(void);
@@ -170,6 +181,8 @@ extern void exit_task(void);
         /* board_data    */ 0, \
         /* mm            */ {0}, \
         /* cpu_sysregs   */ {0}, \
+        /* stat          */ {0}, \
+        /* console       */ {0}, \
     }
 
 #endif
