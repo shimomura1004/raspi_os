@@ -166,6 +166,7 @@ extern void set_cpu_virtual_interrupt(struct task_struct *);
 extern void switch_to(struct task_struct*);
 extern void cpu_switch_to(struct task_struct*, struct task_struct*);
 extern void exit_task(void);
+extern void show_task_list(void);
 
 // kernel_main の task_struct の初期値
 #define INIT_TASK \
