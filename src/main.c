@@ -37,7 +37,7 @@ void hypervisor_main()
 		.loader_addr = 0x0,
 		.entry_point = 0x0,
 		.sp = 0x4000,
-		.filename = "test.bin",
+		.filename = "TEST.BIN",
 	};
 
 	if (create_task(raw_binary_loader, &bl_args) < 0) {
