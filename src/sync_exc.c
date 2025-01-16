@@ -201,6 +201,8 @@ void handle_sync_exception(unsigned long esr, unsigned long elr, unsigned long f
 	// EC(error class)を取得
 	int eclass = (esr >> ESR_EL2_EC_SHIFT) & 0x3f;
 
+	current->stat.trap_count++;
+
 	switch (eclass)
 	{
 	case ESR_EL2_EC_TRAP_WFX:
