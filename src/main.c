@@ -13,6 +13,8 @@
 #include "debug.h"
 #include "loader.h"
 
+void run_shell();
+
 // hypervisor としてのスタート地点
 void hypervisor_main()
 {
@@ -43,6 +45,7 @@ void hypervisor_main()
 	}
 
 	while (1){
+		run_shell();
 		// このプロセスでは特にやることがないので CPU を明け渡す
 		schedule();
 	}
