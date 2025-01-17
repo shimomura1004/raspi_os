@@ -45,7 +45,7 @@ void hypervisor_main()
 	}
 
 	while (1){
-		run_shell();
+		// run_shell();
 		// このプロセスでは特にやることがないので CPU を明け渡す
 		schedule();
 	}
