@@ -84,6 +84,15 @@ struct bcm2837_state {
 //     DLAB=1, RW: Access the LS bits of the 16-bit baudrate register
 //     DLAB=0, W: Data written is put in the transmit FIFO
 //     DLAB=0, R: Data read is taken from the receive FIFO
+// AUX_MU_IER_REG: Interrupt Enable Register
+//   [31:8] Reserved
+//   DLAB=1
+//   [7:0]  Enable Transmit FIFO interrupt
+//   DLAB=0
+//   [7:4]  Ignored
+//   [3:2]  must be set to 1 to receive interrupts
+//   [1]    Enable transmit interrupts
+//   [0]    Enable receive interrupts
 // AUX_MU_IIR_REG: Interrupt Identity Register?
 //   [31:8] Reserved
 //   [7:6]  FIFO enables
