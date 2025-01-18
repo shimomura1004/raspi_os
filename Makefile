@@ -22,7 +22,8 @@ debug : kernel8.img
 fs.img:
 	dd if=/dev/zero of=fs.img bs=1M count=64
 	mformat -i fs.img -F ::
-	mcopy -i fs.img TEST.TXT ::
+	-mcopy -i fs.img ECHO.BIN ::
+	-mcopy -i fs.img TEST2.BIN ::
 
 $(BUILD_DIR)/%_c.o: $(SRC_DIR)/%.c
 	mkdir -p $(@D)

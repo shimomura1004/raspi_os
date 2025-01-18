@@ -74,6 +74,11 @@ set_stage2_pgd:
 
 	ret
 
+.globl set_sp_el2
+set_sp_el2:
+	msr sp_el2, x0
+	ret
+
 // x0 が指すメモリアドレスに保存された値を各システムレジスタに復元する
 // sched.h で定義された struct cpu_sysregs のメンバの並び順に依存する
 .globl _set_sysregs

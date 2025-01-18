@@ -40,7 +40,9 @@
 #define MT_NORMAL_CACHEABLE         0x1
 
 #define MT_DEVICE_nGnRnE_FLAGS      0x00
-#define MT_NORMAL_CACHEABLE_FLAGS   0xff
+// todo: いったんキャッシュを無効にする
+// #define MT_NORMAL_CACHEABLE_FLAGS   0xff
+#define MT_NORMAL_CACHEABLE_FLAGS   0x44
 
 #define MAIR_VALUE \
     (MT_DEVICE_nGnRnE_FLAGS << (8 * MT_DEVICE_nGnRnE)) | \

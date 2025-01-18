@@ -17,7 +17,7 @@ static void _uart_send(char c) {
 }
 
 void uart_send(char c) {
-    if (c == '\n') {
+    if (c == '\n' || c == '\r') {
         _uart_send('\r');
         _uart_send('\n');
     } else {
@@ -46,6 +46,10 @@ char uart_recv(void) {
 // UART から入力されたデータを送り込む先の VM の番号(0 のときはホスト)
 static int uart_forwarded_task = 0;
 
+int is_uart_forwarded_task(struct task_struct *tsk) {
+    return tsk->pid == uart_forwarded_task;
+}
+
 void uart_send_string(char *str) {
     for (int i = 0; str[i] != '\0'; i++) {
         _uart_send((char)str[i]);
@@ -55,35 +59,42 @@ void uart_send_string(char *str) {
 // uart_forwarded_task が指す VM かホストに文字データを追加する
 // todo: キューに値が入っているときは、そのゲストに切り替わったときに仮想割り込みを発生させる
 void handle_uart_irq(void) {
-    static char prev = '\0';
+    static int is_escaped = 0;
 
     char received = get32(AUX_MU_IO_REG) & 0xff;
+    struct task_struct *tsk;
 
-    if (prev == ESCAPE_CHAR) {
+    if (is_escaped) {
+        is_escaped = 0;
+
         if (isdigit(received)) {
             // VM を切り替えるのではなく、単に UART 入力の送り先を変えるだけ
             uart_forwarded_task = received - '0';
             printf("\nswitched to %d\n", uart_forwarded_task);
-            struct task_struct *tsk = task[uart_forwarded_task];
+            tsk = task[uart_forwarded_task];
             if (tsk->state == TASK_RUNNING) {
                 flush_task_console(tsk);
             }
         } else if (received == 'l') {
             show_task_list();
+        } else if (received == ESCAPE_CHAR) {
+            goto enqueue_char;
         }
     }
-    else if (received != ESCAPE_CHAR) {
-        struct task_struct *tsk = task[uart_forwarded_task];
+    else if (received == ESCAPE_CHAR) {
+        is_escaped = 1;
+    }
+    else {
+enqueue_char:
+        tsk = task[uart_forwarded_task];
         // もし VM が終了してしまっていたら無視する
         if (tsk->state == TASK_RUNNING) {
             enqueue_fifo(tsk->console.in_fifo, received);
         }
     }
 
-    prev = received;
-
     // todo: ホストドライバ自体がエコーバックしてしまっているが、VM でやらせるべき
-    printf("receive %c\n", prev);
+    // printf("receive %c\n", received);
 }
 
 void uart_init(void) {

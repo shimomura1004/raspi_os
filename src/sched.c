@@ -168,6 +168,12 @@ void vm_entering_work() {
 	if (HAVE_FUNC(current->board_ops, entering_vm)) {
 		current->board_ops->entering_vm(current);
 	}
+
+	// VM 処理に復帰するとき、コンソールがこの VM に紐づいていたら
+	// キューに入っていた値を全部出力する
+	if (is_uart_forwarded_task(current)) {
+		flush_task_console(current);
+	}
 }
 
 // VM での処理を抜けてハイパーバイザに処理に入るときに呼ばれる
@@ -176,7 +182,9 @@ void vm_leaving_work() {
 		current->board_ops->leaving_vm(current);
 	}
 
-	flush_task_console(current);
+	if (is_uart_forwarded_task(current)) {
+		flush_task_console(current);
+	}
 }
 
 const char *task_state_str[] = {
@@ -186,11 +194,13 @@ const char *task_state_str[] = {
 
 void show_task_list() {
     preempt_disable();
-	printf("%3s %8s %7s %7s\n", "pid", "state", "pages", "traps");
+	printf("  %3s %8s %7s %7s\n", "pid", "state", "pages", "traps");
     for (int i = 0; i < nr_tasks; i++) {
         struct task_struct *tsk = task[i];
-        printf("%3d %8s %7d %7d\n", tsk->pid, task_state_str[tsk->state],
-               tsk->mm.user_pages_count, tsk->stat.trap_count);
+        printf("%c %3d %8s %7d %7d\n",
+               is_uart_forwarded_task(task[i]) ? '*' : ' ', tsk->pid,
+               task_state_str[tsk->state], tsk->mm.user_pages_count,
+               tsk->stat.trap_count);
     }
     preempt_enable();
 }
