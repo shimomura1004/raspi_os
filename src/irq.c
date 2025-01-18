@@ -41,9 +41,9 @@ void enable_interrupt_controller()
 	put32(ENABLE_IRQS_1, AUX_IRQ_BIT);
 }
 
-void show_invalid_entry_message(int type, unsigned long esr, unsigned long address)
+void show_invalid_entry_message(int type, unsigned long esr, unsigned long elr, unsigned long far)
 {
-	PANIC("uncaught exception(%s) ESR: %x, address: %x", entry_error_messages[type], esr, address);
+	PANIC("uncaught exception(%s) esr: %x, elr: %x, far: %x", entry_error_messages[type], esr, elr, far);
 }
 
 // 割込みベクタがジャンプしてくる先

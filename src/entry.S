@@ -11,6 +11,8 @@
 	mov	x0, #\type
 	mrs	x1, esr_el2
 	mrs	x2, elr_el2
+	mrs x3, far_el2
+
 	bl show_invalid_entry_message
 	// err_hang に飛ぶと無限ループする
 	b	err_hang

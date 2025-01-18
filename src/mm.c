@@ -53,6 +53,8 @@ unsigned long get_free_page()
 			return page;
 		}
 	}
+
+	PANIC("no free pages");
 	return 0;
 }
 
