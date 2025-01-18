@@ -4,6 +4,7 @@
 #include "mm.h"
 #include "debug.h"
 #include "board.h"
+#include "task.h"
 
 static struct task_struct init_task = INIT_TASK;
 // 現在実行中のタスクの task_struct
@@ -174,6 +175,8 @@ void vm_leaving_work() {
 	if (HAVE_FUNC(current->board_ops, leaving_vm)) {
 		current->board_ops->leaving_vm(current);
 	}
+
+	flush_task_console(current);
 }
 
 const char *task_state_str[] = {
@@ -183,7 +186,7 @@ const char *task_state_str[] = {
 
 void show_task_list() {
     preempt_disable();
-	printf("pid state     pages   traps\n");
+	printf("%3s %8s %7s %7s\n", "pid", "state", "pages", "traps");
     for (int i = 0; i < nr_tasks; i++) {
         struct task_struct *tsk = task[i];
         printf("%3d %8s %7d %7d\n", tsk->pid, task_state_str[tsk->state],

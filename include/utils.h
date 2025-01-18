@@ -43,6 +43,7 @@ char *strchr(const char *s, int c);
 char *strcpy(char *dst, const char *src);
 char *strncat(char *dst, const char *src, size_t n);
 char *strcat(char *dst, const char *src);
+int isdigit(int c);
 int isspace(int c);
 int toupper(int c);
 int tolower(int c);

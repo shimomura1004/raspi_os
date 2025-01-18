@@ -13,8 +13,6 @@
 #include "debug.h"
 #include "loader.h"
 
-void run_shell();
-
 // hypervisor としてのスタート地点
 void hypervisor_main()
 {
@@ -22,6 +20,9 @@ void hypervisor_main()
 	init_printf(NULL, putc);
 
 	printf("=== raspvisor ===\n");
+
+	// ホスト用のコンソールの初期化
+	init_task_console(current);
 
 	irq_vector_init();
 	timer_init();
@@ -45,7 +46,6 @@ void hypervisor_main()
 	}
 
 	while (1){
-		// run_shell();
 		// このプロセスでは特にやることがないので CPU を明け渡す
 		schedule();
 	}
