@@ -18,7 +18,8 @@ static void prepare_task(loader_func_t loader, void *arg) {
 	INFO("loading... arg=%d, EL=%d", arg, get_el());
 
 	struct pt_regs *regs = task_pt_regs(current);
-	regs->pstate = PSR_MODE_EL1h;
+	regs->pstate = PSR_MODE_EL1h;	// EL を1、使用する SP を SP_EL1 にする
+	regs->pstate |= (0xf << 6);		// DAIF をすべて1にする、つまり全ての例外をマスクしている
 
 	if (loader(arg, &regs->pc, &regs->sp) < 0) {
 		PANIC("failed to load");
