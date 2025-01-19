@@ -229,26 +229,28 @@ _get_sysregs:
 	stp x1, x2, [x0], #16
 	ret
 
-// todo: これは仮想割込みを発生させないのでは？
 .globl assert_vfiq
 assert_vfiq:
+	// HCR_EL2.VF(Virtual FIQ) をセットする
 	mrs x0, hcr_el2
-	and x1, x0, #0x40	// VF(Virtual FIQ) を x1 に取り出し
-	msr hcr_el2, x1		// VF 以外をクリアして HCR_EL2 に戻す？
+	orr x1, x0, #0x40
+	msr hcr_el2, x1
 	ret
 
 .globl assert_virq
 assert_virq:
+	// HCR_EL2.VI(Virtual IRQ) をセットする
 	mrs x0, hcr_el2
-	and x1, x0, #0x80	// VI(Virtual IRQ) を x1 に取り出し
-	msr hcr_el2, x1		// VI 以外をクリアして HCR_EL2 に戻す？
+	orr x1, x0, #0x80
+	msr hcr_el2, x1
 	ret
 
 .globl assert_vserror
 assert_vserror:
+	// HCR_EL2.VSI(Virtual SError) をセットする
 	mrs x0, hcr_el2
-	and x1, x0, #0x100	// VSI(Virtual SError) を x1 に取り出し
-	msr hcr_el2, x1		// VSI 以外をクリアして HCR_EL2 に戻す？
+	orr x1, x0, #0x100
+	msr hcr_el2, x1
 	ret
 
 .globl clear_vfiq
