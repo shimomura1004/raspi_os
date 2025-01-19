@@ -146,6 +146,9 @@ el2_entry:
 	ldr	x0, =(MAIR_VALUE)
 	msr	mair_el2, x0
 
+	// EL1 に関連するすべての TLB エントリをクリアする
+	tlbi alle1		// TLB Invalidate, ALL EL1
+
 	// MMU を有効にする前にアドレスを控えておく
 	// 単に br hypervisor_main とすると、PC に対する hypervisor_main のアドレスへの相対値でジャンプするが、
 	// MMU が無効であった場合の相対位置にジャンプしてしまうのでずれる
