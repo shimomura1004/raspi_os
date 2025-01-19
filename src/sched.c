@@ -78,7 +78,9 @@ void schedule(void)
 }
 
 void set_cpu_sysregs(struct task_struct *task) {
-	// アドレス空間を切り替え
+	// アドレス空間(VTTBR_EL2)を切り替え、つまり IPA -> PA の変換テーブルを切り替える
+	//   テーブル自体の準備は VM がロードされた初期化時やメモリアボート時に行う
+	// VM ごとにアドレスの上位8ビットが異なるようになっている
 	set_stage2_pgd(task->mm.first_table, task->pid);
 	_set_sysregs(&(task->cpu_sysregs));
 }

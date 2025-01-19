@@ -188,7 +188,7 @@ static void bcm2837_initialize(struct task_struct *tsk) {
 
     tsk->board_data = state;
 
-    // デバイスの初期化(MMIO ページの準備)
+    // stage2 のデバイスのメモリマッピング(MMIO ページの準備)
     unsigned long begin = DEVICE_BASE;
     unsigned long end = PHYS_MEMORY_SIZE - SECTION_SIZE;
     for (; begin < end; begin += PAGE_SIZE) {

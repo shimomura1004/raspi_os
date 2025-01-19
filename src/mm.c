@@ -21,7 +21,7 @@ unsigned long allocate_page() {
 	return page + VA_START;
 }
 
-// VM で使うためのページを確保し、その仮想アドレスを返す
+// VM で使うためのページを確保してマッピングし、その仮想アドレスを返す
 unsigned long allocate_task_page(struct task_struct *task, unsigned long va) {
 	// 未使用ページを探す、page は仮想アドレスではなくオフセット
 	unsigned long page = get_free_page();
@@ -29,7 +29,6 @@ unsigned long allocate_task_page(struct task_struct *task, unsigned long va) {
 		return 0;
 	}
 	// 新たに確保したページをこのタスクのアドレス空間にマッピングする
-	// todo: これは VA->IPA の変換なので map_stage1_page とするべきでは？
 	map_stage2_page(task, va, page, MMU_STAGE2_PAGE_FLAGS);
 	// 新たに確保したページの仮想アドレスを返す(リニアマッピングなのでオフセットを足すだけ)
 	return page + VA_START;
@@ -107,6 +106,7 @@ unsigned long map_stage2_table(unsigned long *table, unsigned long shift, unsign
 
 // task のアドレス空間のアドレス va に、指定されたページ page を割り当てる
 // stage1/2 のどちらも差はない
+// ハイパーバイザが管理するメモリマッピングは、IPA->PA のみ
 void map_stage2_page(struct task_struct *task, unsigned long va, unsigned long page, unsigned long flags) {
 	// 最上位のページテーブル
 	unsigned long lv1_table;
