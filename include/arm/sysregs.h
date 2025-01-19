@@ -78,6 +78,15 @@
 //   Traps writes to the virtual memory control registers to EL2.
 //   SCTLR_EL1, TTBR0_EL1, TTBR1_EL1, TCR_EL1, ESR_EL1, FAR_EL1,
 //   AFSR0_EL1, AFSR1_EL1, MAIR_EL1, AMAIR_EL1, and CONTEXTIDR_EL1.
+// VSE[8] Virtual SError exception
+//   0b0: This mechanism is not making a virtual SError exception pending
+//   0b1: A virtual SError exception is pending because of this mechanism
+// VI[7] Virtual IRQ Interrupt
+//   0b0: This mechanism is not making a virtual IRQ pending
+//   0b1: A virtual IRQ is pending because of this mechanism
+// VF[6] Virtual FIQ Interrupt
+//   0b0: This mechanism is not making a virtual FIQ pending
+//   0b1: A virtual FIQ is pending because of this mechanism
 
 // #define HCR_TID5        (1 << 58)
 // #define HCR_ENSCXT      (0 << 53)
@@ -168,9 +177,42 @@
 // SPSR_EL3, Saved Program Status Register (EL3) Page 288 of AArch64-Reference-Manual.
 // ***************************************
 
+// SPSR_EL3
+// https://developer.arm.com/documentation/ddi0601/2024-12/AArch64-Registers/SPSR-EL3--Saved-Program-Status-Register--EL3-
+//
+// When AArch32 is supported and exception taken from AArch32 state:
+//   ...
+// When exception taken from AArch64 state:
+// N[31]: Negative Conddition flag
+// Z[30]: Zero Conddition flag
+// C[29]: Carry Conddition flag
+// V[28]: Ovreflow Conddition flag
+// D[9]: Debug exception mask
+// A[8]: SError asynchronous exception mask
+// I[7]: IRQ asynchronous exception mask
+// F[6]: FIQ asynchronous exception mask
+// M[4]: Execution state. Set to 0b0, the value of PSTATE.nRW, on taking an exception to EL3 from AArch64 state,
+//       and copied to PSTATE.nRW on executing an exception return operation in EL3.
+//       AArch32 のときは 0b1 になる
+//   0b0: AArch64 execution state.
+// M[3:0]: AArch64 Exception level and selected Stack Pointer
+//   0b0000: EL0.
+//   0b0100: EL1 with SP_EL0 (EL1t).
+//   0b0101: EL1 with SP_EL1 (EL1h).
+//   0b1000: EL2 with SP_EL0 (EL2t).
+//   0b1001: EL2 with SP_EL2 (EL2h).
+//   0b1100: EL3 with SP_EL0 (EL3t).
+//   0b1101: EL3 with SP_EL3 (EL3h).
+
 #define SPSR_MASK_ALL 			(7 << 6)
 #define SPSR_EL2h			    (9 << 0)
 #define SPSR_VALUE			    (SPSR_MASK_ALL | SPSR_EL2h)
+
+// SPSR_EL1
+// https://developer.arm.com/documentation/102670/0301/AArch64-registers/AArch64-register-descriptions/AArch64-Special-purpose-register-description/SPSR-EL1--Saved-Program-Status-Register--EL1-
+//
+// SPSR_EL3 と概ね同じ(M[3:0] の値の範囲が異なる)
+
 
 // ***************************************
 // VTCR_EL2, Virtualization Transition Control Register (EL2)
