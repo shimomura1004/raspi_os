@@ -418,7 +418,7 @@ static void handle_aux_write(struct task_struct *tsk, unsigned long addr, unsign
         }
         else {
             INFO("uart: %c", val & 0xff);
-            enqueue_fifo(tsk->console.out_fifo, val && 0xff);
+            enqueue_fifo(tsk->console.out_fifo, val & 0xff);
         }
         break;
     case AUX_MU_IER_REG:
