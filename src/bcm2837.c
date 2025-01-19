@@ -309,8 +309,13 @@ static void handle_intctrl_write(struct task_struct *tsk, unsigned long addr, un
 static unsigned long handle_aux_read(struct task_struct *tsk, unsigned long addr) {
     struct bcm2837_state *state = (struct bcm2837_state *)tsk->board_data;
 
+    // todo: アドレスが AUX の範囲内で、無効なら return となっている
+    //       アドレス範囲外 or 無効なら return が正しいのでは？
     // AUX が無効だったら 0 を返す
-    if ((state->aux.aux_enables & 0x1) == 0 && ADDR_IN_AUX(addr)) {
+    // if ((state->aux.aux_enables & 0x1) == 0 && ADDR_IN_AUX(addr)) {
+    //     return 0;
+    // }
+    if ((state->aux.aux_enables & 0x1) == 0 || !ADDR_IN_AUX(addr)) {
         return 0;
     }
 
@@ -400,9 +405,24 @@ static unsigned long handle_aux_read(struct task_struct *tsk, unsigned long addr
 static void handle_aux_write(struct task_struct *tsk, unsigned long addr, unsigned long val) {
     struct bcm2837_state *state = (struct bcm2837_state *)tsk->board_data;
 
-    if ((state->aux.aux_enables & 0x1) == 0 && ADDR_IN_AUX(addr)) {
+    // // todo: aux が disable になると、ここにひっかかって enable にすることができないのでは？
+    // if ((state->aux.aux_enables & 0x1) == 0 && ADDR_IN_AUX(addr)) {
+    //     return;
+    // }
+
+    // ↓ DISABLE のときは AUX_ENABLES のみ操作可能
+    if (!ADDR_IN_AUX(addr)) {
         return;
     }
+
+    if ((state->aux.aux_enables & 0x1) == 0) {
+        if (addr == AUX_ENABLES) {
+            state->aux.aux_enables = val;
+        }
+
+        return;
+    }
+    // ↑
 
     // todo: 一部のレジスタの READ しかできないビットにも値が書き込まれてしまう
     switch (addr) {
