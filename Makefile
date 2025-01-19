@@ -9,10 +9,16 @@ ASMOPS = -Iinclude -g
 BUILD_DIR = build
 SRC_DIR = src
 
-all : kernel8.img fs.img
+SUBDIRS = ./example
 
-clean :
+all : $(SUBDIRS) kernel8.img fs.img
+
+clean : $(SUBDIRS)
 	rm -rf $(BUILD_DIR) *.img 
+
+$(SUBDIRS): FORCE
+	$(MAKE) -C $@ $(MAKECMDGOALS)
+FORCE:
 
 debug : kernel8.img
 	gdb-multiarch -ex 'target remote :1234' \
@@ -22,8 +28,8 @@ debug : kernel8.img
 fs.img:
 	dd if=/dev/zero of=fs.img bs=1M count=64
 	mformat -i fs.img -F ::
-	-mcopy -i fs.img ECHO.BIN ::
-	-mcopy -i fs.img TEST2.BIN ::
+	-mcopy -i fs.img ./example/echo/echo.bin ::ECHO.BIN
+	-mcopy -i fs.img ./example/test_binary/test.bin ::TEST2.BIN
 
 $(BUILD_DIR)/%_c.o: $(SRC_DIR)/%.c
 	mkdir -p $(@D)
