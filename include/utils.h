@@ -15,12 +15,17 @@ extern void delay(unsigned long);
 extern void put32(unsigned long, unsigned int);
 extern unsigned int get32(unsigned long);
 extern unsigned long get_el(void);
+
+// Stage2 変換テーブルをセットしてアドレス空間(VTTBR_EL2)を切り替え、つまり IPA -> PA の変換テーブルを切り替える
+//   テーブル自体の準備は VM がロードされた初期化時やメモリアボート時に行う
+// VM ごとにアドレスの上位8ビットが異なるようになっている
 extern void set_stage2_pgd(unsigned long pgd, unsigned long vmid);
-extern void set_sp_el2(unsigned long);
 // x0 が指すメモリアドレスに保存された値を各システムレジスタに復元する
-extern void _set_sysregs(struct cpu_sysregs *);
+extern void restore_sysregs(struct cpu_sysregs *);
 // 各システムレジスタの値を取り出し、x0 が指すメモリアドレスに保存する
-extern void _get_sysregs(struct cpu_sysregs *);
+extern void save_sysregs(struct cpu_sysregs *);
+// すべての各システムレジスタの値を取り出し、x0 が指すメモリアドレスに保存する
+extern void get_all_sysregs(struct cpu_sysregs *);
 
 extern void assert_vfiq(void);
 extern void assert_virq(void);

@@ -74,15 +74,10 @@ set_stage2_pgd:
 
 	ret
 
-.globl set_sp_el2
-set_sp_el2:
-	msr sp_el2, x0
-	ret
-
 // x0 が指すメモリアドレスに保存された値を各システムレジスタに復元する
 // sched.h で定義された struct cpu_sysregs のメンバの並び順に依存する
-.globl _set_sysregs
-_set_sysregs:
+.globl restore_sysregs
+restore_sysregs:
 	// 2変数分読みだしてセットする、の繰り返し
 	ldp x1, x2, [x0], #16
 	msr sctlr_el1, x1
@@ -122,15 +117,57 @@ _set_sysregs:
 	msr tpidrro_el0, x2
 	// 最後は1変数しかない
 	ldr x1, [x0]
-	mrs x1, vbar_el1
+	msr vbar_el1, x1
   	// TTBR を復元してメモリ空間が変わるので、念のためブロックしている？　
 	dsb ish
 	isb
 	ret
 
 // 各システムレジスタの値を取り出し、x0 が指すメモリアドレスに保存する
-.globl _get_sysregs
-_get_sysregs:
+.globl save_sysregs
+save_sysregs:
+	mrs x1, sctlr_el1
+	mrs x2, ttbr0_el1
+	stp x1, x2, [x0], #16
+	mrs x1, ttbr1_el1
+	mrs x2, tcr_el1
+	stp x1, x2, [x0], #16
+	mrs x1, esr_el1
+	mrs x2, far_el1
+	stp x1, x2, [x0], #16
+	mrs x1, afsr0_el1
+	mrs x2, afsr1_el1
+	stp x1, x2, [x0], #16
+	mrs x1, mair_el1
+	mrs x2, amair_el1
+	stp x1, x2, [x0], #16
+	mrs x1, contextidr_el1
+	mrs x2, cpacr_el1
+	stp x1, x2, [x0], #16
+	mrs x1, elr_el1
+	mrs x2, fpcr
+	stp x1, x2, [x0], #16
+	mrs x1, fpsr
+	mrs x2, midr_el1		// todo: 読み出し時は midr_el1 だけど書き込み時は vpidr_el2
+	stp x1, x2, [x0], #16
+	mrs x1, mpidr_el1		// todo: 読み出し時は mpidr_el1 だけど書き込み時は vmpidr_el2
+	mrs x2, par_el1
+	stp x1, x2, [x0], #16
+	mrs x1, sp_el0
+	mrs x2, sp_el1
+	stp x1, x2, [x0], #16
+	mrs x1, spsr_el1
+	mrs x2, tpidr_el0
+	stp x1, x2, [x0], #16
+	mrs x1, tpidr_el1
+	mrs x2, tpidrro_el0
+	stp x1, x2, [x0], #16
+	mrs x1, vbar_el1
+	str x1, [x0]
+	ret
+
+.globl get_all_sysregs
+get_all_sysregs:
 	mrs x1, sctlr_el1
 	mrs x2, ttbr0_el1
 	stp x1, x2, [x0], #16

@@ -40,7 +40,7 @@ static void prepare_initial_sysregs(void) {
 	}
 
 	// 初回のみ sysregs の値(つまり初期値)を控える
-	_get_sysregs(&initial_sysregs);
+	get_all_sysregs(&initial_sysregs);
 
 	// MMU を確実に無効化する(初期値に関わらず 0 ビット目を確実に 0 にする)
 	// SCTLR_EL1 の 0 ビット目は M ビット

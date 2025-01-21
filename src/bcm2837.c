@@ -338,7 +338,7 @@ static unsigned long handle_aux_read(struct task_struct *tsk, unsigned long addr
         else {
             unsigned long data;
             dequeue_fifo(tsk->console.in_fifo, &data);
-            return data;
+            return data & 0xff;
         }
     case AUX_MU_IER_REG:
         if (state->aux.aux_mu_lcr & LCR_DLAB) {

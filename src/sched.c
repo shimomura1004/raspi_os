@@ -28,10 +28,12 @@ void preempt_enable(void)
 
 void _schedule(void)
 {
+	int next, c;
+	struct task_struct *p;
+
 	// タスク切り替え中はタスク切り替えが発生しないようにする
 	preempt_disable();
-	int next,c;
-	struct task_struct * p;
+
 	while (1) {
 		c = -1;
 		next = 0;
@@ -63,6 +65,7 @@ void _schedule(void)
 		// timer_tick で割込みを有効にしておく必要がある
 		// ただし、割込みは許可されるが preemption(タスク切り替え)は許可されていないことに注意
 	}
+
 	// 切り替え先タスクを見つけて switch_to する
 	switch_to(task[next]);
 	// 再びタスク切り替えを有効にして戻る
@@ -75,14 +78,6 @@ void schedule(void)
 	// 自主的に CPU を手放した場合はカウンタを 0 にする
 	current->counter = 0;
 	_schedule();
-}
-
-void set_cpu_sysregs(struct task_struct *task) {
-	// アドレス空間(VTTBR_EL2)を切り替え、つまり IPA -> PA の変換テーブルを切り替える
-	//   テーブル自体の準備は VM がロードされた初期化時やメモリアボート時に行う
-	// VM ごとにアドレスの上位8ビットが異なるようになっている
-	set_stage2_pgd(task->mm.first_table, task->pid);
-	_set_sysregs(&(task->cpu_sysregs));
 }
 
 void set_cpu_virtual_interrupt(struct task_struct *task) {
@@ -114,9 +109,6 @@ void switch_to(struct task_struct * next)
 
 	struct task_struct * prev = current;
 	current = next;
-
-	// 既に current は next(切り替え先のタスク)になっている
-	set_cpu_sysregs(current);
 
 	// レジスタを控えて実際にタスクを切り替える
 	// 戻ってくるときは別のタスクになっている
@@ -160,8 +152,16 @@ void exit_task(){
 	schedule();
 }
 
+void set_cpu_sysregs(struct task_struct *tsk) {
+	set_stage2_pgd(tsk->mm.first_table, tsk->pid);
+	restore_sysregs(&tsk->cpu_sysregs);
+}
+
 // ハイパーバイザでの処理を終えて VM に処理を戻すときに呼ばれる
 void vm_entering_work() {
+	// 控えておいたレジスタの値を戻す
+	set_cpu_sysregs(current);
+
 	// 今実行を再開しようとしているタスク(VM)に対し仮想割込みを設定する
 	//   ハイパーバイザ環境では VM に対し割込みを発生させる必要があるので
 	//   VM が実行開始するタイミングで仮想割込みを生成しないといけない
@@ -180,6 +180,9 @@ void vm_entering_work() {
 
 // VM での処理を抜けてハイパーバイザに処理に入るときに呼ばれる
 void vm_leaving_work() {
+	// 今のレジスタの値を控える
+	save_sysregs(&current->cpu_sysregs);
+
 	if (HAVE_FUNC(current->board_ops, leaving_vm)) {
 		current->board_ops->leaving_vm(current);
 	}
