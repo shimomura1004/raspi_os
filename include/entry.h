@@ -1,8 +1,8 @@
 #ifndef _ENTRY_H
 #define _ENTRY_H
 
-// 288 / 8 = 36: kernel_entry では 36 個のレジスタを保存するため
-#define S_FRAME_SIZE            288     // size of all saved registers
+// 272 / 8 = 34: kernel_entry では 34 個のレジスタを保存するため
+#define S_FRAME_SIZE            272     // size of all saved registers
 #define S_X0                    0       // offset of x0 register in saved stack frame
 
 #define SYNC_INVALID_EL2        0

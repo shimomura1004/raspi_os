@@ -65,12 +65,8 @@
 	stp	x30, x21, [sp, #16 * 15]
 	stp	x22, x23, [sp, #16 * 16]
 
-	// スタックポインタも控えておく
-	mrs x24, sp_el0
-	mrs x25, sp_el1
-
-	stp x24, x25, [sp, #16 * 17]
-
+	// vm_leaving_work 内の save_sysregs で sp_el0/el1 の退避をしている
+	// kernel_entry で退避する必要はない
 	bl vm_leaving_work
 	.endm
 
@@ -79,11 +75,6 @@
 	// 基本的には kernel_entry と逆のことをやっているだけ
 	.macro	kernel_exit
 	bl vm_entering_work
-
-	ldp x24, x25, [sp, #16 * 17]
-
-	msr sp_el0, x24
-	msr sp_el1, x25
 
 	ldp	x30, x21, [sp, #16 * 15]
 	ldp	x22, x23, [sp, #16 * 16]
