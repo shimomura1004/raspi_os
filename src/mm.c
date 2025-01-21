@@ -199,6 +199,7 @@ int handle_mem_abort(unsigned long addr, unsigned long esr) {
 			return -1;
 		}
 		map_stage2_page(current, addr & PAGE_MASK, page, MMU_STAGE2_PAGE_FLAGS);
+		current->stat.pf_trap_count++;
 		return 0;
 	}
 	else if (dfsc >> 2 == 0x3) {
@@ -230,6 +231,7 @@ int handle_mem_abort(unsigned long addr, unsigned long esr) {
 		}
 
 		increment_current_pc(4);
+		current->stat.mmio_trap_count++;
 		return 0;
 	}
 	return -1;

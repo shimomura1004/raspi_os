@@ -201,11 +201,10 @@ void handle_sync_exception(unsigned long esr, unsigned long elr, unsigned long f
 	// EC(error class)を取得
 	int eclass = (esr >> ESR_EL2_EC_SHIFT) & 0x3f;
 
-	current->stat.trap_count++;
-
 	switch (eclass)
 	{
 	case ESR_EL2_EC_TRAP_WFX:
+		current->stat.wfx_trap_count++;
 		// ゲスト VM が WFI/WFE を実行したら VM を切り替える
 		handle_trap_wfx();
 		break;
@@ -213,9 +212,11 @@ void handle_sync_exception(unsigned long esr, unsigned long elr, unsigned long f
 		WARN("TRAP_FP_REG is not implemented.");
 		break;
 	case ESR_EL2_EC_HVC64:
+		current->stat.hvc_trap_count++;
 		handle_hvc64(hvc_nr);
 		break;
 	case ESR_EL2_EC_TRAP_SYSTEM:
+		current->stat.sysregs_trap_count++;
 		handle_trap_system(esr);
 		break;
 	case ESR_EL2_EC_TRAP_SVE:

@@ -131,7 +131,11 @@ struct mm_struct {
 };
 
 struct task_stat {
-    long trap_count;
+    long wfx_trap_count;
+    long hvc_trap_count;
+    long sysregs_trap_count;
+    long pf_trap_count;
+    long mmio_trap_count;
 };
 
 struct task_console {
