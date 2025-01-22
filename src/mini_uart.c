@@ -5,6 +5,7 @@
 #include "sched.h"
 #include "fifo.h"
 #include "task.h"
+#include "timer.h"
 
 static void _uart_send(char c) {
     // 送信バッファが空くまで待つビジーループ
@@ -75,9 +76,14 @@ void handle_uart_irq(void) {
             if (tsk->state == TASK_RUNNING) {
                 flush_task_console(tsk);
             }
-        } else if (received == 'l') {
+        }
+        else if (received == 'l') {
             show_task_list();
-        } else if (received == ESCAPE_CHAR) {
+        }
+        else if (received == 't') {
+            show_systimer_info();
+        }
+        else if (received == ESCAPE_CHAR) {
             goto enqueue_char;
         }
     }

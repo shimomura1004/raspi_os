@@ -1,5 +1,6 @@
 #include "utils.h"
 #include "sched.h"
+#include "printf.h"
 #include "peripherals/timer.h"
 
 // RPi3 には 1tick ごとにカウントアップするタイマが搭載されていて
@@ -32,4 +33,9 @@ unsigned long get_physical_timer_count() {
 	unsigned long clo = get32(TIMER_CLO);
 	unsigned long chi = get32(TIMER_CHI);
 	return clo | (chi << 32);
+}
+
+void show_systimer_info() {
+	printf("HI: %x\nLO: %x\nCS: %x\nC1: %x\n",
+	get32(TIMER_CHI), get32(TIMER_CLO), get32(TIMER_CS), get32(TIMER_C1));
 }
