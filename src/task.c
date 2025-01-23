@@ -7,6 +7,7 @@
 #include "bcm2837.h"
 #include "board.h"
 #include "fifo.h"
+#include "irq.h"
 
 // 各スレッド用の領域の末尾に置かれた task_struct へのポインタを返す
 struct pt_regs * task_pt_regs(struct task_struct *tsk) {
@@ -21,9 +22,12 @@ static void prepare_task(loader_func_t loader, void *arg) {
 	regs->pstate = PSR_MODE_EL1h;	// EL を1、使用する SP を SP_EL1 にする
 	regs->pstate |= (0xf << 6);		// DAIF をすべて1にする、つまり全ての例外をマスクしている
 
+	// todo: なぜ割込みを禁止する必要がある？
+	disable_irq();
 	if (loader(arg, &regs->pc, &regs->sp) < 0) {
 		PANIC("failed to load");
 	}
+	enable_irq();
 
 	set_cpu_sysregs(current);
 

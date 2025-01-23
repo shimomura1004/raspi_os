@@ -80,9 +80,9 @@ void schedule(void)
 	_schedule();
 }
 
-void set_cpu_virtual_interrupt(struct task_struct *task) {
+void set_cpu_virtual_interrupt(struct task_struct *tsk) {
 	// もし current のタスク(VM)に対して irq が発生していたら、仮想割込みを設定する
-	if (HAVE_FUNC(task->board_ops, is_irq_asserted) && task->board_ops->is_irq_asserted(current)) {
+	if (HAVE_FUNC(tsk->board_ops, is_irq_asserted) && tsk->board_ops->is_irq_asserted(tsk)) {
 		assert_virq();
 	}
 	else {
@@ -90,7 +90,7 @@ void set_cpu_virtual_interrupt(struct task_struct *task) {
 	}
 
 	// fiq も同様
-	if (HAVE_FUNC(task->board_ops, is_fiq_asserted) && task->board_ops->is_fiq_asserted(current)) {
+	if (HAVE_FUNC(tsk->board_ops, is_fiq_asserted) && tsk->board_ops->is_fiq_asserted(tsk)) {
 		assert_vfiq();
 	}
 	else {
@@ -159,14 +159,6 @@ void set_cpu_sysregs(struct task_struct *tsk) {
 
 // ハイパーバイザでの処理を終えて VM に処理を戻すときに kernel_exit から呼ばれる
 void vm_entering_work() {
-	// 控えておいたレジスタの値を戻す
-	set_cpu_sysregs(current);
-
-	// 今実行を再開しようとしているタスク(VM)に対し仮想割込みを設定する
-	//   ハイパーバイザ環境では VM に対し割込みを発生させる必要があるので
-	//   VM が実行開始するタイミングで仮想割込みを生成しないといけない
-	set_cpu_virtual_interrupt(current);
-
 	if (HAVE_FUNC(current->board_ops, entering_vm)) {
 		current->board_ops->entering_vm(current);
 	}
@@ -176,6 +168,15 @@ void vm_entering_work() {
 	if (is_uart_forwarded_task(current)) {
 		flush_task_console(current);
 	}
+
+	// todo: entering_vm, flush, set_cpu_sysregs, set_cpu_virtual_interrupt の正しい呼び出し順がわからない
+	// 控えておいたレジスタの値を戻す
+	set_cpu_sysregs(current);
+
+	// 今実行を再開しようとしているタスク(VM)に対し仮想割込みを設定する
+	//   ハイパーバイザ環境では VM に対し割込みを発生させる必要があるので
+	//   VM が実行開始するタイミングで仮想割込みを生成しないといけない
+	set_cpu_virtual_interrupt(current);
 }
 
 // VM での処理を抜けてハイパーバイザに処理に入るときに kernel_entry から呼ばれる

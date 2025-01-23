@@ -523,6 +523,9 @@ static void handle_systimer_write(struct task_struct *tsk, unsigned long addr, u
     case TIMER_C1:
         state->systimer.c1 = val;
         state->systimer.c1_expire = (val > current_clo) ? val - current_clo : 1;
+        // if (state->systimer.c1_expire == 0) {
+        //     PANIC("ASSERTION FAILED");
+        // }
         break;
     case TIMER_C2:
         state->systimer.c2 = val;
@@ -586,12 +589,11 @@ void bcm2837_entering_vm(struct task_struct *tsk) {
 
     // update systimer's offset
     unsigned long current_physical_count = get_physical_timer_count();
-    // この VM が動いていない間に経過した時間を計算し、offset に積算する
-    state->systimer.offset += current_physical_count - state->systimer.last_physical_count;
+    // この VM が動いていない間に経過した時間(lapse)を計算し、offset に積算する
+    uint64_t lapse = current_physical_count - state->systimer.last_physical_count;
+    state->systimer.offset += lapse;
 
     // update cs register
-    // lapse: この VM が動いていない間に経過した時間
-    uint64_t lapse = current_physical_count - state->systimer.last_physical_count;
     // この VM が動いていない間に発火したタイマがあるかを確認
     // todo: VM が動いている間に経過した時間は無視している？
     int matched = (check_and_update_expiration(&state->systimer.c0_expire, lapse) << 0) |
@@ -599,22 +601,35 @@ void bcm2837_entering_vm(struct task_struct *tsk) {
                   (check_and_update_expiration(&state->systimer.c2_expire, lapse) << 2) |
                   (check_and_update_expiration(&state->systimer.c3_expire, lapse) << 3);
 
+    // 次に発火するタイマの値を見つけて upcoming にいれる
+    // 本物のタイマの比較値を使って例外を発生させることができないので、ソフト的にエミュレートしている
+    // upcoming には常に最も発火が近いタイマ比較値がセットされる
+    uint32_t upcoming = 0xffffffff;
+    if (state->systimer.c0_expire && upcoming > state->systimer.c0_expire) {
+        upcoming = state->systimer.c0_expire;
+    }
+    if (state->systimer.c1_expire && upcoming > state->systimer.c1_expire) {
+        upcoming = state->systimer.c1_expire;
+    }
+    if (state->systimer.c2_expire && upcoming > state->systimer.c2_expire) {
+        upcoming = state->systimer.c1_expire;
+    }
+    if (state->systimer.c3_expire && upcoming > state->systimer.c3_expire) {
+        upcoming = state->systimer.c1_expire;
+    }
+
+    if (upcoming != 0xffffffff) {
+        // todo: なぜ TIMER_C3?
+        // todo: まだゲスト OS からタイマは使われていない
+        put32(TIMER_C3, get32(TIMER_CLO) + upcoming);
+    }
+
     // ~state->systimer.cs: 前回まだ発火していなかったタイマのビットが立っている
     // matched: 今発火したタイマのビットが立っている
     // (~state->systimer.cs) & matched: 今回始めて発火したタイマのビットが立っている
     // todo: 結局 or を取っているだけでは？
     int fired = (~state->systimer.cs) & matched;
     state->systimer.cs |= fired;
-
-    // 次に発火するタイマの値を見つけて upcoming にいれる
-    // 本物のタイマの比較値を使って例外を発生させることができないので、ソフト的にエミュレートしている
-    // どれかのタイマが発火したら、次に発火するタイマの値をセットする
-    uint32_t upcoming = state->systimer.c0_expire;
-    upcoming = MIN(upcoming, state->systimer.c1_expire);
-    upcoming = MIN(upcoming, state->systimer.c2_expire);
-    upcoming = MIN(upcoming, state->systimer.c3_expire);
-    // todo: なぜ TIMER_C3?
-    put32(TIMER_C3, get32(TIMER_CLO) + upcoming);
 }
 
 // VM での処理を抜けてハイパーバイザに処理に入るときに呼ばれる
@@ -653,6 +668,10 @@ static int bcm2837_is_fiq_asserted(struct task_struct *tsk) {
     return 0;
 }
 
+void bcm2837_debug(struct task_struct *tsk) {
+    struct bcm2837_state *state = (struct bcm2837_state *)tsk->board_data;
+}
+
 const struct board_ops bcm2837_board_ops = {
     .initialize = bcm2837_initialize,
     .mmio_read = bcm2837_mmio_read,
@@ -661,4 +680,5 @@ const struct board_ops bcm2837_board_ops = {
     .leaving_vm = bcm2837_leaving_vm,
     .is_irq_asserted = bcm2837_is_irq_asserted,
     .is_fiq_asserted = bcm2837_is_fiq_asserted,
+    .debug = bcm2837_debug,
 };
