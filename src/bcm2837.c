@@ -240,22 +240,19 @@ static unsigned long handle_intctrl_read(struct task_struct *tsk, unsigned long 
     }
     case IRQ_PENDING_1: {
         unsigned long systimer_match1 =
-            BIT(state->intctrl.irqs_1_enabled, 1) && (state->systimer.cs & 0x02);
+            BIT(state->intctrl.irqs_1_enabled, 1) && (state->systimer.cs & TIMER_CS_M1);
         unsigned long systimer_match3 =
-            BIT(state->intctrl.irqs_1_enabled, 3) && (state->systimer.cs & 0x08);
-        // todo: uart の irq 番号は 57 だが、なぜ32を引く？
-        //       irqs_register の 2 にわけてあって、後半は32ビット目からのビット数になっているから？
-        //       だとしたら BIT(state->intctrl.irqs_2_enabled, (57 - 32)) では？
-        unsigned long int uart_int =
-            BIT(state->intctrl.irqs_1_enabled, (57 - 32)) &&
-            (handle_aux_read(tsk, AUX_IRQ) &  0x01);    // AUXIRQ レジスタの0ビット目が UART
-        // todo: BASIC_PENDING や IRQ_PENDING など、割込み関係のレジスタは32ビットしかない
-        //       勝手に64ビット値として返してはダメでは？
-        return (systimer_match1 << 1) | (systimer_match3 << 3) | (uart_int << 57);
+            BIT(state->intctrl.irqs_1_enabled, 3) && (state->systimer.cs & TIMER_CS_M3);
+        return (systimer_match1 << 1) | (systimer_match3 << 3);
     }
-    case IRQ_PENDING_2:
-        // todo: 仮実装？ IRQ_PENDING_1 の上位32ビットをこっちで返すべきでは？
-        return 0;
+    case IRQ_PENDING_2: {
+        // IRQ 64個あるがは32ビットずつに分けてある
+        // UART の irq 番号は 57 なので、後半は 57-32 ビットに対応
+        // AUXIRQ レジスタの0ビット目が UART
+        unsigned long uart_int =
+            BIT(state->intctrl.irqs_1_enabled, (57 - 32)) && (handle_aux_read(tsk, AUX_IRQ) &  0x01);
+        return (uart_int << (57 - 32));
+    }
     case FIQ_CONTROL:
         return state->intctrl.fiq_control;
     case ENABLE_IRQS_1:
