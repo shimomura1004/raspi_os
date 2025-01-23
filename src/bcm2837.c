@@ -70,10 +70,10 @@ struct bcm2837_state {
         uint32_t c1;        // System Timer Compare 1
         uint32_t c2;        // System Timer Compare 2
         uint32_t c3;        // System Timer Compare 3
-        uint64_t c0_long;
-        uint64_t c1_long;
-        uint64_t c2_long;
-        uint64_t c3_long;
+        uint32_t c0_expire; // todo: cx_expire の用途が不明
+        uint32_t c1_expire;
+        uint32_t c2_expire;
+        uint32_t c3_expire;
     } systimer;
 };
 
@@ -437,7 +437,6 @@ static void handle_aux_write(struct task_struct *tsk, unsigned long addr, unsign
             state->aux.aux_mu_baud = (state->aux.aux_mu_baud & 0xff00) | (val & 0xff);
         }
         else {
-            INFO("uart: %c", val & 0xff);
             enqueue_fifo(tsk->console.out_fifo, val & 0xff);
         }
         break;
@@ -481,7 +480,7 @@ static void handle_aux_write(struct task_struct *tsk, unsigned long addr, unsign
 // physical count は、VM が動いていない間の時間も含めた時間(カウント数)を表す
 #define TO_PHYSICAL_COUNT(s, v) (v + (s)->systimer.offset)
 
-// VM からタイマカウントを読み取る(VM が実際に実行された時間を返す)
+// VM からタイマカウントを読み取る(VM が実際に実行された時間だけを返す)
 static unsigned long handle_systimer_read(struct task_struct *tsk, unsigned long addr) {
     struct bcm2837_state *state = (struct bcm2837_state *)tsk->board_data;
 
@@ -505,51 +504,46 @@ static unsigned long handle_systimer_read(struct task_struct *tsk, unsigned long
     return 0;
 }
 
-void update_timer_cmpval(unsigned long new_cmpval) {
+static void handle_systimer_write(struct task_struct *tsk, unsigned long addr, unsigned long val) {
+    struct bcm2837_state *state = (struct bcm2837_state *)tsk->board_data;
     // タイマカウンタは64ビット、比較は下位32ビットで行われる
     //   Each channel has an output compare register, which is compared against
     //   the 32 least significant bits of the free running counter values.
-    unsigned long current_cmpval = get32(TIMER_C1) | ((unsigned long)get32(TIMER_CHI) << 32);
-
-    // 比較値を今の設定値より小さくしたり、現在のカウンタ値より小さくすることはできない
-    // todo: current_cmpval が大きくなったら変更できなくなるのでは？
-    if (current_cmpval < new_cmpval &&  get_physical_timer_count() < new_cmpval) {
-        put32(TIMER_C1, new_cmpval & 0xffffffff);
-    }
-}
-
-static void handle_systimer_write(struct task_struct *tsk, unsigned long addr, unsigned long val) {
-    struct bcm2837_state *state = (struct bcm2837_state *)tsk->board_data;
-
-// todo: おそらく下位32ビットがマッチする次の64ビットカウンタ値の計算をしたいのだと思うが
-//       val は unsigned long で64ビット
-//       handle_systimer_read の戻り値も unsigned long だが、実際にはレジスタ値なので32ビット
-//       なので、一度カウンタが32ビットの範囲よりも大きくなると、三項演算子の条件部が常に真になる
-#define TO_LONG_COMPARE_VALUE(val) \
-    val > handle_systimer_read(tsk, TIMER_CLO) ? \
-        (handle_systimer_read(tsk, TIMER_CHI) << 32) | val : \
-        ((handle_systimer_read(tsk, TIMER_CHI) + 1) << 32) | val
 
     switch (addr) {
     case TIMER_CS:
-        // todo: これは正しい？指定したところだけクリアするような振る舞い
+        // クリアしたいビットに1をセットするとクリアされるとドキュメントに書かれているため、正しい
         state->systimer.cs &= ~val;
         break;
     case TIMER_C0:
         state->systimer.c0 = val;
-        state->systimer.c0_long = TO_LONG_COMPARE_VALUE(val);
+        // 比較値をセットしたとき、次の tick までの残り時間を expire に保持しておく
+        // val が unsigned なので min(1, val - handle_systimer_read()) にできない
+        state->systimer.c0_expire =
+            (val > handle_systimer_read(tsk, TIMER_CLO))
+                ? val - handle_systimer_read(tsk, TIMER_CLO)
+                : 1;
         break;
     case TIMER_C1:
         state->systimer.c1 = val;
-        state->systimer.c1_long = TO_LONG_COMPARE_VALUE(val);
+        state->systimer.c1_expire =
+            (val > handle_systimer_read(tsk, TIMER_CLO))
+                ? val - handle_systimer_read(tsk, TIMER_CLO)
+                : 1;
         break;
     case TIMER_C2:
         state->systimer.c2 = val;
-        state->systimer.c2_long = TO_LONG_COMPARE_VALUE(val);
+        state->systimer.c2_expire =
+            (val > handle_systimer_read(tsk, TIMER_CLO))
+                ? val - handle_systimer_read(tsk, TIMER_CLO)
+                : 1;
         break;
     case TIMER_C3:
         state->systimer.c3 = val;
-        state->systimer.c3_long = TO_LONG_COMPARE_VALUE(val);
+        state->systimer.c3_expire =
+            (val > handle_systimer_read(tsk, TIMER_CLO))
+                ? val - handle_systimer_read(tsk, TIMER_CLO)
+                : 1;
         break;
     }
 }
@@ -581,21 +575,47 @@ static void bcm2837_mmio_write(struct task_struct *tsk, unsigned long addr, unsi
     }
 }
 
+// VM が止まっていた間の経過時間と、タイマの設定値を比べて、タイマが発火していたら真
+// その場合、タイマ値はクリアする
+static int check_expiration(uint32_t *expire, uint64_t lapse) {
+    if (*expire == 0) {
+        return 0;
+    }
+
+    if (lapse >= *expire) {
+        *expire = 0;
+        return 1;
+    }
+    else {
+        *expire -= lapse;
+        return 0;
+    }
+}
+
 // ハイパーバイザでの処理を終えて VM に処理を戻すときに呼ばれる
 void bcm2837_entering_vm(struct task_struct *tsk) {
     struct bcm2837_state *state = (struct bcm2837_state *)tsk->board_data;
 
     // update systimer's offset
     unsigned long current_physical_count = get_physical_timer_count();
-    // この VM が動いていない間にすぎた時間を計算し、offset に積算する
+    // この VM が動いていない間に経過した時間を計算し、offset に積算する
     state->systimer.offset += current_physical_count - state->systimer.last_physical_count;
 
     // update cs register
-    unsigned long current_virt_count = TO_VIRTUAL_COUNT(state, current_physical_count);
-    int matched = ((current_virt_count >= state->systimer.c0_long) << 0) |
-                  ((current_virt_count >= state->systimer.c1_long) << 1) |
-                  ((current_virt_count >= state->systimer.c2_long) << 2) |
-                  ((current_virt_count >= state->systimer.c3_long) << 3);
+    // lapse: この VM が動いていない間に経過した時間
+    uint64_t lapse = current_physical_count - state->systimer.last_physical_count;
+    // この VM が動いていない間に発火したタイマがあるかを確認
+    // todo: VM が動いている間に経過した時間は無視している？
+    int matched = (check_expiration(&state->systimer.c0_expire, lapse) << 0) |
+                  (check_expiration(&state->systimer.c1_expire, lapse) << 1) |
+                  (check_expiration(&state->systimer.c2_expire, lapse) << 2) |
+                  (check_expiration(&state->systimer.c3_expire, lapse) << 3);
+
+    // unsigned long current_virt_count = TO_VIRTUAL_COUNT(state, current_physical_count);
+    // int matched = ((current_virt_count >= state->systimer.c0_expire) << 0) |
+    //               ((current_virt_count >= state->systimer.c1_expire) << 1) |
+    //               ((current_virt_count >= state->systimer.c2_expire) << 2) |
+    //               ((current_virt_count >= state->systimer.c3_expire) << 3);
 
     // ~state->systimer.cs: 前回まだ発火していなかったタイマのビットが立っている
     // matched: 今発火したタイマのビットが立っている
@@ -605,11 +625,19 @@ void bcm2837_entering_vm(struct task_struct *tsk) {
     state->systimer.cs |= fired;
 
     // update (physical) timer compare value for upcoming timer match
-    // freerunning カウンタは動き続けるので、比較する場合は physical な値にしないといけない
-    update_timer_cmpval(TO_PHYSICAL_COUNT(state, state->systimer.c0_long));
-    update_timer_cmpval(TO_PHYSICAL_COUNT(state, state->systimer.c1_long));
-    update_timer_cmpval(TO_PHYSICAL_COUNT(state, state->systimer.c2_long));
-    update_timer_cmpval(TO_PHYSICAL_COUNT(state, state->systimer.c3_long));
+    // // freerunning カウンタは動き続けるので、比較する場合は physical な値にしないといけない
+    // update_timer_cmpval(TO_PHYSICAL_COUNT(state, state->systimer.c0_expire));
+    // update_timer_cmpval(TO_PHYSICAL_COUNT(state, state->systimer.c1_expire));
+    // update_timer_cmpval(TO_PHYSICAL_COUNT(state, state->systimer.c2_expire));
+    // update_timer_cmpval(TO_PHYSICAL_COUNT(state, state->systimer.c3_expire));
+
+    // 次に発火するタイマの値を見つけて upcoming にいれる
+    uint32_t upcoming = state->systimer.c0_expire;
+    upcoming = MIN(upcoming, state->systimer.c1_expire);
+    upcoming = MIN(upcoming, state->systimer.c2_expire);
+    upcoming = MIN(upcoming, state->systimer.c3_expire);
+    // todo: なぜ TIMER_C3?
+    put32(TIMER_C3, get32(TIMER_CLO) + upcoming);
 }
 
 // VM での処理を抜けてハイパーバイザに処理に入るときに呼ばれる

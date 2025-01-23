@@ -33,11 +33,12 @@ const char *entry_error_messages[] = {
 //   #define ENABLE_IRQS_2		(PBASE+0x0000B214)
 //   #define ENABLE_BASIC_IRQS	(PBASE+0x0000B218)
 //   BASIC IRQS はローカル割込み用
-// この関数では全割込みのうちタイマ1だけを有効化する
+// この関数では全割込みのうちタイマ1,3と UART を有効化する
 //   ちなみにタイマは4個あるが 0 と 2 は GPU で使われる
 void enable_interrupt_controller()
 {
 	put32(ENABLE_IRQS_1, SYSTEM_TIMER_IRQ_1_BIT);
+	put32(ENABLE_IRQS_1, SYSTEM_TIMER_IRQ_3_BIT);
 	put32(ENABLE_IRQS_1, AUX_IRQ_BIT);
 }
 
@@ -52,7 +53,11 @@ void handle_irq(void)
 	unsigned int irq = get32(IRQ_PENDING_1);
 	if (irq & SYSTEM_TIMER_IRQ_1_BIT) {
 		irq &= ~SYSTEM_TIMER_IRQ_1_BIT;
-		handle_timer_irq();
+		handle_timer1_irq();
+	}
+	if (irq & SYSTEM_TIMER_IRQ_3_BIT) {
+		irq &= ~SYSTEM_TIMER_IRQ_3_BIT;
+		handle_timer3_irq();
 	}
 	if (irq & AUX_IRQ_BIT) {
 		irq &= ~AUX_IRQ_BIT;

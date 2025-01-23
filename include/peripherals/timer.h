@@ -3,6 +3,24 @@
 
 #include "peripherals/base.h"
 
+// System Timer Registers
+// CS: System Timer Control/Status
+//       Write a one to the relevant bit to clear the match
+//       detect status bit and the corresponding interrupt request line. 
+//   [31:4] unused
+//   [3] M3: System Timer Match 3
+//     0b0: No Timer 3 match since last cleared.
+//     0b1: Timer 3 match detected
+//   [2] M2: System Timer Match 2
+//   [1] M1: System Timer Match 1
+//   [0] M0: System Timer Match 0
+// CLO: System Timer Counter Lower bits
+//   [31:0] Lower 32-bits of the free running counter value
+// CHI: System Timer Counter Higher bits
+//   [31:0] Higher 32-bits of the free running counter value
+// C0, C1, C2, C3: System Timer Compare
+//   [31:0] Compare value for match channel n
+
 #define TIMER_CS        (PBASE+0x00003000)
 #define TIMER_CLO       (PBASE+0x00003004)
 #define TIMER_CHI       (PBASE+0x00003008)

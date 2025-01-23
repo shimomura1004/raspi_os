@@ -112,11 +112,13 @@ struct cpu_sysregs {
     unsigned long revidr_el1;       // r
 
     // system timer
+    // physical timers
     unsigned long cntkctl_el1;
     unsigned long cntp_ctl_el0;
     unsigned long cntp_cval_el0;
     unsigned long cntp_tval_el0;
 
+    // virtual timers
     unsigned long cntv_ctl_el0;
     unsigned long cntv_cval_el0;
     unsigned long cntv_tval_el0;
@@ -178,7 +180,7 @@ extern void show_task_list(void);
         /* cpu_context   */ {0}, \
         /* state         */ 0, \
         /* counter       */ 0, \
-        /* priority      */ 15, \
+        /* priority      */ 5, \
         /* preempt_count */ 0, \
         /* pid           */ 0, \
         /* flags         */ 0, \

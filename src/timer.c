@@ -9,8 +9,7 @@
 const unsigned int interval = 20000;
 unsigned int current_value = 0;
 
-void timer_init ( void )
-{
+void timer_init () {
 	// 今のカウンタの値を取り出す
 	current_value = get32(TIMER_CLO);
 	current_value += interval;
@@ -18,17 +17,23 @@ void timer_init ( void )
 	put32(TIMER_C1, current_value);
 }
 
-void handle_timer_irq( void ) 
-{
+// タスクスイッチ用
+void handle_timer1_irq() {
+	// 定期的に呼び出されるよう、次の比較値をセットする
 	current_value += interval;
 	put32(TIMER_C1, current_value);
-	// TIMER_CS: timer control/status register
-	// todo: "acknowledge" がわからないが、割込みをクリアする？
+	// 割込みをクリア
 	put32(TIMER_CS, TIMER_CS_M1);
 	timer_tick();
 }
 
-// 実際にシステムタイマのレジスタ CLO/CHI を読み、合わせて64ビット値として返す
+// VM の割込み用
+void handle_timer3_irq() {
+	// 割込みをクリア
+	put32(TIMER_CS, TIMER_CS_M3);
+}
+
+// システムタイマのレジスタ CLO/CHI を読み、合わせて64ビット値として返す
 unsigned long get_physical_timer_count() {
 	unsigned long clo = get32(TIMER_CLO);
 	unsigned long chi = get32(TIMER_CHI);
@@ -36,6 +41,6 @@ unsigned long get_physical_timer_count() {
 }
 
 void show_systimer_info() {
-	printf("HI: %x\nLO: %x\nCS: %x\nC1: %x\n",
-	get32(TIMER_CHI), get32(TIMER_CLO), get32(TIMER_CS), get32(TIMER_C1));
+	printf("HI: 0x%x\nLO: 0x%x\nCS: 0x%x\nC1: 0x%x\nC3: 0x%x\n",
+	get32(TIMER_CHI), get32(TIMER_CLO), get32(TIMER_CS), get32(TIMER_C1), get32(TIMER_C3));
 }
