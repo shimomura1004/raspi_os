@@ -7,21 +7,16 @@
 // 合計4個の比較用レジスタがあり、カウンタの値が一致すると対応する割込み線を発火させる
 
 const unsigned int interval = 20000;
-unsigned int current_value = 0;
 
 void timer_init () {
-	// 今のカウンタの値を取り出す
-	current_value = get32(TIMER_CLO);
-	current_value += interval;
-	// interval tick 後に発火するように2個目のレジスタに値をセットする
-	put32(TIMER_C1, current_value);
+	// 今のカウンタ値から interval tick 後に発火するように2個目のレジスタに値をセットする
+	put32(TIMER_C1, get32(TIMER_CLO) + interval);
 }
 
 // タスクスイッチ用
 void handle_timer1_irq() {
 	// 定期的に呼び出されるよう、次の比較値をセットする
-	current_value += interval;
-	put32(TIMER_C1, current_value);
+	put32(TIMER_C1, get32(TIMER_CLO) + interval);
 	// 割込みをクリア
 	put32(TIMER_CS, TIMER_CS_M1);
 	timer_tick();

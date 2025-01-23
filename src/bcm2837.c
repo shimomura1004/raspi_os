@@ -507,40 +507,30 @@ static void handle_systimer_write(struct task_struct *tsk, unsigned long addr, u
     //   Each channel has an output compare register, which is compared against
     //   the 32 least significant bits of the free running counter values.
 
+    uint32_t current_clo = handle_systimer_read(tsk, TIMER_CLO);
+
     switch (addr) {
     case TIMER_CS:
         // クリアしたいビットに1をセットするとクリアされるとドキュメントに書かれているため、正しい
         state->systimer.cs &= ~val;
         break;
     case TIMER_C0:
-        state->systimer.c0 = val;
         // 比較値をセットしたとき、次の tick までの残り時間を expire に保持しておく
         // val が unsigned なので min(1, val - handle_systimer_read()) にできない
-        state->systimer.c0_expire =
-            (val > handle_systimer_read(tsk, TIMER_CLO))
-                ? val - handle_systimer_read(tsk, TIMER_CLO)
-                : 1;
+        state->systimer.c0 = val;
+        state->systimer.c0_expire = (val > current_clo) ? val - current_clo : 1;
         break;
     case TIMER_C1:
         state->systimer.c1 = val;
-        state->systimer.c1_expire =
-            (val > handle_systimer_read(tsk, TIMER_CLO))
-                ? val - handle_systimer_read(tsk, TIMER_CLO)
-                : 1;
+        state->systimer.c1_expire = (val > current_clo) ? val - current_clo : 1;
         break;
     case TIMER_C2:
         state->systimer.c2 = val;
-        state->systimer.c2_expire =
-            (val > handle_systimer_read(tsk, TIMER_CLO))
-                ? val - handle_systimer_read(tsk, TIMER_CLO)
-                : 1;
+        state->systimer.c2_expire = (val > current_clo) ? val - current_clo : 1;
         break;
     case TIMER_C3:
         state->systimer.c3 = val;
-        state->systimer.c3_expire =
-            (val > handle_systimer_read(tsk, TIMER_CLO))
-                ? val - handle_systimer_read(tsk, TIMER_CLO)
-                : 1;
+        state->systimer.c3_expire = (val > current_clo) ? val - current_clo : 1;
         break;
     }
 }
