@@ -192,7 +192,7 @@ int handle_mem_abort(unsigned long addr, unsigned long esr) {
 
 	if (dfsc >> 2 == 0x1) {
 		// ESR の3ビット目が 1 すなわち Translation fault の場合
-		// つまりまだページテーブルエントリがないときにここにくる
+		// つまりまだページテーブルエントリがない(invalid)ときにここにくる
 		// なにも考えずにページを確保してマッピングを追加する
 		unsigned long page = get_free_page();
 		if (page == 0) {

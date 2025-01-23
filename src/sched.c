@@ -157,7 +157,7 @@ void set_cpu_sysregs(struct task_struct *tsk) {
 	restore_sysregs(&tsk->cpu_sysregs);
 }
 
-// ハイパーバイザでの処理を終えて VM に処理を戻すときに呼ばれる
+// ハイパーバイザでの処理を終えて VM に処理を戻すときに kernel_exit から呼ばれる
 void vm_entering_work() {
 	// 控えておいたレジスタの値を戻す
 	set_cpu_sysregs(current);
@@ -178,7 +178,7 @@ void vm_entering_work() {
 	}
 }
 
-// VM での処理を抜けてハイパーバイザに処理に入るときに呼ばれる
+// VM での処理を抜けてハイパーバイザに処理に入るときに kernel_entry から呼ばれる
 void vm_leaving_work() {
 	// 今のレジスタの値を控える
 	save_sysregs(&current->cpu_sysregs);

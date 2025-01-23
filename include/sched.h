@@ -133,11 +133,11 @@ struct mm_struct {
 };
 
 struct task_stat {
-    long wfx_trap_count;
-    long hvc_trap_count;
-    long sysregs_trap_count;
-    long pf_trap_count;
-    long mmio_trap_count;
+    long wfx_trap_count;            // ゲスト OS が wfi/wfe を実行した回数
+    long hvc_trap_count;            // ゲスト OS がハイパーコールを実行した回数
+    long sysregs_trap_count;        // ゲスト OS が sysregs にアクセスした回数
+    long pf_trap_count;             // ゲスト OS がページフォルトを発生させた回数
+    long mmio_trap_count;           // ゲスト OS が mmio 領域にアクセスした回数
 };
 
 struct task_console {

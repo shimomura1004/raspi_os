@@ -223,6 +223,7 @@ void handle_sync_exception(unsigned long esr, unsigned long elr, unsigned long f
 		WARN("TRAP_SVE is not implemented.");
 		break;
 	case ESR_EL2_EC_DABT_LOW:
+		// todo: ゲストが uart の状態を読むたびに vmexit/enter が発生している
 		// データアボートは処理し、問題なければそのまま復帰
 		if (handle_mem_abort(far, esr) < 0) {
 			PANIC("handle_mem_abort() failed.");
