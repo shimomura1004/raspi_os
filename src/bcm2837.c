@@ -577,7 +577,8 @@ static void bcm2837_mmio_write(struct task_struct *tsk, unsigned long addr, unsi
 
 // VM が止まっていた間の経過時間と、タイマの設定値を比べて、タイマが発火していたら真
 // その場合、タイマ値はクリアする
-static int check_expiration(uint32_t *expire, uint64_t lapse) {
+// まだ発火していなかった場合は、経過した時間分をタイマ値から引く
+static int check_and_update_expiration(uint32_t *expire, uint64_t lapse) {
     if (*expire == 0) {
         return 0;
     }
@@ -606,16 +607,10 @@ void bcm2837_entering_vm(struct task_struct *tsk) {
     uint64_t lapse = current_physical_count - state->systimer.last_physical_count;
     // この VM が動いていない間に発火したタイマがあるかを確認
     // todo: VM が動いている間に経過した時間は無視している？
-    int matched = (check_expiration(&state->systimer.c0_expire, lapse) << 0) |
-                  (check_expiration(&state->systimer.c1_expire, lapse) << 1) |
-                  (check_expiration(&state->systimer.c2_expire, lapse) << 2) |
-                  (check_expiration(&state->systimer.c3_expire, lapse) << 3);
-
-    // unsigned long current_virt_count = TO_VIRTUAL_COUNT(state, current_physical_count);
-    // int matched = ((current_virt_count >= state->systimer.c0_expire) << 0) |
-    //               ((current_virt_count >= state->systimer.c1_expire) << 1) |
-    //               ((current_virt_count >= state->systimer.c2_expire) << 2) |
-    //               ((current_virt_count >= state->systimer.c3_expire) << 3);
+    int matched = (check_and_update_expiration(&state->systimer.c0_expire, lapse) << 0) |
+                  (check_and_update_expiration(&state->systimer.c1_expire, lapse) << 1) |
+                  (check_and_update_expiration(&state->systimer.c2_expire, lapse) << 2) |
+                  (check_and_update_expiration(&state->systimer.c3_expire, lapse) << 3);
 
     // ~state->systimer.cs: 前回まだ発火していなかったタイマのビットが立っている
     // matched: 今発火したタイマのビットが立っている
@@ -624,14 +619,9 @@ void bcm2837_entering_vm(struct task_struct *tsk) {
     int fired = (~state->systimer.cs) & matched;
     state->systimer.cs |= fired;
 
-    // update (physical) timer compare value for upcoming timer match
-    // // freerunning カウンタは動き続けるので、比較する場合は physical な値にしないといけない
-    // update_timer_cmpval(TO_PHYSICAL_COUNT(state, state->systimer.c0_expire));
-    // update_timer_cmpval(TO_PHYSICAL_COUNT(state, state->systimer.c1_expire));
-    // update_timer_cmpval(TO_PHYSICAL_COUNT(state, state->systimer.c2_expire));
-    // update_timer_cmpval(TO_PHYSICAL_COUNT(state, state->systimer.c3_expire));
-
     // 次に発火するタイマの値を見つけて upcoming にいれる
+    // 本物のタイマの比較値を使って例外を発生させることができないので、ソフト的にエミュレートしている
+    // どれかのタイマが発火したら、次に発火するタイマの値をセットする
     uint32_t upcoming = state->systimer.c0_expire;
     upcoming = MIN(upcoming, state->systimer.c1_expire);
     upcoming = MIN(upcoming, state->systimer.c2_expire);

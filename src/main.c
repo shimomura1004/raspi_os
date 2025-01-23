@@ -56,6 +56,17 @@ void hypervisor_main()
 		return;
 	}
 
+	// struct raw_binary_loader_args bl_args3 = {
+	// 	.loader_addr = 0x0,
+	// 	.entry_point = 0x0,
+	// 	.sp = 0x100000,
+	// 	.filename = "MINI-OS.BIN",
+	// };
+	// if (create_task(raw_binary_loader, &bl_args3) < 0) {
+	// 	printf("error while starting task #3");
+	// 	return;
+	// }
+
 	while (1){
 		// このプロセスでは特にやることがないので CPU を明け渡す
 		schedule();

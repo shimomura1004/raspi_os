@@ -30,6 +30,7 @@ fs.img:
 	mformat -i fs.img -F ::
 	-mcopy -i fs.img ./example/echo/echo.bin ::ECHO.BIN
 	-mcopy -i fs.img ./example/test_binary/test.bin ::TEST2.BIN
+	-mcopy -i fs.img ./example/mini-os/mini-os.bin ::MINI-OS.BIN
 
 $(BUILD_DIR)/%_c.o: $(SRC_DIR)/%.c
 	mkdir -p $(@D)
