@@ -65,7 +65,7 @@ set_stage2_pgd:
 	//   ISH: DSB operation only to the inner shareable domain
 	//   ISHST: DST operation that waits only for stores to complete, and only to the inner shareable domain.
 
-	tlbi vmalls12e1
+	// tlbi vmalls12e1
 	// out-of-order 実行で勝手に実行しないように
 	// data synchronization barrier
 	dsb ish				// ensure completion of TLB invalidation
@@ -312,6 +312,15 @@ clear_vserror:
 	mrs x0, hcr_el2
 	bic x1, x0, #0x100
 	msr hcr_el2, x1
+	ret
+
+.globl translate_el1
+translate_el1:
+	// at s1e1r: address translation stage 1 el1 read
+	// x0 のアドレスを EL1 のステージ1アドレス変換する
+	// 結果は par_el1 (physical address register) に入る
+	at s1e1r, x0
+	mrs x0, par_el1
 	ret
 
 // 使っていない

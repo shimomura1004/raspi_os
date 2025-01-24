@@ -105,8 +105,8 @@ unsigned long map_stage2_table(unsigned long *table, unsigned long shift, unsign
 }
 
 // task のアドレス空間のアドレス va に、指定されたページ page を割り当てる
-// stage1/2 のどちらも差はない
 // ハイパーバイザが管理するメモリマッピングは、IPA->PA のみ
+// va は IPA である
 void map_stage2_page(struct task_struct *task, unsigned long va, unsigned long page, unsigned long flags) {
 	// 最上位のページテーブル
 	unsigned long lv1_table;
@@ -136,6 +136,15 @@ void map_stage2_page(struct task_struct *task, unsigned long va, unsigned long p
 	map_stage2_table_entry((unsigned long *)(lv3_table + VA_START), va, page, flags);
 	// ユーザ空間用のページ数をカウントアップする　
 	task->mm.user_pages_count++;
+}
+
+unsigned long get_ipa(unsigned long va) {
+	// メモリページの IPA を取得
+	unsigned long ipa = translate_el1(va);
+	ipa &= 0xFFFFFFFFF000;
+	// オフセット12ビット分を反映
+	ipa |= va & 0xFFF;
+	return ipa;
 }
 
 // ESR_EL2.ISS encoding for an exception from a Data Abort
@@ -198,7 +207,8 @@ int handle_mem_abort(unsigned long addr, unsigned long esr) {
 		if (page == 0) {
 			return -1;
 		}
-		map_stage2_page(current, addr & PAGE_MASK, page, MMU_STAGE2_PAGE_FLAGS);
+		// IPA -> PA の変換を登録
+		map_stage2_page(current, get_ipa(addr) & PAGE_MASK, page, MMU_STAGE2_PAGE_FLAGS);
 		current->stat.pf_trap_count++;
 		return 0;
 	}
@@ -220,13 +230,14 @@ int handle_mem_abort(unsigned long addr, unsigned long esr) {
 		if (wnr == 0) {
 			// mmio を read しようとして例外が発生
 			if (HAVE_FUNC(ops, mmio_read)) {
-				regs->regs[srt] = ops->mmio_read(current, addr);
+				// todo: なぜ IPA に変換する必要がある？
+				regs->regs[srt] = ops->mmio_read(current, get_ipa(addr));
 			}
 		}
 		else {
 			// mmio を write しようとして例外が発生
 			if (HAVE_FUNC(ops, mmio_write)) {
-				ops->mmio_write(current, addr, regs->regs[srt]);
+				ops->mmio_write(current, get_ipa(addr), regs->regs[srt]);
 			}
 		}
 

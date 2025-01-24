@@ -508,6 +508,8 @@ static void handle_systimer_write(struct task_struct *tsk, unsigned long addr, u
     //   the 32 least significant bits of the free running counter values.
 
     uint32_t current_clo = handle_systimer_read(tsk, TIMER_CLO);
+    // 次の発火までの時間が短すぎると通りこしてしまう
+    const uint32_t min_expire = 10000;
 
     switch (addr) {
     case TIMER_CS:
@@ -518,22 +520,19 @@ static void handle_systimer_write(struct task_struct *tsk, unsigned long addr, u
         // 比較値をセットしたとき、次の tick までの残り時間を expire に保持しておく
         // val が unsigned なので min(1, val - handle_systimer_read()) にできない
         state->systimer.c0 = val;
-        state->systimer.c0_expire = (val > current_clo) ? val - current_clo : 1;
+        state->systimer.c0_expire = MAX((val > current_clo) ? val - current_clo : 1, min_expire);
         break;
     case TIMER_C1:
         state->systimer.c1 = val;
-        state->systimer.c1_expire = (val > current_clo) ? val - current_clo : 1;
-        // if (state->systimer.c1_expire == 0) {
-        //     PANIC("ASSERTION FAILED");
-        // }
+        state->systimer.c1_expire = MAX((val > current_clo) ? val - current_clo : 1, min_expire);
         break;
     case TIMER_C2:
         state->systimer.c2 = val;
-        state->systimer.c2_expire = (val > current_clo) ? val - current_clo : 1;
+        state->systimer.c2_expire = MAX((val > current_clo) ? val - current_clo : 1, min_expire);
         break;
     case TIMER_C3:
         state->systimer.c3 = val;
-        state->systimer.c3_expire = (val > current_clo) ? val - current_clo : 1;
+        state->systimer.c3_expire = MAX((val > current_clo) ? val - current_clo : 1, min_expire);
         break;
     }
 }
