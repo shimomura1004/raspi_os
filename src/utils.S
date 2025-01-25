@@ -118,7 +118,9 @@ restore_sysregs:
 	// 最後は1変数しかない
 	ldr x1, [x0]
 	msr vbar_el1, x1
+
   	// TTBR を復元してメモリ空間が変わるので、念のためブロックしている？　
+	tlbi vmalle1
 	dsb ish
 	isb
 	ret

@@ -18,16 +18,16 @@ struct pt_regs * task_pt_regs(struct task_struct *tsk) {
 static void prepare_task(loader_func_t loader, void *arg) {
 	INFO("loading... arg=%d, EL=%d", arg, get_el());
 
+	// PSTATE の中身は SPSR レジスタに戻したうえで eret することで復元される
+	// ここで設定した regs->pstate は restore_sysregs で SPSR に戻される
+	// その後 kernel_exit で eret され実際のレジスタに復元される
 	struct pt_regs *regs = task_pt_regs(current);
 	regs->pstate = PSR_MODE_EL1h;	// EL を1、使用する SP を SP_EL1 にする
 	regs->pstate |= (0xf << 6);		// DAIF をすべて1にする、つまり全ての例外をマスクしている
 
-	// todo: なぜ割込みを禁止する必要がある？
-	disable_irq();
 	if (loader(arg, &regs->pc, &regs->sp) < 0) {
 		PANIC("failed to load");
 	}
-	enable_irq();
 
 	set_cpu_sysregs(current);
 
@@ -62,8 +62,6 @@ void increment_current_pc(int ilen) {
 
 // EL2 で動くタスク(=VM)を作る
 int create_task(loader_func_t loader, void *arg) {
-	// copy_process の処理中はスケジューラによるタスク切り替えを禁止
-	preempt_disable();
 	struct task_struct *p;
 
 	// 新たなページを確保
@@ -86,7 +84,6 @@ int create_task(loader_func_t loader, void *arg) {
 	p->priority = current->priority;
 	p->state = TASK_RUNNING;
 	p->counter = p->priority;
-	p->preempt_count = 1; 	// disable preemtion until schedule_tail
 
 	// このプロセス(vm)で再現するハードウェア(BCM2837)を初期化
 	p->board_ops = &bcm2837_board_ops;
@@ -111,7 +108,6 @@ int create_task(loader_func_t loader, void *arg) {
 
 	init_task_console(p);
 
-	preempt_enable();
 	return pid;
 }
 

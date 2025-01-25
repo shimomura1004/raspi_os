@@ -68,7 +68,10 @@ void hypervisor_main()
 	}
 
 	while (1){
+		// todo: schedule を呼ぶ前に手動で割込みを禁止にしないといけないのは危ない
+		disable_irq();
 		// このプロセスでは特にやることがないので CPU を明け渡す
 		schedule();
+		enable_irq();
 	}
 }

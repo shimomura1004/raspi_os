@@ -187,11 +187,10 @@ el01_sync:
 
 	kernel_exit
 
-// vmtask_create で作られたタスクに切り替わったときの処理
+// vmtask_create で作られたタスクに切り替わったときに最初に行われる処理
 // x19 には指定された関数のポインタが、x20 には引数が入っている
 .globl switch_from_kthread
 switch_from_kthread:
-	bl	schedule_tail
 	mov	x0, x20
 	// todo: なぜ以下3つのコピーが必要か不明
 	//       kernel_entry のときに以下のようにレジスタを控えているが…
@@ -201,10 +200,8 @@ switch_from_kthread:
 	mov x1, x21
 	mov x3, x22
 	mov x4, x23
-	// x19 (create_initial_sysregs)に無条件分岐する
+	// x19 (task.c: prepare_task)に無条件分岐する
 	blr	x19
-	// 割込みを無効にしてカーネル空間から抜ける
-	bl disable_irq
 	kernel_exit
 
 .globl err_hang

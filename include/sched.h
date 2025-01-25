@@ -151,7 +151,6 @@ struct task_struct {
     long counter;                   // プロセスがどれくらい実行されるかを保持
                                     // tick ごとに 1 減り、0 になると他のプロセスに切り替わる
     long priority;                  // タスクがスケジュールされるときにこの値が counter にコピーされる
-    long preempt_count;             // 0 以外の値が入っている場合はタスク切り替えが無視される
     long pid;                       // VMID
     unsigned long flags;
     const struct board_ops *board_ops;
@@ -165,8 +164,6 @@ struct task_struct {
 extern void sched_init(void);
 extern void schedule(void);
 extern void timer_tick(void);
-extern void preempt_disable(void);
-extern void preempt_enable(void);
 extern void set_cpu_virtual_interrupt(struct task_struct *);
 void set_cpu_sysregs(struct task_struct *);
 extern void switch_to(struct task_struct*);
@@ -181,7 +178,6 @@ extern void show_task_list(void);
         /* state         */ 0, \
         /* counter       */ 0, \
         /* priority      */ 5, \
-        /* preempt_count */ 0, \
         /* pid           */ 0, \
         /* flags         */ 0, \
         /* board_ops     */ 0, \

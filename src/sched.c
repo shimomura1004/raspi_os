@@ -13,26 +13,11 @@ struct task_struct *task[NR_TASKS] = {&(init_task), };
 // 現在実行中のタスクの数(init_task があるので初期値は1)
 int nr_tasks = 1;
 
-// タイマ割込みが発生してもタスク切り替えを行わないようにする
-void preempt_disable(void)
-{
-	current->preempt_count++;
-}
-
-// タスク切り替えを許可する
-void preempt_enable(void)
-{
-	current->preempt_count--;
-}
-
-
-void _schedule(void)
+// タスク切換え
+static void _schedule(void)
 {
 	int next, c;
 	struct task_struct *p;
-
-	// タスク切り替え中はタスク切り替えが発生しないようにする
-	preempt_disable();
 
 	while (1) {
 		c = -1;
@@ -68,11 +53,14 @@ void _schedule(void)
 
 	// 切り替え先タスクを見つけて switch_to する
 	switch_to(task[next]);
-	// 再びタスク切り替えを有効にして戻る
-	preempt_enable();
 }
 
-// プロセスを切り替える
+// 自主的に CPU 時間を手放しプロセスを切り替える
+// todo: schedule を呼ぶ前に IRQ を無効化する必要があり危険
+//       現状 schedule を呼ぶのは、main, handle_trap_wfx, exit_task のみ
+//       main は手動で無効化している
+//       handle_trap_wfx は割込から呼ばれるので、割込みは無効化されている
+//       exit_task は PANIC マクロから呼ばれる、割込みが無効かどうかわからず危ないのでは
 void schedule(void)
 {
 	// 自主的に CPU を手放した場合はカウンタを 0 にする
@@ -115,40 +103,34 @@ void switch_to(struct task_struct * next)
 	cpu_switch_to(prev, next);
 }
 
-void schedule_tail(void) {
-	preempt_enable();
-}
-
 // タイマが発火すると呼ばれ、タスク切り替えを行う
 void timer_tick()
 {
 	--current->counter;
-	// まだタスクが十分な時間実行されていなかったり(counter > 0)
-	// タスク切り替えが禁止されていたら(preempt_count > 0)
-	// 切り替えずに終了
-	if (current->counter > 0 || current->preempt_count > 0) {
+	// まだタスクが十分な時間実行されていなかったら切り替えずに終了
+	if (current->counter > 0) {
 		return;
 	}
 	current->counter = 0;
+
 	// 割込みハンドラは割込み無効状態で開始される
 	// _schedule 関数の処理中に割込みを使う部分があるので割込みを有効にする
-	// todo: なぜ無効のままでよくなった？ EL2 だと割込み発生しない？
+	// todo: なぜ無効のままでよくなった？
 	//enable_irq();
 	_schedule();
 	//disable_irq();
 }
 
 void exit_task(){
-	preempt_disable();
 	for (int i = 0; i < NR_TASKS; i++){
 		if (task[i] == current) {
 			// 実行中のプロセスの構造体を見つけて zombie にする(=スケジューリング対象から外れる)
-			// todo: メモリは解放しなくていい？ (free_page を呼ぶ関数がない…)
+			// todo: メモリは解放しなくていい？
 			task[i]->state = TASK_ZOMBIE;
 			break;
 		}
 	}
-	preempt_enable();
+
 	schedule();
 }
 
@@ -199,7 +181,6 @@ const char *task_state_str[] = {
 };
 
 void show_task_list() {
-    preempt_disable();
     printf("  %3s %8s %7s %9s %7s %7s %7s %7s %7s\n",
 		   "pid", "state", "pages", "saved-pc", "wfx", "hvc", "sysregs", "pf", "mmio");
     for (int i = 0; i < nr_tasks; i++) {
@@ -212,5 +193,4 @@ void show_task_list() {
                tsk->stat.sysregs_trap_count, tsk->stat.pf_trap_count,
                tsk->stat.mmio_trap_count);
     }
-    preempt_enable();
 }
