@@ -186,6 +186,8 @@ static void handle_trap_system(unsigned long esr) {
 		DEFINE_SYSREG_MRS(aidr_el1, 1, 0, 0, 7);
 		DEFINE_SYSREG_MRS(revidr_el1, 0, 0, 0, 6);
 	}
+	// todo: else が必要では？
+	WARN("system register access is not handled");
 sys_fin:
 	increment_current_pc(4);
 	return;

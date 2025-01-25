@@ -85,7 +85,9 @@
 #define MM_STAGE2_ACCESS    (1 << 10)
 #define MM_STAGE2_SH        (3 << 8)    // inner shareable
 #define MM_STAGE2_AP        (3 << 6)    // read/write
-#define MM_STAGE2_MEMATTR   (0xf << 2)  // Write-back cacheable
+// todo: いったんキャッシュを無効にする
+//#define MM_STAGE2_MEMATTR   (0xf << 2)  // Write-back cacheable
+#define MM_STAGE2_MEMATTR   (0x5 << 2)  // Write-back cacheable
 
 // todo:
 // MMU_STAGE2_PAGE_FLAGS/MMU_STAGE2_MMIO_FLAGS は

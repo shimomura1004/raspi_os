@@ -668,7 +668,6 @@ static int bcm2837_is_fiq_asserted(struct task_struct *tsk) {
 }
 
 void bcm2837_debug(struct task_struct *tsk) {
-    struct bcm2837_state *state = (struct bcm2837_state *)tsk->board_data;
 }
 
 const struct board_ops bcm2837_board_ops = {

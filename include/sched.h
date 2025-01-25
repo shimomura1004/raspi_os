@@ -177,7 +177,7 @@ extern void show_task_list(void);
         /* cpu_context   */ {0}, \
         /* state         */ 0, \
         /* counter       */ 0, \
-        /* priority      */ 5, \
+        /* priority      */ 1, \
         /* pid           */ 0, \
         /* flags         */ 0, \
         /* board_ops     */ 0, \
