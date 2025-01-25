@@ -44,6 +44,33 @@ delay:
 	bne delay
 	ret
 
+// AArch64 TLB maintenance operations
+//   https://developer.arm.com/documentation/100941/0101/Barriers
+//
+// tlbi:
+//   VMALLE1IS: Invalidate all stage 1 translations used at EL1 with the current virtual machine identifier (VMID) in the Inner Shareable
+//   VAE1IS: Invalidate translation used at EL1 for the specified VA and Address Space Identifier (ASID) and the current VMID, Inner Shareable
+//   ASIDE1IS: Invalidate all translations used at EL1 with the current VMID and the supplied ASID, Inner Shareable
+//   VAAE1IS: Invalidate all translations used at EL1 for the specified address and current VMID and for all ASID values, Inner Shareable
+//   VALE1IS: Invalidate all entries from the last level of stage 1 translation table walk used at EL1 with the supplied ASID and current VMID, Inner Shareable
+//   VAALE1IS: Invalidate all entries from the last level of stage 1 translation table walk used at EL1 for the specified address and current VMID and for all ASID values, Inner Shareable
+//   VMALLE1: Invalidate all stage 1 translations used at EL1 with the current VMID
+//   VAE1: Invalidate translation used at EL1 for the specified VA and ASID and the current VMID
+//   ASIDE1: Invalidate all translations used at EL1 with the current VMID and the supplied ASID
+//   VAAE1: Invalidate all translations used at EL1 for the specified address and current VMID and for all ASID values
+//   VALE1: Invalidate all entries from the last level of stage 1 translation table walk used at EL1 with the supplied ASID and current VMID
+//   VAALE1: Invalidate all entries from the last level of stage 1 translation table walk used at EL1 for the specified address and current VMID and for all ASID values
+//
+// dsb: data synchronization barrier
+//   dsb 命令よりあとに記述された命令は、この命令が終わるまで実行されない
+//   SY: full system DSB operation, this is the default and can be omitted
+//   ST: DSB operation that waits only for stores to complete
+//   ISH: DSB operation only to the inner shareable domain
+//   ISHST: DST operation that waits only for stores to complete, and only to the inner shareable domain.
+//
+// isb: instruction synchronization barrier
+
+
 // void set_stage2_pgd(unsigned long pgd, unsigned long vmid);
 .globl set_stage2_pgd
 set_stage2_pgd:
@@ -57,15 +84,6 @@ set_stage2_pgd:
 	// VTTBR_EL2 の上位16ビットは VMID を格納する、残りの48ビットはベースアドレス
 	msr	vttbr_el2, x0
 
-	// 以下の4この命令のセットで、TLB をインバリデートできる
-	// dsb: data synchronization barrier
-	//   dsb 命令よりあとに記述された命令は、この命令が終わるまで実行されない
-	//   SY: full system DSB operation, this is the default and can be omitted
-	//   ST: DSB operation that waits only for stores to complete
-	//   ISH: DSB operation only to the inner shareable domain
-	//   ISHST: DST operation that waits only for stores to complete, and only to the inner shareable domain.
-
-	// tlbi vmalls12e1
 	// out-of-order 実行で勝手に実行しないように
 	// data synchronization barrier
 	dsb ish				// ensure completion of TLB invalidation
