@@ -83,16 +83,16 @@ void hypervisor_main()
 		return;
 	}
 
-		struct raw_binary_loader_args bl_args5 = {
-		.loader_addr = 0x0,
-		.entry_point = 0x0,
-		.sp = 0x100000,
-		.filename = "ECHO.BIN",
-	};
-	if (create_task(raw_binary_loader, &bl_args5) < 0) {
-		printf("error while starting task #5");
-		return;
-	}
+	// struct raw_binary_loader_args bl_args5 = {
+	// 	.loader_addr = 0x0,
+	// 	.entry_point = 0x0,
+	// 	.sp = 0x100000,
+	// 	.filename = "MINI-OS.BIN",
+	// };
+	// if (create_task(raw_binary_loader, &bl_args5) < 0) {
+	// 	printf("error while starting task #5");
+	// 	return;
+	// }
 
 	while (1){
 		// todo: schedule を呼ぶ前に手動で割込みを禁止にしないといけないのは危ない
