@@ -84,6 +84,7 @@ int create_task(loader_func_t loader, void *arg) {
 	p->priority = current->priority;
 	p->state = TASK_RUNNING;
 	p->counter = p->priority;
+	p->name = "VM";
 
 	// このプロセス(vm)で再現するハードウェア(BCM2837)を初期化
 	p->board_ops = &bcm2837_board_ops;
@@ -122,4 +123,8 @@ void flush_task_console(struct task_struct *tsk) {
 	while (dequeue_fifo(outfifo, &val) == 0) {
 		printf("%c", val);
 	}
+}
+
+void init_initial_task() {
+	task[0]->name = "IDLE";
 }

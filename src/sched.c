@@ -181,16 +181,21 @@ const char *task_state_str[] = {
 };
 
 void show_task_list() {
-    printf("  %3s %8s %7s %9s %7s %7s %7s %7s %7s\n",
-		   "pid", "state", "pages", "saved-pc", "wfx", "hvc", "sysregs", "pf", "mmio");
+    printf("  %3s %12s %8s %7s %9s %7s %7s %7s %7s %7s\n",
+		   "pid", "name", "state", "pages", "saved-pc", "wfx", "hvc", "sysregs", "pf", "mmio");
     for (int i = 0; i < nr_tasks; i++) {
         struct task_struct *tsk = task[i];
-        printf("%c %3d %8s %7d %9x %7d %7d %7d %7d %7d\n",
-               is_uart_forwarded_task(task[i]) ? '*' : ' ', tsk->pid,
-               task_state_str[tsk->state], tsk->mm.user_pages_count,
+        printf("%c %3d %12s %8s %7d %9x %7d %7d %7d %7d %7d\n",
+               is_uart_forwarded_task(task[i]) ? '*' : ' ',
+			   tsk->pid,
+			   tsk->name ? tsk->name : "",
+               task_state_str[tsk->state],
+			   tsk->mm.user_pages_count,
 			   task_pt_regs(tsk)->pc,
-               tsk->stat.wfx_trap_count, tsk->stat.hvc_trap_count,
-               tsk->stat.sysregs_trap_count, tsk->stat.pf_trap_count,
+               tsk->stat.wfx_trap_count,
+			   tsk->stat.hvc_trap_count,
+               tsk->stat.sysregs_trap_count,
+			   tsk->stat.pf_trap_count,
                tsk->stat.mmio_trap_count);
     }
 }

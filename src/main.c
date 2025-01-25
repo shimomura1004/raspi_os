@@ -24,6 +24,8 @@ void hypervisor_main()
 	// ホスト用のコンソールの初期化
 	init_task_console(current);
 
+	init_initial_task();
+
 	irq_vector_init();
 	timer_init();
 

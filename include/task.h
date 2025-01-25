@@ -22,6 +22,7 @@ void init_task_console(struct task_struct *);
 int is_uart_forwarded_task(struct task_struct *);
 void flush_task_console(struct task_struct *);
 void increment_current_pc(int);
+void init_initial_task(void);
 
 // PSTATE
 // https://developer.arm.com/documentation/102412/0103/Handling-exceptions/Taking-an-exception?lang=en#md244-taking-an-exception__saving-the-current-processor-state

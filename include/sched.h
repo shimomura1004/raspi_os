@@ -153,6 +153,7 @@ struct task_struct {
     long priority;                  // タスクがスケジュールされるときにこの値が counter にコピーされる
     long pid;                       // VMID
     unsigned long flags;
+    const char *name;
     const struct board_ops *board_ops;
     void *board_data;
     struct mm_struct mm;
@@ -180,6 +181,7 @@ extern void show_task_list(void);
         /* priority      */ 1, \
         /* pid           */ 0, \
         /* flags         */ 0, \
+        /* name          */ "", \
         /* board_ops     */ 0, \
         /* board_data    */ 0, \
         /* mm            */ {0}, \
