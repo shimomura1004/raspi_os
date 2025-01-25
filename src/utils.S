@@ -138,7 +138,6 @@ restore_sysregs:
 	msr vbar_el1, x1
 
   	// TTBR を復元してメモリ空間が変わるので、念のためブロックしている？　
-	tlbi vmalle1
 	dsb ish
 	isb
 	ret
@@ -146,6 +145,11 @@ restore_sysregs:
 // 各システムレジスタの値を取り出し、x0 が指すメモリアドレスに保存する
 .globl save_sysregs
 save_sysregs:
+	// todo: なぜ save 前に barrier が必要なのか？
+	//       データを保存する前にシステムレジスタへの書き込み命令をすべて完了させたい？
+	dsb ish
+	isb
+
 	mrs x1, sctlr_el1
 	mrs x2, ttbr0_el1
 	stp x1, x2, [x0], #16

@@ -156,9 +156,15 @@ el2_entry:
 	// todo: 詳細はよくわからない
 	ldr	x2, =hypervisor_main
 
-	// MMU を有効にする
+	// MMU を有効にする準備
 	mov	x0, #SCTLR_MMU_ENABLED
+	// MMU を有効にする前にすべての命令を実行完了しておく
+	dsb ish
+	isb
+	// MMU を有効にする
 	msr	sctlr_el2, x0
+	// これ以降、MMU が有効になった状態で命令が実行されることを確実にする
+	isb
 
 	// hypervisor_main 関数にジャンプ
 	br 	x2
