@@ -42,10 +42,31 @@ el1_entry:
 	ldr	x2, =kernel_main
 
 	mov	x0, #SCTLR_MMU_ENABLED
+	//mov	x0, #SCTLR_MMU_DISABLED
+mov x8, x2
+hvc #0
+adr x8, .
+hvc #0
+
   dsb ish
   isb
+wfi
+wfi
+// todo: MMU_DISABLE に設定する場合は動いているので、レジスタにアクセスすること自体は問題ない
+//       ここまで中間物理アドレスで動いているのでステージ2アドレス変換は問題ない
+//       MMU_ENABLE にするとステージ1アドレス変換が有効になる
+//       ゲスト OS によるアドレス変換が失敗している？ベアメタルでは動いているはず
+//       命令フェッチに失敗している？
+//         -> IABT_LOW を追加してログを出してみたが反応なし
+//       IPA->PA のマッピングログを見ると、0x6000 から 0x85000 まで
+//         0x1000 単位で128個のページがマップされている
+//         -> 今実行しているアドレス 0x60 くらいや kernel_main の 0x1b74 が範囲外になっているかも
+//         -> ログの埋め込み漏れ、ちゃんとマップされていた
+//       なぜか PC が 0x200 に飛ぶ
 	msr	sctlr_el1, x0
-
+wfi
+isb
+wfi
 	br 	x2
 
 	.macro	create_pgd_entry, tbl, virt, tmp1, tmp2
@@ -54,6 +75,10 @@ el1_entry:
 	.endm
 
 	.macro	create_table_entry, tbl, virt, shift, tmp1, tmp2
+mov x8, \virt
+hvc #0
+mov x8, #\shift
+hvc #0
 	lsr	\tmp1, \virt, #\shift
 	and	\tmp1, \tmp1, #PTRS_PER_TABLE - 1			// table index
 	add	\tmp2, \tbl, #PAGE_SIZE
@@ -63,6 +88,14 @@ el1_entry:
 	.endm
 
 	.macro	create_block_map, tbl, phys, start, end, flags, tmp1
+mov x8, 12345
+hvc #0
+mov x8, \phys
+hvc #0
+mov x8, \start
+hvc #0
+mov x8, \end
+hvc #0
 	lsr	\start, \start, #SECTION_SHIFT
 	and	\start, \start, #PTRS_PER_TABLE - 1			// table index
 	lsr	\end, \end, #SECTION_SHIFT
@@ -73,6 +106,8 @@ el1_entry:
 9999:	str	\phys, [\tbl, \start, lsl #3]				// store the entry
 	add	\start, \start, #1					// next entry
 	add	\phys, \phys, #SECTION_SIZE				// next block
+mov x8, \start
+hvc #0
 	cmp	\start, \end
 	b.ls	9999b
 	.endm
