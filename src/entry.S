@@ -108,7 +108,34 @@
 /*
  * Exception vectors.
  */
- // invalid つきのものは通常は呼ばれないハンドラで、エラー出力して無限ループする
+// https://developer.arm.com/documentation/102412/0103/Handling-exceptions/Taking-an-exception
+// AArch64 vector tables
+//   Each Exception level has its own vector table, with the base address defined by its own 
+//   Vector Base Address Register, VBAR_EL<x>, where <x> is 1,2, or 3. Note that there is no
+//   dedicated vector table for EL0 as exceptions are never taken to EL0.
+//
+//   Address		   Exception type	Description
+//   VBAR_ELx + 0x780  SError/VSError	Exception from a lower EL and all lower ELs are AArch32
+//   VBAR_ELx + 0x700  FIQ/vFIQ
+//   VBAR_ELx + 0x680  IRQ/vIRQ
+//   VBAR_ELx + 0x600  Synchronous
+//   VBAR_ELx + 0x580  SError/VSError	Exception from a lower EL and at least one lower EL is AArch64
+//   VBAR_ELx + 0x500  FIQ/vFIQ
+//   VBAR_ELx + 0x480  IRQ/vIRQ
+//   VBAR_ELx + 0x400  Synchronous
+//   VBAR_ELx + 0x380  SError/VSError	Exception from the current EL while using SP_ELx
+//   VBAR_ELx + 0x300  FIQ/vFIQ
+//   VBAR_ELx + 0x280  IRQ/vIRQ
+//   VBAR_ELx + 0x200  Synchronous
+//   VBAR_ELx + 0x180  SError/VSError	Exception from the current EL while using SP_EL0
+//   VBAR_ELx + 0x100  FIQ/vFIQ
+//   VBAR_ELx + 0x080  IRQ/vIRQ
+//   VBAR_ELx + 0x000  Synchronous
+//
+// これはハイパーバイザなので、EL0 -> EL2 でトラップされる
+// よって VBAR_ELx + 0x200 から VBAR_ELx + 0x380 のベクタが使われる
+
+// invalid つきのものは通常は呼ばれないハンドラで、エラー出力して無限ループする
 .align	11
 .globl vectors
 vectors:

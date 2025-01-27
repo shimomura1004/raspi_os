@@ -22,3 +22,5 @@
 - 状況に応じて `layout asm` もしくは `layout src` で表示を切り替える
 - デバッグ時は毎回 target remote するのは大変なので以下のようにコマンドラインで指定するといい
     - `$ gdb-multiarch -ex 'target remote :1234'`
+- gdb で VTTBR_EL2 を調べる
+    - `info registers VTTBR_EL2`
