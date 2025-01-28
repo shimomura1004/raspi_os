@@ -24,3 +24,16 @@
     - `$ gdb-multiarch -ex 'target remote :1234'`
 - gdb で VTTBR_EL2 を調べる
     - `info registers VTTBR_EL2`
+- Hypervisor 環境と gdb を組み合わせる場合、ブレークポイントは仮想アドレスに対して設定する
+    - CPU は MMU を介して常に仮想アドレス上で実行されている
+    - 複数のゲスト OS は同じ仮想アドレスを使うので、どのゲスト OS がブレークされたかわからない
+        - `info registers VTTBR_EL2` で VMID を見れば、どのゲストがブレークされたか確認できる
+
+# BCM2873
+- BCM2873 のメモリマップは以下のマニュアルに書かれている
+    - BCM2837-ARM-Peripherals.-.Revised.-.V2-1.pdf
+- ![alt text](docs/bcm2873_memmap.png)
+    - 右端が仮想アドレスで、MMU を使って CPU の物理アドレス(ARM Physical Adress)に変換される
+    - 真ん中が CPU の物理アドレス(ARM Physical Address)で、VC/ARM MMU によってバスアドレス(VC CPU Bus Address)に変換される
+    - 左端がバスアドレス(VC CPU Bus Address)で、ボードの内容がそのまま配置されるようなアドレス空間である(合計1GB の SDRAM が不連続に配置されていたりする)
+- RPi3b には IOMMU や SMMU はないので、たとえば DMA コントローラでは物理アドレスを直接指定する必要がある
