@@ -29,12 +29,14 @@ unsigned long allocate_task_page(struct task_struct *task, unsigned long va) {
 		return 0;
 	}
 	// 新たに確保したページをこのタスクのアドレス空間にマッピングする
+if (current->pid != 0)INFO("VA 0x%x -> IPA 0x%x -> PA 0x%x (allocate_task_page)", va, get_ipa(va), page);
 	map_stage2_page(task, va, page, MMU_STAGE2_PAGE_FLAGS);
 	// 新たに確保したページの仮想アドレスを返す(リニアマッピングなのでオフセットを足すだけ)
 	return page + VA_START;
 }
 
 void set_task_page_notaccessable(struct task_struct *task, unsigned long va) {
+if (current->pid != 0)INFO("VA 0x%x -> IPA 0x%x -> PA 0x%x (set_task_page_notaccessable)", va, get_ipa(va), 0);
 	map_stage2_page(task, va, 0, MMU_STAGE2_MMIO_FLAGS);
 }
 
@@ -202,11 +204,14 @@ int handle_mem_abort(unsigned long addr, unsigned long esr) {
 	if (dfsc >> 2 == 0x1) {
 		// ESR の3ビット目が 1 すなわち Translation fault の場合
 		// つまりまだページテーブルエントリがない(invalid)ときにここにくる
-		// なにも考えずにページを確保してマッピングを追加する
+		// ゲスト OS がメモリマップを追加するときに呼ばれることになる
+
+		// ページを確保してマッピングを追加する
 		unsigned long page = get_free_page();
 		if (page == 0) {
 			return -1;
 		}
+if (current->pid != 0)INFO("VA 0x%x -> IPA 0x%x -> PA 0x%x (handle_mem_abort)", addr, get_ipa(addr), page);
 		// IPA -> PA の変換を登録
 		map_stage2_page(current, get_ipa(addr) & PAGE_MASK, page, MMU_STAGE2_PAGE_FLAGS);
 		current->stat.pf_trap_count++;
