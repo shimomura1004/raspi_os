@@ -4,6 +4,7 @@
 #include "mm.h"
 #include "utils.h"
 #include "debug.h"
+#include "elf.h"
 
 int load_file_to_memory(struct task_struct *tsk, const char *name, unsigned long va) {
     struct fat32_fs hfat;
@@ -38,6 +39,49 @@ int load_file_to_memory(struct task_struct *tsk, const char *name, unsigned long
     }
 
     tsk->name = name;
+
+    return 0;
+}
+
+// todo: elf loader にする
+int elf_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
+    struct raw_binary_loader_args *loader_args = (struct raw_binary_loader_args *)args;
+
+    struct fat32_fs hfat;
+    if (fat32_get_handle(&hfat) < 0) {
+        WARN("failed to find fat32 file system");
+        return -1;
+    }
+
+    struct fat32_file file;
+    if (fat32_lookup(&hfat, loader_args->filename, &file) < 0) {
+        WARN("requested file (%s) is not found", loader_args->filename);
+        return -1;
+    }
+
+    int remain = fat32_file_size(&file);
+    int offset = 0;
+
+    // while (remain > 0) {
+        uint8_t *buf = (uint8_t *)allocate_page();
+        int readsize = MIN(PAGE_SIZE, remain);
+        int actualsize = fat32_read(&file, buf, offset, readsize);
+
+        if (readsize != actualsize) {
+            WARN("failed to read file");
+            return -1;
+        }
+
+        remain -= readsize;
+        offset += readsize;
+    // }
+
+    elf_load(buf);
+
+
+
+    *pc = loader_args->entry_point;
+    *sp = loader_args->sp;
 
     return 0;
 }

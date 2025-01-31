@@ -15,6 +15,10 @@
 - msr: copy status register from register
     - msr esr_el2, x0
 
+- ゲスト OS (kernel8.elf)は 0xffff_... に配置されるようにコンパイルされているが、objcopy で 0x0000_... に配置するように変換されている
+- その結果、ゲスト OS がロードされる位置が本来 EL0 アプリ用の位置になっており、かつ TTBR0_EL1 が設定されていないのでクラッシュしていた
+- elf ファイルをロードすれば正しく配置できると考えられる
+
 # Debug
 - flat binary にデバッグ情報を残すこともできるようだが、objcopy がうまくデバッグ情報を認識してくれない
 - 以下のように gdb で kernel8.elf を追加で読み込むほうが楽

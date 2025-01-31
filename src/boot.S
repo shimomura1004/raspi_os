@@ -26,6 +26,7 @@ _start:
 
 // コア 0 以外のコアを無限ループさせて止める
 proc_hang:
+	wfi
 	b proc_hang
 
 // これ以降はコア 0 だけで実行される
@@ -123,6 +124,8 @@ el2_entry:
 
 	// pg_dir はリンカスクリプトで設定されている
 	// __create_page_tables によって、pg_dir にはアドレス変換テーブルの最上位のページのアドレスが入っている
+	// __create_page_tables が作るのは単純なリニアマッピング
+	// adrp は address of page の略で、pg_dir のページアドレスを x0 に入れる
 	adrp	x0, pg_dir
 	msr	ttbr0_el2, x0
 

@@ -59,6 +59,7 @@ void set_task_page_notaccessable(struct task_struct *task, unsigned long va);
 
 int handle_mem_abort(unsigned long addr, unsigned long esr);
 
+unsigned long get_ipa(unsigned long va);
 extern unsigned long pg_dir;
 
 #endif

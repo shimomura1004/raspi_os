@@ -20,11 +20,23 @@ master:
 	msr	sctlr_el1, x0
 
 el1_entry:
+mov x8, #44444
+hvc #0
+adr x8, bss_begin
+hvc #0
+adr x8, bss_end
+hvc #0
+	// この BSS 領域のゼロ初期化のときにマッピングしていない領域にアクセスが発生
+	// mem abort が発生してハイパーバイザで stage2 アドレス変換マップが作られる
+	// ただし stage1 の変換マップはまだ作られていない(この時点では MMU は無効なので動作はする)
 	adr	x0, bss_begin
 	adr	x1, bss_end
 	sub	x1, x1, x0
 	bl 	memzero
+mov x8, #55555
+hvc #0
 
+	// __create_page_tables 内の create_block_map で stage1 の変換マップが作られる
 	bl 	__create_page_tables
 
 	mov	x0, #VA_START
@@ -32,6 +44,12 @@ el1_entry:
 
 	adrp	x0, pg_dir
 	msr	ttbr1_el1, x0
+
+	// EL1 のカーネルのアドレス空間は低アドレス域にあるので ttbr0 に設定が必要
+	// todo: カーネルは高アドレス域にあるべきでは？なぜそうなっていない？
+	//       elf は 0xffff_... に配置されるようになっている、objcopy でずれている？
+	//       elf ローダを作って kernel8.elf をロードすれば解決できると思われる
+	msr ttbr0_el1, x0
 
 	ldr	x0, =(TCR_VALUE)
 	msr	tcr_el1, x0
@@ -43,15 +61,17 @@ el1_entry:
 
 	mov	x0, #SCTLR_MMU_ENABLED
 	//mov	x0, #SCTLR_MMU_DISABLED
+mov x8, 12345
+hvc #0
 mov x8, x2
 hvc #0
-adr x8, .
+mrs x8, CurrentEL
+hvc #0
+adr x8, . // <- address: 0x78
 hvc #0
 
   dsb ish
   isb
-wfi
-wfi
 // todo: MMU_DISABLE に設定する場合は動いているので、レジスタにアクセスすること自体は問題ない
 //       ここまで中間物理アドレスで動いているのでステージ2アドレス変換は問題ない
 //       MMU_ENABLE にするとステージ1アドレス変換が有効になる
@@ -62,9 +82,11 @@ wfi
 //         0x1000 単位で128個のページがマップされている
 //         -> 今実行しているアドレス 0x60 くらいや kernel_main の 0x1b74 が範囲外になっているかも
 //         -> ログの埋め込み漏れ、ちゃんとマップされていた
-//       なぜか PC が 0x200 に飛ぶ
+//       なぜか PC が 0x200 に飛ぶ -> 0x200 は synchronous 例外が EL2 で発生したときに飛ぶアドレス
+//       クラッシュする寸前、割込みベクタである vectors の中身がすべて 0 になっている
+//       まずベアメタルで動くことを確認できたバイナリを用意する
+//       VASTART の違いがあやしそうだが…
 	msr	sctlr_el1, x0
-wfi
 isb
 wfi
 	br 	x2
@@ -88,14 +110,6 @@ hvc #0
 	.endm
 
 	.macro	create_block_map, tbl, phys, start, end, flags, tmp1
-mov x8, 12345
-hvc #0
-mov x8, \phys
-hvc #0
-mov x8, \start
-hvc #0
-mov x8, \end
-hvc #0
 	lsr	\start, \start, #SECTION_SHIFT
 	and	\start, \start, #PTRS_PER_TABLE - 1			// table index
 	lsr	\end, \end, #SECTION_SHIFT
@@ -103,11 +117,32 @@ hvc #0
 	lsr	\phys, \phys, #SECTION_SHIFT
 	mov	\tmp1, #\flags
 	orr	\phys, \tmp1, \phys, lsl #SECTION_SHIFT			// table entry
-9999:	str	\phys, [\tbl, \start, lsl #3]				// store the entry
-	add	\start, \start, #1					// next entry
-	add	\phys, \phys, #SECTION_SIZE				// next block
+mov x8, 12345
+hvc #0
 mov x8, \start
 hvc #0
+mov x8, \end
+hvc #0
+mov x8, \phys
+hvc #0
+mov x8, 11111
+hvc #0
+
+9999:
+// mov x8, \start
+// hvc #0
+// mov x8, \phys
+// hvc #0
+	// [\tbl, \start, lsl #3]
+	//   テーブルのベースアドレス(tbl)にインデックス(start)の8倍(3ビット左シフト)する
+	// str phys [\tbl, \start, lsl #3]
+	//   phys の値を [\tbl, \start, lsl #3] が指すアドレスに書き込む
+	//   つまりページエントリを書き込んでいる
+	str	\phys, [\tbl, \start, lsl #3]				// store the entry
+	// インデックスと物理アドレスをインクリメントしている
+	// つまりリニアにマッピングしている
+	add	\start, \start, #1					// next entry
+	add	\phys, \phys, #SECTION_SIZE				// next block
 	cmp	\start, \end
 	b.ls	9999b
 	.endm
@@ -115,9 +150,15 @@ hvc #0
 __create_page_tables:
 	mov	x29, x30						// save return address
 
+mov x8, #22222
+hvc #0
 	adrp	x0, pg_dir
 	mov	x1, #PG_DIR_SIZE
 	bl 	memzero
+mov x8, #33333
+hvc #0
+adr x8, pg_dir
+hvc #0
 
 	adrp	x0, pg_dir
 	mov	x1, #VA_START
@@ -127,6 +168,12 @@ __create_page_tables:
 	mov 	x1, xzr							// start mapping from physical offset 0
 	mov 	x2, #VA_START						// first virtual address
 	ldr	x3, =(VA_START + DEVICE_BASE - SECTION_SIZE)		// last virtual address
+mov x8, x1
+hvc #0
+mov x8, x2
+hvc #0
+mov x8, x3
+hvc #0
 	create_block_map x0, x1, x2, x3, MMU_FLAGS, x4
 
 	/* Mapping device memory*/
