@@ -16,7 +16,7 @@ struct pt_regs * task_pt_regs(struct task_struct *tsk) {
 }
 
 static void prepare_task(loader_func_t loader, void *arg) {
-	INFO("loading... arg=%d, EL=%d", arg, get_el());
+	INFO("loading... arg=%ld, EL=%d", arg, get_el());
 
 	// PSTATE の中身は SPSR レジスタに戻したうえで eret することで復元される
 	// ここで設定した regs->pstate は restore_sysregs で SPSR に戻される

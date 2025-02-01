@@ -92,7 +92,7 @@ static void handle_trap_wfx() {
 }
 
 static void handle_hvc64(unsigned long hvc_nr) {
-	WARN("HVC #%d(0x%x)", hvc_nr, hvc_nr);
+	WARN("HVC #%lu(0x%lx)", hvc_nr, hvc_nr);
 }
 
 static void handle_trap_system(unsigned long esr) {
