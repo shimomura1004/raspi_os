@@ -19,6 +19,7 @@
 #define ESR_EL2_EC_HVC64        22	// HVC instruction execution when HVC is not disabled
 #define ESR_EL2_EC_TRAP_SYSTEM	24	// MSR, MRS or System instruction exection that is not reported using EC 
 #define ESR_EL2_EC_TRAP_SVE		25	// Access to SVE functionality
+#define ESR_EL2_EC_IABT_LOW		32	// Instruction Abort from a lower Exception level
 #define ESR_EL2_EC_DABT_LOW		36	// Data Abort from a lower Exception level
 
 // eclass のインデックスに合わせたエラーメッセージ
@@ -223,6 +224,9 @@ void handle_sync_exception(unsigned long esr, unsigned long elr, unsigned long f
 		break;
 	case ESR_EL2_EC_TRAP_SVE:
 		WARN("TRAP_SVE is not implemented.");
+		break;
+	case ESR_EL2_EC_IABT_LOW:
+		WARN("IABT_LOW is not implemented.");
 		break;
 	case ESR_EL2_EC_DABT_LOW:
 		// todo: ゲストが uart の状態を読むたびに vmexit/enter が発生している
