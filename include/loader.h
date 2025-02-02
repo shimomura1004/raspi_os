@@ -10,6 +10,7 @@ struct raw_binary_loader_args {
     const char *filename;
 };
 
+int elf_binary_loader(void *, unsigned long *, unsigned long *);
 int raw_binary_loader(void *, unsigned long *, unsigned long *);
 int test_program_loader(void *, unsigned long *, unsigned long *);
 

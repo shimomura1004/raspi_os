@@ -54,7 +54,7 @@ void hypervisor_main()
 		.loader_addr = 0x0,
 		.entry_point = 0x0,
 		.sp = 0x100000,
-		.filename = "TEST2.BIN",
+		.filename = "MINI-OS.BIN",
 	};
 	if (create_task(raw_binary_loader, &bl_args2) < 0) {
 		printf("error while starting task #2");
@@ -65,9 +65,9 @@ void hypervisor_main()
 		.loader_addr = 0x0,
 		.entry_point = 0x0,
 		.sp = 0x100000,
-		.filename = "MINI-OS.BIN",
+		.filename = "MINI-OS.ELF",
 	};
-	if (create_task(raw_binary_loader, &bl_args3) < 0) {
+	if (create_task(elf_binary_loader, &bl_args3) < 0) {
 		printf("error while starting task #3");
 		return;
 	}
@@ -83,16 +83,16 @@ void hypervisor_main()
 		return;
 	}
 
-	// struct raw_binary_loader_args bl_args5 = {
-	// 	.loader_addr = 0x0,
-	// 	.entry_point = 0x0,
-	// 	.sp = 0x100000,
-	// 	.filename = "MINI-OS.BIN",
-	// };
-	// if (create_task(raw_binary_loader, &bl_args5) < 0) {
-	// 	printf("error while starting task #5");
-	// 	return;
-	// }
+	struct raw_binary_loader_args bl_args5 = {
+		.loader_addr = 0x0,
+		.entry_point = 0x0,
+		.sp = 0x100000,
+		.filename = "MINI-OS.BIN",
+	};
+	if (create_task(raw_binary_loader, &bl_args5) < 0) {
+		printf("error while starting task #5");
+		return;
+	}
 
 	while (1){
 		// todo: schedule を呼ぶ前に手動で割込みを禁止にしないといけないのは危ない

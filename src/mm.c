@@ -21,23 +21,24 @@ unsigned long allocate_page() {
 	return page + VA_START;
 }
 
-// VM で使うためのページを確保してマッピングし、その仮想アドレスを返す
+// VM で使うためのページを確保してマッピングし、ハイパーバイザ上の仮想アドレスを返す
+// つまり、ハイパーバイザ上でこのアドレスに書き込むことで、確保したメモリにアクセスできるということ
 unsigned long allocate_task_page(struct task_struct *task, unsigned long va) {
 	// 未使用ページを探す、page は仮想アドレスではなくオフセット
 	unsigned long page = get_free_page();
 	if (page == 0) {
 		return 0;
 	}
-	// 新たに確保したページをこのタスクのアドレス空間にマッピングする
-if (current->pid != 0)INFO("VA 0x%lx -> IPA 0x%lx -> PA 0x%lx (allocate_task_page)", va, get_ipa(va), page);
+	// 新たに確保したページをこのタスク(VM)のアドレス空間にマッピングする
 	map_stage2_page(task, va, page, MMU_STAGE2_PAGE_FLAGS);
+if (current->pid != 0)INFO("VA 0x%lx -> IPA 0x%lx -> PA 0x%lx (allocate_task_page)", va, get_ipa(va), page);
 	// 新たに確保したページの仮想アドレスを返す(リニアマッピングなのでオフセットを足すだけ)
 	return page + VA_START;
 }
 
 void set_task_page_notaccessable(struct task_struct *task, unsigned long va) {
-if (current->pid != 0)INFO("VA 0x%lx -> IPA 0x%lx -> PA 0x%lx (set_task_page_notaccessable)", va, get_ipa(va), 0);
 	map_stage2_page(task, va, 0, MMU_STAGE2_MMIO_FLAGS);
+if (current->pid != 0)INFO("VA 0x%lx -> IPA 0x%lx -> PA 0x%lx (set_task_page_notaccessable)", va, get_ipa(va), 0);
 }
 
 // 未使用のページを探してその場所(DRAM 内のオフセット)を返す
@@ -211,9 +212,9 @@ int handle_mem_abort(unsigned long addr, unsigned long esr) {
 		if (page == 0) {
 			return -1;
 		}
-if (current->pid != 0)INFO("VA 0x%lx -> IPA 0x%lx -> PA 0x%lx (handle_mem_abort)", addr, get_ipa(addr), page);
 		// IPA -> PA の変換を登録
 		map_stage2_page(current, get_ipa(addr) & PAGE_MASK, page, MMU_STAGE2_PAGE_FLAGS);
+if (current->pid != 0)INFO("VA 0x%lx -> IPA 0x%lx -> PA 0x%lx (handle_mem_abort)", addr, get_ipa(addr), page);
 		current->stat.pf_trap_count++;
 		return 0;
 	}
