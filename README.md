@@ -41,3 +41,22 @@
     - 真ん中が CPU の物理アドレス(ARM Physical Address)で、VC/ARM MMU によってバスアドレス(VC CPU Bus Address)に変換される
     - 左端がバスアドレス(VC CPU Bus Address)で、ボードの内容がそのまま配置されるようなアドレス空間である(合計1GB の SDRAM が不連続に配置されていたりする)
 - RPi3b には IOMMU や SMMU はないので、たとえば DMA コントローラでは物理アドレスを直接指定する必要がある
+
+# Memory Mapping
+## 二段階アドレス変換
+- https://www.starlab.io/blog/deep-dive-mmu-virtualization-with-xen-on-arm
+![alt text](docs/memory_mapping.png)
+- AArch64 のハイパーバイザ環境では、ゲスト OS のプロセスが扱う仮想アドレスは、ゲスト OS によって中間物理アドレス IPA に変換される
+    - このとき使われるテーブルは、ネイティブ環境の場合と同じで TTBR0_EL1 もしくは TTBR1_EL1 で指定されたもの
+- この IPA は、ハイパーバイザによって準備される stage2 の変換テーブルによって物理アドレス PA に変換される
+    - このとき使われるテーブルは、VTTBR0_EL2 という特別なもの
+- またハイパーバイザ自身の仮想アドレスの変換は TTBR0_EL2 という別のレジスタで指定されるテーブルを使う
+- テーブルが別なので、ゲストの IPA とハイパーバイザの VA が同じアドレスを使っても問題ない
+
+## TTBR0_EL1 と TTBR1_EL1
+- どちらも VA を PA もしくは IPA に変換するためのテーブルだが、担当するアドレスの範囲が異なる
+    - TTBR0_EL1 は 0x0000_0000_0000_0000 から 0x0000_ffff_ffff_ffff まで
+        - 通常はユーザプロセス用に使う
+    - TTBR1_EL1 は 0xffff_0000_0000_0000 から 0xffff_ffff_ffff_ffff まで
+        - 通常はカーネル用に使う
+- 併用する場合は異なる変換テーブルを用意しないといけない
