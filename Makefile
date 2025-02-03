@@ -23,7 +23,7 @@ FORCE:
 debug : kernel8.img
 	gdb-multiarch -ex 'target remote :1234' \
 	-ex 'layout asm' \
-	-ex 'add-symbol-file build/kernel8.elf'
+	-ex 'add-symbol-file kernel8.img'
 
 fs.img: $(SUBDIRS)
 	dd if=/dev/zero of=fs.img bs=1M count=64
