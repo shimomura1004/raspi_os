@@ -32,6 +32,7 @@ unsigned long allocate_task_page(struct task_struct *task, unsigned long va) {
 	// 新たに確保したページをこのタスク(VM)のアドレス空間にマッピングする
 	map_stage2_page(task, va, page, MMU_STAGE2_PAGE_FLAGS);
 if (current->pid != 0)INFO("VA 0x%lx -> IPA 0x%lx -> PA 0x%lx (allocate_task_page)", va, get_ipa(va), page);
+if (current->pid != 0)INFO("^ 0x%lx 0x%lx 0x%lx", get_ttbr0_el1(), get_ttbr1_el1(), get_ttbr0_el2());
 	// 新たに確保したページの仮想アドレスを返す(リニアマッピングなのでオフセットを足すだけ)
 	return page + VA_START;
 }

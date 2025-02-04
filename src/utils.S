@@ -347,6 +347,19 @@ translate_el1:
 	mrs x0, par_el1
 	ret
 
+.globl get_ttbr0_el1
+get_ttbr0_el1:
+	mrs x0, ttbr0_el1
+	ret
+.globl get_ttbr1_el1
+get_ttbr1_el1:
+	mrs x0, ttbr1_el1
+	ret
+.globl get_ttbr0_el2
+get_ttbr0_el2:
+	mrs x0, ttbr0_el2
+	ret
+
 // 使っていない
 // 引数として仮想アドレスを取り、Stage1 と 2 のアドレス変換を行った値を返す 
 .globl do_at
