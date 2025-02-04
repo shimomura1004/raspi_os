@@ -44,6 +44,7 @@ unsigned long allocate_kernel_page();
 unsigned long allocate_user_page(struct task_struct *task, unsigned long va); 
 
 extern unsigned long pg_dir;
+extern unsigned long pg_dir_high;
 
 #endif
 

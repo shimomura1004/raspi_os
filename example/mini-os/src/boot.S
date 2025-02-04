@@ -37,6 +37,7 @@ el1_entry:
 	// todo: カーネルは高アドレス域にあるべきでは？なぜそうなっていない？
 	//       elf は 0xffff_... に配置されるようになっている、objcopy でずれている？
 	//       elf ローダを作って kernel8.elf をロードすれば解決できると思われる
+	adrp	x0, pg_dir_high
 	msr ttbr0_el1, x0
 
 	ldr	x0, =(TCR_VALUE)
@@ -141,6 +142,26 @@ __create_page_tables:
 	ldr	x3, =(VA_START + PHYS_MEMORY_SIZE - SECTION_SIZE)	// last virtual address
 	create_block_map x0, x1, x2, x3, MMU_DEVICE_FLAGS, x4
 
+
+	// 下位アドレス用のページテーブルを準備
+	// todo: flat binary にするとカーネルが 0x0 に配置されるので必要になる
+	adrp x0, pg_dir_high
+	ldr	 x1, =0x0000000000000000
+	create_pgd_entry x0, x1, x2, x3
+
+	/* Mapping kernel and init stack */
+	mov  x1, xzr
+	ldr  x2, =0x0000000000000000
+	ldr  x3, =(0x0000000000000000 + DEVICE_BASE - SECTION_SIZE)
+
+	create_block_map x0, x1, x2, x3, MMU_FLAGS, x4
+
+	/* Mapping device memory */
+	mov  x1, #DEVICE_BASE
+	ldr  x2, =(0x0000000000000000 + DEVICE_BASE)
+	ldr  x3, =(0x0000000000000000 + PHYS_MEMORY_SIZE - SECTION_SIZE)
+	create_block_map x0, x1, x2, x3, MMU_DEVICE_FLAGS, x4
+
+
 	mov	x30, x29						// restore return address
 	ret
-
