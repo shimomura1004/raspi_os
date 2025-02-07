@@ -51,10 +51,10 @@
 
 unsigned long get_free_page();
 void free_page(void *p);
-void map_stage2_page(struct task_struct *task, unsigned long va,
+void map_stage2_page(struct task_struct *task, unsigned long ipa,
                      unsigned long page, unsigned long flags);
 unsigned long allocate_page();
-unsigned long allocate_task_page(struct task_struct *task, unsigned long va);
+unsigned long allocate_task_page(struct task_struct *task, unsigned long ipa);
 void set_task_page_notaccessable(struct task_struct *task, unsigned long va);
 
 int handle_mem_abort(unsigned long addr, unsigned long esr);

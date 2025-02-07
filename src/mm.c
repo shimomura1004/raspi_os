@@ -23,16 +23,15 @@ unsigned long allocate_page() {
 
 // VM で使うためのページを確保してマッピングし、ハイパーバイザ上の仮想アドレスを返す
 // つまり、ハイパーバイザ上でこのアドレスに書き込むことで、確保したメモリにアクセスできるということ
-unsigned long allocate_task_page(struct task_struct *task, unsigned long va) {
+unsigned long allocate_task_page(struct task_struct *task, unsigned long ipa) {
 	// 未使用ページを探す、page は仮想アドレスではなくオフセット
 	unsigned long page = get_free_page();
 	if (page == 0) {
 		return 0;
 	}
 	// 新たに確保したページをこのタスク(VM)のアドレス空間にマッピングする
-	map_stage2_page(task, va, page, MMU_STAGE2_PAGE_FLAGS);
-if (current->pid != 0)INFO("VA 0x%lx -> IPA 0x%lx -> PA 0x%lx (allocate_task_page)", va, get_ipa(va), page);
-if (current->pid != 0)INFO("^ 0x%lx 0x%lx 0x%lx", get_ttbr0_el1(), get_ttbr1_el1(), get_ttbr0_el2());
+	map_stage2_page(task, ipa, page, MMU_STAGE2_PAGE_FLAGS);
+INFO("VTTBR0_EL2(VMID %d): IPA 0x%lx(0x%lx in full) -> PA 0x%lx (allocate_task_page)", current->pid, ipa & 0xffffffffffff, ipa, page);
 	// 新たに確保したページの仮想アドレスを返す(リニアマッピングなのでオフセットを足すだけ)
 	return page + VA_START;
 }
@@ -70,9 +69,9 @@ void free_page(void *p){
 // ページエントリを追加する
 // RPi3 では DRAM が物理アドレス 0 のところから配置されている
 // つまり DRAM 上のインデックスは物理アドレスと同じ扱いになる
-void map_stage2_table_entry(unsigned long *pte, unsigned long va, unsigned long pa, unsigned long flags) {
+void map_stage2_table_entry(unsigned long *pte, unsigned long ipa, unsigned long pa, unsigned long flags) {
 	// ページエントリのオフセットを index に入れる
-	unsigned long index = va >> PAGE_SHIFT;
+	unsigned long index = ipa >> PAGE_SHIFT;
 	index = index & (PTRS_PER_TABLE - 1);
 	// エントリのオフセットを計算し書き込み
 	unsigned long entry = pa | flags;
@@ -80,9 +79,9 @@ void map_stage2_table_entry(unsigned long *pte, unsigned long va, unsigned long 
 }
 
 // 該当するページテーブルのオフセットを返す(もしなければ新規に確保する)
-unsigned long map_stage2_table(unsigned long *table, unsigned long shift, unsigned long va, int* new_table) {
+unsigned long map_stage2_table(unsigned long *table, unsigned long shift, unsigned long ipa, int* new_table) {
 	// PGD/PUD/PMD のインデックスが書かれている位置が LSB にくるようにシフト
-	unsigned long index = va >> shift;
+	unsigned long index = ipa >> shift;
 	// さらにインデックス部分だけを残すようにマスク
 	// PGD/PUD/PMD のオフセットを指す領域はすべて9ビット(0~511)ずつなので
 	// ひとつのページあたり 512 個のエントリがある (4KB / 8byte = 512)
@@ -108,13 +107,13 @@ unsigned long map_stage2_table(unsigned long *table, unsigned long shift, unsign
 	return table[index] & PAGE_MASK;
 }
 
-// task のアドレス空間のアドレス va に、指定されたページ page を割り当てる
+// task のアドレス空間(VTTBR_EL2)のアドレス ipa に、指定されたページ page を割り当てる
 // ハイパーバイザが管理するメモリマッピングは、IPA->PA のみ
-// va は IPA である
-void map_stage2_page(struct task_struct *task, unsigned long va, unsigned long page, unsigned long flags) {
+void map_stage2_page(struct task_struct *task, unsigned long ipa, unsigned long page, unsigned long flags) {
 	// 最上位のページテーブル
 	unsigned long lv1_table;
 
+	// stage2 変換用の VTTBR_EL2 に設定するテーブルを作る
 	if (!task->mm.first_table) {
 		// ページテーブルがなかったら作る
 		task->mm.first_table = get_free_page();
@@ -126,18 +125,18 @@ void map_stage2_page(struct task_struct *task, unsigned long va, unsigned long p
 	// 新しくテーブルが追加されたかを示すフラグ
 	int new_table;
 	// Level 1 のテーブル(lv1_table)から対応するエントリ(lv2_table)を探す
-	unsigned long lv2_table = map_stage2_table((unsigned long *)(lv1_table + VA_START), LV1_SHIFT, va, &new_table);
+	unsigned long lv2_table = map_stage2_table((unsigned long *)(lv1_table + VA_START), LV1_SHIFT, ipa, &new_table);
 	if (new_table) {
 		// もし新たにページが確保されていたらカウントアップする
 		task->mm.kernel_pages_count++;
 	}
 	// Level 2 のテーブル(lv2_table)から対応するエントリ(lv3_table)を探す
-	unsigned long lv3_table = map_stage2_table((unsigned long *)(lv2_table + VA_START) , LV2_SHIFT, va, &new_table);
+	unsigned long lv3_table = map_stage2_table((unsigned long *)(lv2_table + VA_START) , LV2_SHIFT, ipa, &new_table);
 	if (new_table) {
 		task->mm.kernel_pages_count++;
 	}
 	// Level 3 のテーブル(lv3_table)の対応するエントリを探してページを登録
-	map_stage2_table_entry((unsigned long *)(lv3_table + VA_START), va, page, flags);
+	map_stage2_table_entry((unsigned long *)(lv3_table + VA_START), ipa, page, flags);
 	// ユーザ空間用のページ数をカウントアップする　
 	task->mm.user_pages_count++;
 }
