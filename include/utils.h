@@ -19,6 +19,7 @@ extern unsigned long translate_el1(unsigned long);
 extern unsigned long get_ttbr0_el1();
 extern unsigned long get_ttbr1_el1();
 extern unsigned long get_ttbr0_el2();
+extern unsigned long get_vttbr_el2();
 
 // Stage2 変換テーブルをセットしてアドレス空間(VTTBR_EL2)を切り替え、つまり IPA -> PA の変換テーブルを切り替える
 //   テーブル自体の準備は VM がロードされた初期化時やメモリアボート時に行う
