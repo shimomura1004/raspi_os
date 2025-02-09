@@ -214,7 +214,7 @@ int handle_mem_abort(unsigned long addr, unsigned long esr) {
 		}
 		// IPA -> PA の変換を登録
 		map_stage2_page(current, get_ipa(addr) & PAGE_MASK, page, MMU_STAGE2_PAGE_FLAGS);
-if (current->pid != 0)INFO("VA 0x%lx -> IPA 0x%lx -> PA 0x%lx (handle_mem_abort)", addr, get_ipa(addr), page);
+INFO("VTTBR0_EL2(VMID %d): IPA 0x%lx(0x%lx in full) -> PA 0x%lx (handle_mem_abort)", current->pid, addr & 0xffffffffffff, addr, page);
 		current->stat.pf_trap_count++;
 		return 0;
 	}

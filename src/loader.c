@@ -81,11 +81,7 @@ int elf_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
     uint16_t program_header_num = header->program_header_num;
     uint64_t program_header_offset = header->program_header_offset;
     uint16_t program_header_size = header->program_header_size;
-    *pc = header->entry_point;
-
-    // INFO("program header num: %d", program_header_num);
-    // INFO("program header offset: %lx", program_header_offset);
-    // INFO("program header size: %lx", program_header_size);
+    *pc = header->entry_point & 0xffffffffffff;
 
     // セグメントを順番にロード
     for (int i = 0; i < program_header_num; i++) {
@@ -115,40 +111,30 @@ int elf_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
         uint64_t file_size = phdr->file_size;
         uint64_t memory_size = phdr->memory_size;
 
-        // INFO("offset: %lx", offset);
-        INFO("virtual addr: %lx", virtual_addr);
-        INFO("physical addr: %lx", physical_addr);
-        // INFO("file size: %lx", file_size);
-        // INFO("memory size: %lx", memory_size);
-
-// ここから、メモリアクセスがうまくいってない
         // 指定されたアドレスにセグメントをコピーする(ページ単位のコピーをループする)
         // todo: 関数化
         // todo: memory_size > 0 にして、後半はゼロクリアするコードを入れる？
         while (file_size > 0) {
             // コピー先となるゲストのメモリ空間にページを確保する
+            // allocate_task_page の中の map_stage2_page で stage2 テーブルを更新している
             // todo: 中途半端なアドレスな場合、うまく動かないかも
             uint8_t *vm_buf = (uint8_t *)allocate_task_page(current, virtual_addr);
 
             // コピー元のデータをハイパーバイザのメモリ空間に読み込む
-            int actualsize = fat32_read(&file, vm_buf, program_header_offset + offset, PAGE_SIZE);
-INFO("actualsize: %d", actualsize);
+            int actualsize = fat32_read(&file, vm_buf, offset, PAGE_SIZE);
             if (actualsize != PAGE_SIZE) {
                 // todo: 足りなかったらゼロクリアする処理を入れる
+                WARN("doesn't match");
             }
-
-INFO("first bytes: %02x %02x %02x %02x  %02x %02x %02x %02x",
-     vm_buf[0], vm_buf[1], vm_buf[2], vm_buf[3], vm_buf[4], vm_buf[5], vm_buf[6], vm_buf[7]);
 
             file_size = file_size < PAGE_SIZE ? 0 : file_size - PAGE_SIZE;
             virtual_addr += PAGE_SIZE;
             offset += PAGE_SIZE;
-INFO("file_size: %d, virtual_addr: %lx, offset: %d", file_size, virtual_addr, offset);
         }
     }
 
     *sp = loader_args->sp;
-INFO("pc: %lx, sp: %lx", *pc, *sp);
+INFO("pc: 0x%lx in 48bit, sp: 0x%lx(0x%lx in 48bit)", *pc & 0xffffffffffff, *sp, *sp & 0xffffffffffff);
     current->name = loader_args->filename;
 
     free_page(buf);
