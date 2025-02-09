@@ -24,7 +24,9 @@ SECTIONS
 	         flat binary を使っているからで、ELF をロードすれば不要になるはず */
 	pg_dir = .;
 	.data.pgd : { . += (3 * (1 << 12)); }
+	/*
 	pg_dir_high = .;
 	.data.pgd_high : { . += (3 * (1 << 12)); }
+	*/
 }
 

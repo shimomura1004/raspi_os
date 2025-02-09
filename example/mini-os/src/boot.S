@@ -49,7 +49,7 @@ hvc #0
 	// todo: カーネルは高アドレス域にあるべきでは？なぜそうなっていない？
 	//       elf は 0xffff_... に配置されるようになっている、objcopy でずれている？
 	//       elf ローダを作って kernel8.elf をロードすれば解決できると思われる
-	adrp	x0, pg_dir_high
+	adrp	x0, pg_dir
 	msr ttbr0_el1, x0
 
 	ldr	x0, =(TCR_VALUE)
