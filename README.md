@@ -25,6 +25,8 @@
 - EL1 の IPA は VTTBR_EL2 で PA に変換される(EL2 の VA に変換されるわけではない)
 - EL2 の VA は TTBR0_EL2 で PA に変換される
 
+- synchronous 例外が発生した場合、PC が 0x200 にジャンプする
+
 # Debug
 - flat binary にデバッグ情報を残すこともできるようだが、objcopy がうまくデバッグ情報を認識してくれない
 - 以下のように gdb で kernel8.elf を追加で読み込むほうが楽
@@ -73,3 +75,6 @@
     - TTBR1_EL1 は 0xffff_0000_0000_0000 から 0xffff_ffff_ffff_ffff まで
         - 通常はカーネル用に使う
 - 併用する場合は異なる変換テーブルを用意しないといけない
+
+- ゲストの起動直後はまだ MMU が MMU は無効なので、ゲストの VA=IPA となる
+- そのため PC が 0xffff000000000000 の場合、VTTBR_EL2 で IPA の 0xffff000000000000 を PA に変換できないといけない
