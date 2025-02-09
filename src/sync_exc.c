@@ -12,6 +12,7 @@
 // ESR_EL2 の中の EC フィールドへのインデックス
 #define ESR_EL2_EC_SHIFT		26
 
+// todo: ヘッダファイルに移して entry.S と共用する
 // EC(exception class)の種類
 // https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/ESR-EL2--Exception-Syndrome-Register--EL2-?lang=en#fieldset_0-31_26
 #define ESR_EL2_EC_TRAP_WFX     1	// WF* instruction execution
@@ -90,10 +91,6 @@ static const char *sync_error_reasons[] = {
 static void handle_trap_wfx() {
 	schedule();
 	increment_current_pc(4);
-}
-
-static void handle_hvc64(unsigned long hvc_nr) {
-	WARN("HVC #%lu(0x%lx)", hvc_nr, hvc_nr);
 }
 
 static void handle_trap_system(unsigned long esr) {
@@ -196,7 +193,7 @@ sys_fin:
 
 // ESR_EL2
 // https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/ESR-EL2--Exception-Syndrome-Register--EL2-?lang=en#fieldset_0-24_0
-void handle_sync_exception(unsigned long esr, unsigned long elr, unsigned long far, unsigned long hvc_nr) {
+void handle_sync_exception(unsigned long esr, unsigned long elr, unsigned long far, unsigned long _) {
 	// esr にはハンドラ el01_sync により esr_el2 が渡されている
 	// esr_el2 の下位16ビットに hvc 実行時に指定した即値が入っている
 	// 今の実装では hvc に渡された数値は無視している
@@ -204,6 +201,7 @@ void handle_sync_exception(unsigned long esr, unsigned long elr, unsigned long f
 	// EC(error class)を取得
 	int eclass = (esr >> ESR_EL2_EC_SHIFT) & 0x3f;
 
+	// HVC 例外は handle_sync_exception_hvc64 で処理するためここには現れない
 	switch (eclass)
 	{
 	case ESR_EL2_EC_TRAP_WFX:
@@ -213,10 +211,6 @@ void handle_sync_exception(unsigned long esr, unsigned long elr, unsigned long f
 		break;
 	case ESR_EL2_EC_TRAP_FP_REG:
 		WARN("TRAP_FP_REG is not implemented.");
-		break;
-	case ESR_EL2_EC_HVC64:
-		current->stat.hvc_trap_count++;
-		handle_hvc64(hvc_nr);
 		break;
 	case ESR_EL2_EC_TRAP_SYSTEM:
 		current->stat.sysregs_trap_count++;
@@ -237,6 +231,31 @@ void handle_sync_exception(unsigned long esr, unsigned long elr, unsigned long f
 		break;
 	default:
 		PANIC("uncaught synchronous exception:\n%s\nesr: %x, address: %x", sync_error_reasons[eclass], esr, elr);
+		break;
+	}
+}
+
+void handle_sync_exception_hvc64(unsigned long hvc_nr, unsigned long a0, unsigned long a1, unsigned long a2, unsigned long a3) {
+	current->stat.hvc_trap_count++;
+
+	switch (hvc_nr) {
+	case 0:
+		WARN("HVC #%lu(0x%lx)", hvc_nr, hvc_nr);
+		break;
+	case 1:
+		INFO("HVC #%d: 0x%lx(%ld)", hvc_nr, a0, a0);
+		break;
+	case 2:
+		INFO("HVC #%d: 0x%lx(%ld), 0x%lx(%ld)", hvc_nr, a0, a0, a1, a1);
+		break;
+	case 3:
+		INFO("HVC #%d: 0x%lx(%ld), 0x%lx(%ld), 0x%lx(%ld)", hvc_nr, a0, a0, a1, a1, a2, a2);
+		break;
+	case 4:
+		INFO("HVC #%d: 0x%lx(%ld), 0x%lx(%ld), 0x%lx(%ld), 0x%lx(%ld)", hvc_nr, a0, a0, a1, a1, a2, a2, a3, a3);
+		break;
+	default:
+		WARN("uncaught hvc64 exception: %ld", hvc_nr);
 		break;
 	}
 }

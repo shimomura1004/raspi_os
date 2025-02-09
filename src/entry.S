@@ -205,13 +205,35 @@ el01_irq:
 el01_sync:
 	kernel_entry
 
+#define ESR_EL2_EC_SHIFT 26
+#define ESR_EL2_EC_HVC64 22
+mrs x4, esr_el2
+lsr x4, x4, #ESR_EL2_EC_SHIFT
+and x4, x4, #0x3f
+cmp x4, #ESR_EL2_EC_HVC64
+b.eq el01_sync_hvc64
+
 	mrs x0, esr_el2		// read the syndrome register
 	mrs x1, elr_el2
 	mrs x2, far_el2
+	// todo: hvc の引数が勝手に x8 に入るわけではないはず
+	//       esr の下位16ビットから取り出す必要があるのでは？
+	//       -> そもそも引数として渡す必要がない
+	// and x3, x0, #0xffff // hvc number in esr_el2[15:0]
 	mov x3, x8			// hvc number in x8
 
 	bl handle_sync_exception
 
+	kernel_exit
+
+el01_sync_hvc64:
+	mrs x0, esr_el2
+	and x0, x0, #0xffff
+	mov x1, x8
+	mov x2, x9
+	mov x3, x10
+	mov x4, x11
+	bl handle_sync_exception_hvc64
 	kernel_exit
 
 // vmtask_create で作られたタスクに切り替わったときに最初に行われる処理
