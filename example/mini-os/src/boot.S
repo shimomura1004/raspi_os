@@ -20,12 +20,6 @@ master:
 	msr	sctlr_el1, x0
 
 el1_entry:
-mov x8, #44444
-hvc #0
-adr x8, bss_begin
-hvc #0
-adr x8, bss_end
-hvc #0
 	// この BSS 領域のゼロ初期化のときにマッピングしていない領域にアクセスが発生
 	// mem abort が発生してハイパーバイザで stage2 アドレス変換マップが作られる
 	// ただし stage1 の変換マップはまだ作られていない(この時点では MMU は無効なので動作はする)
@@ -33,8 +27,6 @@ hvc #0
 	adr	x1, bss_end
 	sub	x1, x1, x0
 	bl 	memzero
-mov x8, #55555
-hvc #0
 
 	// __create_page_tables 内の create_block_map で stage1 の変換マップが作られる
 	bl 	__create_page_tables
@@ -61,35 +53,11 @@ hvc #0
 	ldr	x2, =kernel_main
 
 	mov	x0, #SCTLR_MMU_ENABLED
-	//mov	x0, #SCTLR_MMU_DISABLED
-mov x8, 12345
-hvc #0
-mov x8, x2
-hvc #0
-mrs x8, CurrentEL
-hvc #0
-adr x8, .
-hvc #0
 
   dsb ish
   isb
-// todo: MMU_DISABLE に設定する場合は動いているので、レジスタにアクセスすること自体は問題ない
-//       ここまで中間物理アドレスで動いているのでステージ2アドレス変換は問題ない
-//       MMU_ENABLE にするとステージ1アドレス変換が有効になる
-//       ゲスト OS によるアドレス変換が失敗している？ベアメタルでは動いているはず
-//       命令フェッチに失敗している？
-//         -> IABT_LOW を追加してログを出してみたが反応なし
-//       IPA->PA のマッピングログを見ると、0x6000 から 0x85000 まで
-//         0x1000 単位で128個のページがマップされている
-//         -> 今実行しているアドレス 0x60 くらいや kernel_main の 0x1b74 が範囲外になっているかも
-//         -> ログの埋め込み漏れ、ちゃんとマップされていた
-//       なぜか PC が 0x200 に飛ぶ -> 0x200 は synchronous 例外が EL2 で発生したときに飛ぶアドレス
-//       クラッシュする寸前、割込みベクタである vectors の中身がすべて 0 になっている
-//       まずベアメタルで動くことを確認できたバイナリを用意する
-//       VASTART の違いがあやしそうだが…
 	msr	sctlr_el1, x0
 isb
-wfi
 	br 	x2
 
 	.macro	create_pgd_entry, tbl, virt, tmp1, tmp2
@@ -98,10 +66,6 @@ wfi
 	.endm
 
 	.macro	create_table_entry, tbl, virt, shift, tmp1, tmp2
-mov x8, \virt
-hvc #0
-mov x8, #\shift
-hvc #0
 	lsr	\tmp1, \virt, #\shift
 	and	\tmp1, \tmp1, #PTRS_PER_TABLE - 1			// table index
 	add	\tmp2, \tbl, #PAGE_SIZE
@@ -118,22 +82,14 @@ hvc #0
 	lsr	\phys, \phys, #SECTION_SHIFT
 	mov	\tmp1, #\flags
 	orr	\phys, \tmp1, \phys, lsl #SECTION_SHIFT			// table entry
-mov x8, 12345
-hvc #0
-mov x8, \start
-hvc #0
-mov x8, \end
-hvc #0
-mov x8, \phys
-hvc #0
-mov x8, 11111
-hvc #0
 
 9999:
+// // マッピングをログ出力
 // mov x8, \start
-// hvc #0
-// mov x8, \phys
-// hvc #0
+// and x9, \phys, #PAGE_MASK
+// mov x10, #SECTION_SIZE
+// hvc #3
+
 	// [\tbl, \start, lsl #3]
 	//   テーブルのベースアドレス(tbl)にインデックス(start)の8倍(3ビット左シフト)する
 	// str phys [\tbl, \start, lsl #3]
@@ -151,15 +107,9 @@ hvc #0
 __create_page_tables:
 	mov	x29, x30						// save return address
 
-mov x8, #22222
-hvc #0
 	adrp	x0, pg_dir
 	mov	x1, #PG_DIR_SIZE
 	bl 	memzero
-mov x8, #33333
-hvc #0
-adr x8, pg_dir
-hvc #0
 
 	adrp	x0, pg_dir
 	mov	x1, #VA_START
@@ -169,12 +119,6 @@ hvc #0
 	mov 	x1, xzr							// start mapping from physical offset 0
 	mov 	x2, #VA_START						// first virtual address
 	ldr	x3, =(VA_START + DEVICE_BASE - SECTION_SIZE)		// last virtual address
-mov x8, x1
-hvc #0
-mov x8, x2
-hvc #0
-mov x8, x3
-hvc #0
 	create_block_map x0, x1, x2, x3, MMU_FLAGS, x4
 
 	/* Mapping device memory */
@@ -182,27 +126,6 @@ hvc #0
 	ldr 	x2, =(VA_START + DEVICE_BASE)				// first virtual address
 	ldr	x3, =(VA_START + PHYS_MEMORY_SIZE - SECTION_SIZE)	// last virtual address
 	create_block_map x0, x1, x2, x3, MMU_DEVICE_FLAGS, x4
-
-
-	// 下位アドレス用のページテーブルを準備
-	// todo: flat binary にするとカーネルが 0x0 に配置されるので必要になる
-	adrp x0, pg_dir_high
-	ldr	 x1, =0x0000000000000000
-	create_pgd_entry x0, x1, x2, x3
-
-	/* Mapping kernel and init stack */
-	mov  x1, xzr
-	ldr  x2, =0x0000000000000000
-	ldr  x3, =(0x0000000000000000 + DEVICE_BASE - SECTION_SIZE)
-
-	create_block_map x0, x1, x2, x3, MMU_FLAGS, x4
-
-	/* Mapping device memory */
-	mov  x1, #DEVICE_BASE
-	ldr  x2, =(0x0000000000000000 + DEVICE_BASE)
-	ldr  x3, =(0x0000000000000000 + PHYS_MEMORY_SIZE - SECTION_SIZE)
-	create_block_map x0, x1, x2, x3, MMU_DEVICE_FLAGS, x4
-
 
 	mov	x30, x29						// restore return address
 	ret
