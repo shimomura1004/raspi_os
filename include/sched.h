@@ -125,11 +125,9 @@ struct cpu_sysregs {
 };
 
 struct mm_struct {
-    unsigned long first_table;
-    // 今使っているユーザプロセス用ページの数
-    int user_pages_count;
-    // 今使っているカーネル用ページの数
-    int kernel_pages_count;
+    unsigned long first_table;      // ゲスト OS の Stage2 変換テーブル
+    int user_pages_count;           // 今使っているユーザプロセス用ページの数
+    int kernel_pages_count;         // 今使っているカーネル用ページの数
 };
 
 struct task_stat {

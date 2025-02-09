@@ -64,7 +64,7 @@ void hypervisor_main()
 	struct raw_binary_loader_args bl_args3 = {
 		.loader_addr = 0x0,
 		.entry_point = 0x0,
-		.sp = 0x100000,
+		.sp = 0xffff000000100000,
 		.filename = "MINI-OS.ELF",
 	};
 	if (create_task(elf_binary_loader, &bl_args3) < 0) {
@@ -76,9 +76,9 @@ void hypervisor_main()
 		.loader_addr = 0x0,
 		.entry_point = 0x0,
 		.sp = 0x100000,
-		.filename = "ECHO.BIN",
+		.filename = "ECHO.ELF",
 	};
-	if (create_task(raw_binary_loader, &bl_args4) < 0) {
+	if (create_task(elf_binary_loader, &bl_args4) < 0) {
 		printf("error while starting task #4");
 		return;
 	}

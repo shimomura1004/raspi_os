@@ -31,6 +31,7 @@ fs.img: $(SUBDIRS)
 	-mcopy -i fs.img ./example/echo/echo.bin ::ECHO.BIN
 	-mcopy -i fs.img ./example/test_binary/test.bin ::TEST2.BIN
 	-mcopy -i fs.img ./example/mini-os/mini-os.bin ::MINI-OS.BIN
+	-mcopy -i fs.img ./example/echo/build/kernel8.elf ::ECHO.ELF
 	-mcopy -i fs.img ./example/mini-os/build/kernel8.elf ::MINI-OS.ELF
 
 $(BUILD_DIR)/%_c.o: $(SRC_DIR)/%.c
