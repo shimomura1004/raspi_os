@@ -13,9 +13,7 @@
 // ELR_EL3: exception link register: eret で戻る先のアドレス
 
 // リンカスクリプトで .text.boot セクションが 0 番地に置かれる
-//   → lesson6 以降では 0xffff_0000_0000_0000 に置かれる
 // ここが OS のスタートポイントになる
-// raspberry pi 3 では？(a53 では？) 0 番地から実行が始まる？
 .globl _start
 _start:
     // コア 0 以外のコアは無限ループさせる
@@ -102,7 +100,6 @@ el2_entry:
 	// EL2 用のページテーブルを準備
 	bl 	__create_page_tables
 
-	// #define VA_START 			0xffff000000000000
 	// VA_START を足すことでカーネルの仮想アドレスにしている
 	mov	x0, #VA_START
 	// #define PAGE_SHIFT	 	12
@@ -124,6 +121,8 @@ el2_entry:
 
 	// pg_dir はリンカスクリプトで設定されている
 	// __create_page_tables によって、pg_dir にはアドレス変換テーブルの最上位のページのアドレスが入っている
+	// __create_page_tables が作るのは単純なリニアマッピング
+	// adrp は address of page の略で、pg_dir のページアドレスを x0 に入れる
 	adrp	x0, pg_dir
 	msr	ttbr0_el2, x0
 
@@ -150,11 +149,11 @@ el2_entry:
 	// EL1 に関連するすべての TLB エントリをクリアする
 	tlbi alle1		// TLB Invalidate, ALL EL1
 
-	// MMU を有効にする前にアドレスを控えておく
+	// MMU を有効にする前にジャンプ先の絶対(仮想)アドレスを控えておく
 	// 単に br hypervisor_main とすると、PC に対する hypervisor_main のアドレスへの相対値でジャンプするが、
 	// MMU が無効であった場合の相対位置にジャンプしてしまうのでずれる
 	// 一度 ldr でアドレスをレジスタに入れると絶対値になり、これであれば MMU 有効化後に適切な値となる
-	// todo: 詳細はよくわからない
+	// todo: MMU が有効になっても相対値でジャンプできそうだけど…
 	ldr	x2, =hypervisor_main
 
 	// MMU を有効にする準備
@@ -264,6 +263,13 @@ el2_entry:
 
 	//=============================================================================
 
+// BCM2837 では RAM が物理アドレスの 0 番地から 1GB 搭載される
+// そのうち 0x0000_0000 から 0x3F00_0000 までは DRAM
+// 残りの 0x3F00_0000 から 0x4000_0000 まではデバイス
+//   BCM2837 ARM Peripherals manual, section 1.2.3 ARM physical addresses
+//     Physical addresses range from 0x3F000000 to 0x3FFFFFFF for peripherals.
+//   https://cs140e.sergio.bz/docs/BCM2837-ARM-Peripherals.pdf
+// それらを仮想アドレス VA_START から始めて DEVICE_BASE までの範囲をマッピングする
 __create_page_tables:
 	// x30 はリンクレジスタで、bl 命令でジャンプしたときの戻り先を保存している
 	// このあと bl 命令でジャンプすると x30 が上書きされてしまうので控えている
@@ -294,14 +300,14 @@ __create_page_tables:
 	// x2, x3 は作業用に自由に使っていいレジスタ
 	create_pgd_entry x0, x1, x2, x3
 
+
 	/* Mapping kernel and init stack*/
+	// 通常の DRAM 領域のマッピング
 	// xzr はゼロレジスタ
 	mov 	x1, xzr							// start mapping from physical offset 0
 	mov 	x2, #VA_START						// first virtual address
 
-	// BCM2837 ARM Peripherals manual, section 1.2.3 ARM physical addresses
-	//   Physical addresses range from 0x3F000000 to 0x3FFFFFFF for peripherals.
-	// https://cs140e.sergio.bz/docs/BCM2837-ARM-Peripherals.pdf
+	// 通常の DRAM 領域の最後のセクションのアドレスを計算している
 	// #define DEVICE_BASE 		0x3F000000
 	// SECTION_SIZE は 1<<21 なので、2MB
 	ldr	x3, =(VA_START + DEVICE_BASE - SECTION_SIZE)		// last virtual address
@@ -311,12 +317,7 @@ __create_page_tables:
 	// phys = x1 = 0
 	// start = x2 = VA_START
 	// end = x3 = VA_START + DEVICE_BASE - SECTION_SIZE
-	//          = 0xffff_0000_0000_0000 + 0x3F00_0000 - 0x0020_0000
 	// flags = MMU_FLAGS
-	// BCM2837 では RAM が物理アドレスの 0 番地から 1GB 搭載される
-	// そのうち 0x0000_0000 から 0x3F00_0000 までは DRAM
-	// 残りの 0x3F00_0000 から 0x4000_0000 まではデバイス
-	// それらを仮想アドレス VA_START から始めて DEVICE_BASE までの範囲をマッピング
 	// 1GB のうち 0x3f000000 以降はデバイス用の領域なので2回目の create_block_map 呼び出しで対応
 	// end(x3) が SECTION_SIZE 分小さくなっているのは、
 	//   start=end となったアドレスまでマップしてからループを抜けるようになっているため
@@ -324,6 +325,7 @@ __create_page_tables:
 	create_block_map x0, x1, x2, x3, MMU_FLAGS, x4
 
 	/* Mapping device memory*/
+	// デバイス領域のマッピング
 	mov 	x1, #DEVICE_BASE					// start mapping from device base address
 	ldr 	x2, =(VA_START + DEVICE_BASE)				// first virtual address
 	// #define PHYS_MEMORY_SIZE		0x4000_0000 = 1GB
@@ -332,16 +334,14 @@ __create_page_tables:
 	// tbl = x0 = pg_dir
 	// phys = x1 = DEVICE_BASE
 	// start = x2 = VA_START + DEVICE_BASE
-	//            = 0xffff_0000_0000_0000 + 0x3F00_0000
 	// end = x3 = VA_START + PHYS_MEMORY_SIZE - SECTION_SIZE
-	//          = 0xffff_0000_0000_0000 + 0x4000_0000 - 0x0020_0000
-	// デバイス部分をマップ(フラグが違う)
 	create_block_map x0, x1, x2, x3, MMU_DEVICE_FLAGS, x4
 
-	// ここまでくると、カーネルのアドレス空間(0xffff_0000_3f00_0000 以降)に、
+	// 現状 VA_START が 0x0000_0000_0000_0000 なので、
+	// ここまでくると、カーネルのアドレス空間(0x0000_0000_0000_0000 以降)に、
 	// 物理アドレス 0x0000_0000_0000_0000~0x0000_0000_4000_0000 がマップされている
 	// つまり RPi3 のすべての有効な物理アドレスがマップされているということ
 
+	// x30 に戻りアドレスを入れて ret する
 	mov	x30, x29						// restore return address
 	ret
-
