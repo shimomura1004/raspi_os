@@ -240,16 +240,18 @@ el01_sync_hvc64:
 // x19 には指定された関数のポインタが、x20 には引数が入っている
 .globl switch_from_kthread
 switch_from_kthread:
-	mov	x0, x20
-	// todo: なぜ以下3つのコピーが必要か不明
-	//       kernel_entry のときに以下のようにレジスタを控えているが…
-	//   add	x21, sp, #S_FRAME_SIZE
-	//   mrs	x22, elr_el2
-	//   mrs	x23, spsr_el2
-	mov x1, x21
-	mov x3, x22
-	mov x4, x23
 	// x19 (task.c: prepare_task)に無条件分岐する
+	//   void prepare_task(loader_func_t loader, void *arg)
+	// task.c: create_task で以下のように準備されている
+	// 	 p->cpu_context.x19 = (unsigned long)prepare_task;
+	//   p->cpu_context.x20 = (unsigned long)loader;
+	//   p->cpu_context.x21 = (unsigned long)arg;
+
+	// todo: x22,x23 は無効値が入っているのでは？(mov しなくても関係ないのでは？)
+	mov	x0, x20
+	mov x1, x21
+	// mov x3, x22
+	// mov x4, x23
 	blr	x19
 	kernel_exit
 
