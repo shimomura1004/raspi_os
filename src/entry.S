@@ -207,27 +207,23 @@ el01_sync:
 	kernel_entry
 
 	// hvc 命令による割込みかを判定し、その場合は el01_sync_hvc64 にジャンプ
-mrs x4, esr_el2
-lsr x4, x4, #ESR_EL2_EC_SHIFT
-and x4, x4, #0x3f
-cmp x4, #ESR_EL2_EC_HVC64
-b.eq el01_sync_hvc64
+	mrs x4, esr_el2
+	lsr x4, x4, #ESR_EL2_EC_SHIFT
+	and x4, x4, #0x3f
+	cmp x4, #ESR_EL2_EC_HVC64
+	b.eq el01_sync_hvc64
 
 	// それ以外の割込み要因だった場合は handle_sync_exception にジャンプ
 	mrs x0, esr_el2		// read the syndrome register
 	mrs x1, elr_el2
 	mrs x2, far_el2
-	// todo: hvc の引数が勝手に x8 に入るわけではないはず
-	//       esr の下位16ビットから取り出す必要があるのでは？
-	//       -> そもそも引数として渡す必要がない
-	// and x3, x0, #0xffff // hvc number in esr_el2[15:0]
-	mov x3, x8			// hvc number in x8
-
 	bl handle_sync_exception
 
 	kernel_exit
 
 el01_sync_hvc64:
+	// hvc number in esr_el2[15:0]
+	// esr の下位16ビットから hvc number を取り出し x0 にセット
 	mrs x0, esr_el2
 	and x0, x0, #0xffff
 	mov x1, x8
