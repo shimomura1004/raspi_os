@@ -1,4 +1,5 @@
 #include "arm/sysregs.h"
+#include "sync_exc.h"
 #include "entry.h"
 
 	//-------- handle_invalid_entry -------------------------------------------
@@ -205,14 +206,14 @@ el01_irq:
 el01_sync:
 	kernel_entry
 
-#define ESR_EL2_EC_SHIFT 26
-#define ESR_EL2_EC_HVC64 22
+	// hvc 命令による割込みかを判定し、その場合は el01_sync_hvc64 にジャンプ
 mrs x4, esr_el2
 lsr x4, x4, #ESR_EL2_EC_SHIFT
 and x4, x4, #0x3f
 cmp x4, #ESR_EL2_EC_HVC64
 b.eq el01_sync_hvc64
 
+	// それ以外の割込み要因だった場合は handle_sync_exception にジャンプ
 	mrs x0, esr_el2		// read the syndrome register
 	mrs x1, elr_el2
 	mrs x2, far_el2
