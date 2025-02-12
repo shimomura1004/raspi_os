@@ -23,6 +23,7 @@ _start:
 	b	proc_hang
 
 // コア 0 以外のコアを無限ループさせて止める
+// todo: マルチコア対応したい、その場合はロックが必要
 proc_hang:
 	wfi
 	b proc_hang

@@ -38,6 +38,8 @@ void hypervisor_main()
 		PANIC("sd_init() failed");
 	}
 
+	// todo: 他の OS のロード
+
 	// img には entrypoint などの情報がないので自分で入れる必要がある
 	struct raw_binary_loader_args bl_args1 = {
 		.loader_addr = 0x0,
@@ -98,6 +100,7 @@ void hypervisor_main()
 		// todo: schedule を呼ぶ前に手動で割込みを禁止にしないといけないのは危ない
 		disable_irq();
 		// このプロセスでは特にやることがないので CPU を明け渡す
+		// todo: ゲスト OS のコントロールができるといい
 		schedule();
 		enable_irq();
 	}

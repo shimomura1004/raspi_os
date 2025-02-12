@@ -44,6 +44,7 @@ int load_file_to_memory(struct task_struct *tsk, const char *name, unsigned long
     return 0;
 }
 
+// todo: 丸ごと elf.c に移す？
 int elf_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
     struct raw_binary_loader_args *loader_args = (struct raw_binary_loader_args *)args;
 
@@ -163,6 +164,7 @@ int raw_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
 //   VM の仮想メモリ空間(VA)とハイパーバイザのメモリ空間(IPA)は任意のマッピング(適宜設定)
 // ここでは VM 用(EL1)のメモリマッピングを行う
 
+// todo: 削除する
 // カーネル内に埋め込まれた EL1 用のコードを取り出し、EL1 用のメモリ空間にコピーする
 int test_program_loader(void *arg, unsigned long *pc, unsigned long *sp) {
     extern unsigned long el1_test_1;
