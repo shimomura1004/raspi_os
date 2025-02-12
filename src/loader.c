@@ -136,7 +136,7 @@ int elf_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
     }
 
     *sp = loader_args->sp;
-INFO("pc: 0x%lx in 48bit, sp: 0x%lx(0x%lx in 48bit)", *pc & 0xffffffffffff, *sp, *sp & 0xffffffffffff);
+    INFO("pc: 0x%lx in 48bit, sp: 0x%lx(0x%lx in 48bit)", *pc & 0xffffffffffff, *sp, *sp & 0xffffffffffff);
     current->name = loader_args->filename;
 
     free_page(buf);

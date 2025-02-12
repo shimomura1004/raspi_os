@@ -31,7 +31,8 @@ unsigned long allocate_task_page(struct task_struct *task, unsigned long ipa) {
 	}
 	// 新たに確保したページをこのタスク(VM)のアドレス空間にマッピングする
 	map_stage2_page(task, ipa, page, MMU_STAGE2_PAGE_FLAGS);
-INFO("VTTBR0_EL2(VMID %d): IPA 0x%lx(0x%lx in full) -> PA 0x%lx (allocate_task_page)", current->pid, ipa & 0xffffffffffff, ipa, page);
+	//INFO("VTTBR0_EL2(VMID %d): IPA 0x%lx(0x%lx in full) -> PA 0x%lx (allocate_task_page)", current->pid, ipa & 0xffffffffffff, ipa, page);
+
 	// 新たに確保したページの仮想アドレスを返す(リニアマッピングなのでオフセットを足すだけ)
 	return page + VA_START;
 }
@@ -214,7 +215,9 @@ int handle_mem_abort(unsigned long addr, unsigned long esr) {
 		}
 		// IPA -> PA の変換を登録
 		map_stage2_page(current, get_ipa(addr) & PAGE_MASK, page, MMU_STAGE2_PAGE_FLAGS);
-INFO("VTTBR0_EL2(VMID %d): IPA 0x%lx(0x%lx in full) -> PA 0x%lx (handle_mem_abort)", current->pid, addr & 0xffffffffffff, addr, page);
+		// INFO("VTTBR0_EL2(VMID %d): IPA 0x%lx(0x%lx in full) -> PA 0x%lx (handle_mem_abort)",
+		// 	 current->pid, addr & 0xffffffffffff, addr, page);
+
 		current->stat.pf_trap_count++;
 		return 0;
 	}

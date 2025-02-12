@@ -217,23 +217,25 @@ void handle_sync_exception(unsigned long esr, unsigned long elr, unsigned long f
 	}
 }
 
+// EL1 からのハイパーコールの処理
+// todo: hvc_nr をマジックナンバと比較しない
 void handle_sync_exception_hvc64(unsigned long hvc_nr, unsigned long a0, unsigned long a1, unsigned long a2, unsigned long a3) {
 	current->stat.hvc_trap_count++;
 
 	switch (hvc_nr) {
 	case 0:
-		WARN("HVC #%lu(0x%lx)", hvc_nr, hvc_nr);
+		WARN("HVC #%lu", hvc_nr);
 		break;
-	case 1:
+	case 1:		// 第1引数の非負整数をプリント
 		INFO("HVC #%d: 0x%lx(%ld)", hvc_nr, a0, a0);
 		break;
-	case 2:
+	case 2:		// 第1,2引数の非負整数をプリント
 		INFO("HVC #%d: 0x%lx(%ld), 0x%lx(%ld)", hvc_nr, a0, a0, a1, a1);
 		break;
-	case 3:
+	case 3:		// 第1,2,3引数の非負整数をプリント
 		INFO("HVC #%d: 0x%lx(%ld), 0x%lx(%ld), 0x%lx(%ld)", hvc_nr, a0, a0, a1, a1, a2, a2);
 		break;
-	case 4:
+	case 4:		// 第1,2,3,4引数の非負整数をプリント
 		INFO("HVC #%d: 0x%lx(%ld), 0x%lx(%ld), 0x%lx(%ld), 0x%lx(%ld)", hvc_nr, a0, a0, a1, a1, a2, a2, a3, a3);
 		break;
 	default:
