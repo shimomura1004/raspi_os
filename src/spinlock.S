@@ -1,5 +1,5 @@
-.globl spinlock_acquire
-spinlock_acquire:
+.globl _spinlock_acquire
+_spinlock_acquire:
     // ロック用の値 1 を x2 にセット
     mov   x2, #1
     // 次に実行する wfe に備えてカウンタを増やしておく
@@ -51,8 +51,8 @@ spinlock_acquire:
 //3:
 //    ret
 
-.globl spinlock_release
-spinlock_release:
+.globl _spinlock_release
+_spinlock_release:
     // 既にロックを取得していることが前提なので、素直にメモリ書き込み
     // stlr はメモリバリア付きのストア命令で、この命令が実行される前に、以前の命令は必ず実行される
     // [x0] に 0 を書き込み (=解放)

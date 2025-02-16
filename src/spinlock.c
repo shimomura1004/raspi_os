@@ -5,8 +5,8 @@
 #include "spinlock.h"
 #include "irq.h"
 
-extern void spinlock_acquire(struct spinlock *);
-extern void spinlock_release(struct spinlock *);
+extern void _spinlock_acquire(struct spinlock *);
+extern void _spinlock_release(struct spinlock *);
 
 static int holding(struct spinlock *lock) {
     return lock->locked && lock->cpuid == get_cpuid();
@@ -26,7 +26,7 @@ void acquire_lock(struct spinlock *lock) {
         PANIC("acquire: already locked by myself");
     }
 
-    spinlock_acquire(&lock->locked);
+    _spinlock_acquire(&lock->locked);
     lock->cpuid = get_cpuid();
 }
 
@@ -36,7 +36,7 @@ void release_lock(struct spinlock *lock) {
     }
 
     lock->cpuid = -1;
-    spinlock_release(&lock->locked);
+    _spinlock_release(&lock->locked);
 
 // enable_irq();
 }
