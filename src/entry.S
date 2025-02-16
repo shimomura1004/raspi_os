@@ -245,11 +245,13 @@ switch_from_kthread:
 	//   p->cpu_context.x20 = (unsigned long)loader;
 	//   p->cpu_context.x21 = (unsigned long)arg;
 
-	// todo: x22,x23 は無効値が入っているのでは？(mov しなくても関係ないのでは？)
+	// x23 は kenel_exit のときに spsr に書き戻され eret の戻りアドレスに使われる
+	// todo: プロセス初期化時は x22,x23 は無効値が入っている
+	//       この処理はプロセス初期化時にしか呼ばれないので、mov しても意味ないはず
 	mov	x0, x20
 	mov x1, x21
-	// mov x3, x22
-	// mov x4, x23
+	mov x3, x22
+	mov x4, x23
 	blr	x19
 	kernel_exit
 

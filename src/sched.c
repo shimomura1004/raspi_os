@@ -56,7 +56,7 @@ static void _schedule(void)
 }
 
 // 自主的に CPU 時間を手放しプロセスを切り替える
-// todo: schedule を呼ぶ前に IRQ を無効化する必要があり危険
+// todo: schedule を呼ぶ前に手動で IRQ を無効化する必要があり危険
 //       現状 schedule を呼ぶのは、main, handle_trap_wfx, exit_task のみ
 //       main は手動で無効化している
 //       handle_trap_wfx は割込から呼ばれるので、割込みは無効化されている
