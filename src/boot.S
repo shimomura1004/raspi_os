@@ -19,7 +19,7 @@ _start:
     // コア 0 以外のコアは無限ループさせる
 	mrs	x0, mpidr_el1
 	and	x0, x0,#0xFF		// Check processor id
-	cbz	x0, master		// Hang for all non-primary CPU
+	cbz	x0, el3_entry		// Hang for all non-primary CPU
 	b	proc_hang
 
 // コア 0 以外のコアを無限ループさせて止める
@@ -28,8 +28,8 @@ proc_hang:
 	wfi
 	b proc_hang
 
-// これ以降はコア 0 だけで実行される
-master:
+// EL3 の実質的なスタート
+el3_entry:
 	// sysregs.h にて定義されている
 	// #define SCTLR_VALUE_MMU_DISABLED
 	//   (SCTLR_RESERVED | SCTLR_EE_LITTLE_ENDIAN |
@@ -43,13 +43,8 @@ master:
 	// EL2 用に設定を登録
 	msr	sctlr_el2, x0
 
-	// #define HCR_RW	    			(1 << 31)
-	// #define HCR_VALUE			HCR_RW
+	// 二段階アドレス変換の有効化など
 	ldr	x0, =HCR_VALUE
-	// ハイパーバイザ機能は使わないが、マニュアルによると
-	// RW ビットが 0 だと
-	// Lower levels are all AArch32. This is the reset value.
-	// となるようなので 1 にする
 	msr	hcr_el2, x0
 
 	// #define SCR_VALUE (SCR_RESERVED | SCR_RW | SCR_NS)
@@ -59,9 +54,6 @@ master:
 	//   in Non-secure state, so memory accesses
 	//   from those Exception levels cannot access Secure memory.
 	ldr	x0, =SCR_VALUE
-
-	// qemu を -kernel オプションで実行すると EL2 で起動されるため
-	// ここで scr_el3 にアクセスしようとするとクラッシュする
 	msr	scr_el3, x0
 
 	// #define SPSR_MASK_ALL (7 << 6)
