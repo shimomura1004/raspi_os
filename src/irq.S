@@ -32,3 +32,18 @@ enable_irq:
 disable_irq:
 	msr	daifset, #2
 	ret
+
+// 割込みが有効かどうかを返す
+// https://developer.arm.com/documentation/ddi0601/2024-12/AArch64-Registers/DAIF--Interrupt-Mask-Bits
+// I[7] IRQ mask bit
+//   0b0: Exception not masked
+//   0b1: Exception masked
+.globl is_interrupt_enabled
+is_interrupt_enabled:
+	mrs x0, daif
+	// 7ビット目が割込みマスクビット
+	and x0, x0, #0x80
+	// 割込みが有効ならマスクされていない、つまり 0
+	// このとき非負の値を返したいので、
+	eor x0, x0, #0x80
+	ret

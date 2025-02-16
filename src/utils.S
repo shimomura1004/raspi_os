@@ -364,6 +364,17 @@ get_vttbr_el2:
 	mrs x0, vttbr_el2
 	ret
 
+.globl get_cpuid
+get_cpuid:
+	mrs x0, mpidr_el1
+	and x0, x0, #0xff
+	ret
+
+.globl get_sp
+get_sp:
+	mov x0, sp
+	ret
+
 // 使っていない
 // 引数として仮想アドレスを取り、Stage1 と 2 のアドレス変換を行った値を返す 
 .globl do_at

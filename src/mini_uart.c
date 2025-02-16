@@ -7,7 +7,14 @@
 #include "task.h"
 #include "timer.h"
 
+#include "spinlock.h"
+
+static struct spinlock uart_lock;
+
 static void _uart_send(char c) {
+// todo: このロックを2回取りにきてデッドロックする
+acquire_lock(&uart_lock);
+
     // 送信バッファが空くまで待つビジーループ
     while (1) {
         if (get32(AUX_MU_LSR_REG) & 0x20) {
@@ -15,6 +22,8 @@ static void _uart_send(char c) {
         }
     }
     put32(AUX_MU_IO_REG, c);
+
+release_lock(&uart_lock);
 }
 
 void uart_send(char c) {
@@ -132,6 +141,8 @@ void uart_init(void) {
     put32(AUX_MU_BAUD_REG, 270);    // Set baud rate to 115200
 
     put32(AUX_MU_CNTL_REG, 3); // Finally, enable transmitter and receiver
+
+init_lock(&uart_lock, "uart_lock");
 }
 
 // This function is required by printf function

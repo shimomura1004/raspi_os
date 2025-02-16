@@ -5,6 +5,9 @@
 
 .section ".text.boot"
 
+// 初期化が終わったことを表すメモリ
+.extern initialized_flag
+
 // SCTLR_EL1: system control register: キャッシュや MMU が有効か無効か、など
 // HCR_EL2: hypervisor configuration register: ハイパーバイザ関連の機能
 // SCR_EL3: secure configuration register: secure monitor
@@ -16,20 +19,29 @@
 // ここが OS のスタートポイントになる
 .globl _start
 _start:
-    // コア 0 以外のコアは無限ループさせる
+    // コア 0 以外のコアは初期化が終わるまで待機
 	mrs	x0, mpidr_el1
 	and	x0, x0,#0xFF		// Check processor id
-	cbz	x0, master		// Hang for all non-primary CPU
-	b	proc_hang
+	cbz	x0, el3_entry		// Hang for all non-primary CPU
 
-// コア 0 以外のコアを無限ループさせて止める
-// todo: マルチコア対応したい、その場合はロックが必要
-proc_hang:
+cmp x0, #2
+b.eq sleep
+cmp x0, #3
+b.eq sleep
+	// コア 0 以外のコアを無限ループさせて止める
+	// todo: マルチコア対応したい、その場合はロックが必要
+	ldr x0, =initialized_flag
+loop:
+	ldr x1, [x0]
+	cbz x1, loop
+	dsb ish
+	b el3_entry
+sleep:
 	wfi
-	b proc_hang
+	b sleep
 
-// これ以降はコア 0 だけで実行される
-master:
+// EL3 の実質的なスタート
+el3_entry:
 	// sysregs.h にて定義されている
 	// #define SCTLR_VALUE_MMU_DISABLED
 	//   (SCTLR_RESERVED | SCTLR_EE_LITTLE_ENDIAN |
@@ -43,13 +55,7 @@ master:
 	// EL2 用に設定を登録
 	msr	sctlr_el2, x0
 
-	// #define HCR_RW	    			(1 << 31)
-	// #define HCR_VALUE			HCR_RW
 	ldr	x0, =HCR_VALUE
-	// ハイパーバイザ機能は使わないが、マニュアルによると
-	// RW ビットが 0 だと
-	// Lower levels are all AArch32. This is the reset value.
-	// となるようなので 1 にする
 	msr	hcr_el2, x0
 
 	// #define SCR_VALUE (SCR_RESERVED | SCR_RW | SCR_NS)
@@ -59,9 +65,6 @@ master:
 	//   in Non-secure state, so memory accesses
 	//   from those Exception levels cannot access Secure memory.
 	ldr	x0, =SCR_VALUE
-
-	// qemu を -kernel オプションで実行すると EL2 で起動されるため
-	// ここで scr_el3 にアクセスしようとするとクラッシュする
 	msr	scr_el3, x0
 
 	// #define SPSR_MASK_ALL (7 << 6)
@@ -88,6 +91,13 @@ master:
 
 // ここから EL2 として実行される
 el2_entry:
+	// テーブルを用意するのはコア 0 のみ
+	mrs	x0, mpidr_el1
+	and	x0, x0, #0xFF
+	cbz x0, page_table_setup
+	b after_page_table_setup
+
+page_table_setup:
 	// リンカスクリプトで設定される bss 領域の先頭/末尾を x0/x1 に入れる
 	adr	x0, bss_begin
 	adr	x1, bss_end
@@ -101,6 +111,7 @@ el2_entry:
 	// EL2 用のページテーブルを準備
 	bl 	__create_page_tables
 
+after_page_table_setup:
 	// VA_START を足すことでカーネルの仮想アドレスにしている
 	mov	x0, #VA_START
 	// #define PAGE_SHIFT	 	12
@@ -112,7 +123,14 @@ el2_entry:
 	// Arm では少し大きなセクション(2MB)という単位でメモリを扱うこともできる
 	// aarch64 もスタックは下方向に伸びるので、スタックは 2 * 2MB で 4MB 確保されている
 	// sp には仮想アドレスが入っているので MMU が有効になってからじゃないと使えない
-	add	sp, x0, #LOW_MEMORY
+	// add	sp, x0, #LOW_MEMORY
+
+// CPU ID に応じて SP にオフセットをつける (SP = LOW_MEMORY * CPUID)
+mov x1, #LOW_MEMORY
+and	x2, x2, #0xFF
+add x2, x2, #1
+mul x0, x1, x2
+add sp, x0, #VA_START
 
 	// TTBR(translate table base register)は複数ある: TTBR{0,1}_el{0,1} + TTBR0_el{2,3}
 	// TTBR は x86 の cr3 に相当する(risc-v のsatp)
