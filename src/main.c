@@ -13,9 +13,42 @@
 #include "debug.h"
 #include "loader.h"
 
-// hypervisor としてのスタート地点
-void hypervisor_main()
-{
+// todo: 他の種類の OS のロード
+// この情報は、あとから VM にコンテキストスイッチしたときに参照される
+// そのときまで解放されないようにグローバル変数としておく
+// img には entrypoint などの情報がないので自分で入れる必要がある
+static struct raw_binary_loader_args bl_args1 = {
+	.loader_addr = 0x0,
+	.entry_point = 0x0,
+	.sp = 0x100000,
+	.filename = "ECHO.BIN",
+};
+struct raw_binary_loader_args bl_args2 = {
+	.loader_addr = 0x0,
+	.entry_point = 0x0,
+	.sp = 0x100000,
+	.filename = "MINI-OS.BIN",
+};
+struct raw_binary_loader_args bl_args3 = {
+	.loader_addr = 0x0,
+	.entry_point = 0x0,
+	.sp = 0xffff000000100000,
+	.filename = "MINI-OS.ELF",
+};
+struct raw_binary_loader_args bl_args4 = {
+	.loader_addr = 0x0,
+	.entry_point = 0x0,
+	.sp = 0x100000,
+	.filename = "ECHO.ELF",
+};
+struct raw_binary_loader_args bl_args5 = {
+	.loader_addr = 0x0,
+	.entry_point = 0x0,
+	.sp = 0x100000,
+	.filename = "MINI-OS.BIN",
+};
+
+static void initialize_hypervisor() {
 	uart_init();
 	init_printf(NULL, putc);
 
@@ -37,65 +70,43 @@ void hypervisor_main()
 	if (sd_init() < 0) {
 		PANIC("sd_init() failed");
 	}
+}
 
-	// todo: 他の OS のロード
-
-	// img には entrypoint などの情報がないので自分で入れる必要がある
-	struct raw_binary_loader_args bl_args1 = {
-		.loader_addr = 0x0,
-		.entry_point = 0x0,
-		.sp = 0x100000,
-		.filename = "ECHO.BIN",
-	};
+static void load_guest_oss() {
 	if (create_task(raw_binary_loader, &bl_args1) < 0) {
 		printf("error while starting task #1");
 		return;
 	}
 
-	struct raw_binary_loader_args bl_args2 = {
-		.loader_addr = 0x0,
-		.entry_point = 0x0,
-		.sp = 0x100000,
-		.filename = "MINI-OS.BIN",
-	};
 	if (create_task(raw_binary_loader, &bl_args2) < 0) {
 		printf("error while starting task #2");
 		return;
 	}
 
-	struct raw_binary_loader_args bl_args3 = {
-		.loader_addr = 0x0,
-		.entry_point = 0x0,
-		.sp = 0xffff000000100000,
-		.filename = "MINI-OS.ELF",
-	};
 	if (create_task(elf_binary_loader, &bl_args3) < 0) {
 		printf("error while starting task #3");
 		return;
 	}
 
-	struct raw_binary_loader_args bl_args4 = {
-		.loader_addr = 0x0,
-		.entry_point = 0x0,
-		.sp = 0x100000,
-		.filename = "ECHO.ELF",
-	};
 	if (create_task(elf_binary_loader, &bl_args4) < 0) {
 		printf("error while starting task #4");
 		return;
 	}
 
-	struct raw_binary_loader_args bl_args5 = {
-		.loader_addr = 0x0,
-		.entry_point = 0x0,
-		.sp = 0x100000,
-		.filename = "MINI-OS.BIN",
-	};
 	if (create_task(raw_binary_loader, &bl_args5) < 0) {
 		printf("error while starting task #5");
 		return;
 	}
+}
 
+// hypervisor としてのスタート地点
+// todo: マルチコアで実行し、複数コアで文字出力するとクラッシュする
+void hypervisor_main()
+{
+	// ハイパーバイザの初期化とゲストのロードを実施
+	initialize_hypervisor();
+	load_guest_oss();
+	
 	while (1){
 		// todo: schedule を呼ぶ前に手動で割込みを禁止にしないといけないのは危ない
 		disable_irq();
