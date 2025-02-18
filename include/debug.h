@@ -7,7 +7,7 @@
 
 #define _LOG_COMMON(level, fmt, ...) do { \
     if (current) { \
-        printf("%s[%d]: ", level, current->pid); \
+        printf("<cpu:%d>[pid:%d] %s: ", get_cpuid(), current->pid, level); \
     } \
     else { \
         printf("%s[?]: ", level); \
@@ -19,7 +19,7 @@
 #define WARN(fmt, ...) _LOG_COMMON("WARN", fmt, ##__VA_ARGS__)
 
 #define PANIC(fmt, ...) do { \
-    _LOG_COMMON("!!! PANIC", fmt, ##__VA_ARGS__); \
+    _LOG_COMMON("PANIC", fmt, ##__VA_ARGS__); \
     if (current) { \
         exit_task(); \
     } \
