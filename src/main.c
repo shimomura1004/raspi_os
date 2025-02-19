@@ -17,35 +17,35 @@
 // この情報は、あとから VM にコンテキストスイッチしたときに参照される
 // そのときまで解放されないようにグローバル変数としておく
 // img には entrypoint などの情報がないので自分で入れる必要がある
-static struct raw_binary_loader_args bl_args1 = {
+static struct raw_binary_loader_args echo_bin_args = {
 	.loader_addr = 0x0,
 	.entry_point = 0x0,
 	.sp = 0x100000,
 	.filename = "ECHO.BIN",
 };
-struct raw_binary_loader_args bl_args2 = {
+struct raw_binary_loader_args mini_os_bin_args = {
 	.loader_addr = 0x0,
 	.entry_point = 0x0,
 	.sp = 0x100000,
 	.filename = "MINI-OS.BIN",
 };
-struct raw_binary_loader_args bl_args3 = {
+struct raw_binary_loader_args mini_os_elf_args = {
 	.loader_addr = 0x0,
 	.entry_point = 0x0,
 	.sp = 0xffff000000100000,
 	.filename = "MINI-OS.ELF",
 };
-struct raw_binary_loader_args bl_args4 = {
+struct raw_binary_loader_args echo_elf_args = {
 	.loader_addr = 0x0,
 	.entry_point = 0x0,
 	.sp = 0x100000,
 	.filename = "ECHO.ELF",
 };
-struct raw_binary_loader_args bl_args5 = {
+struct raw_binary_loader_args test_bin_args = {
 	.loader_addr = 0x0,
 	.entry_point = 0x0,
 	.sp = 0x100000,
-	.filename = "MINI-OS.BIN",
+	.filename = "TEST2.BIN",
 };
 
 static void initialize_hypervisor() {
@@ -73,30 +73,25 @@ static void initialize_hypervisor() {
 }
 
 static void load_guest_oss() {
-	if (create_task(raw_binary_loader, &bl_args1) < 0) {
+	if (create_task(raw_binary_loader, &echo_bin_args) < 0) {
 		printf("error while starting task #1");
-		return;
 	}
 
-	if (create_task(raw_binary_loader, &bl_args2) < 0) {
+	if (create_task(raw_binary_loader, &mini_os_bin_args) < 0) {
 		printf("error while starting task #2");
-		return;
 	}
 
-	if (create_task(elf_binary_loader, &bl_args3) < 0) {
-		printf("error while starting task #3");
-		return;
-	}
+	// if (create_task(elf_binary_loader, &mini_os_elf_args) < 0) {
+	// 	printf("error while starting task #3");
+	// }
 
-	if (create_task(elf_binary_loader, &bl_args4) < 0) {
-		printf("error while starting task #4");
-		return;
-	}
+	// if (create_task(elf_binary_loader, &echo_elf_args) < 0) {
+	// 	printf("error while starting task #4");
+	// }
 
-	if (create_task(raw_binary_loader, &bl_args5) < 0) {
-		printf("error while starting task #5");
-		return;
-	}
+	// if (create_task(raw_binary_loader, &test_bin_args) < 0) {
+	// 	printf("error while starting task #5");
+	// }
 }
 
 // hypervisor としてのスタート地点
