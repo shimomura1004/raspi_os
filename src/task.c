@@ -82,7 +82,7 @@ int create_task(loader_func_t loader, void *arg) {
 	p->flags = 0;
 
 	p->priority = current->priority;
-	p->state = TASK_RUNNING;
+	p->state = TASK_RUNNABLE;
 	p->counter = p->priority;
 	p->name = "VM";
 

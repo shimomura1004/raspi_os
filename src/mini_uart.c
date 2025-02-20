@@ -73,7 +73,7 @@ void handle_uart_irq(void) {
             uart_forwarded_task = received - '0';
             printf("\nswitched to %d\n", uart_forwarded_task);
             tsk = task[uart_forwarded_task];
-            if (tsk->state == TASK_RUNNING) {
+            if (tsk->state == TASK_RUNNING || tsk->state == TASK_RUNNABLE) {
                 flush_task_console(tsk);
             }
         }
@@ -94,7 +94,7 @@ void handle_uart_irq(void) {
 enqueue_char:
         tsk = task[uart_forwarded_task];
         // もし VM が終了してしまっていたら無視する
-        if (tsk->state == TASK_RUNNING) {
+        if (tsk->state == TASK_RUNNING ||  tsk->state == TASK_RUNNABLE) {
             enqueue_fifo(tsk->console.in_fifo, received);
         }
     }

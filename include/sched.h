@@ -6,14 +6,16 @@
 #ifndef __ASSEMBLER__
 
 #define THREAD_SIZE                	4096
-
 #define NR_TASKS                	64
 
 #define FIRST_TASK task[0]
 #define LAST_TASK task[NR_TASKS-1]
 
-#define TASK_RUNNING                0
-#define TASK_ZOMBIE                	1
+enum TASK__STATE {
+    TASK_RUNNING = 0,
+    TASK_RUNNABLE,
+    TASK_ZOMBIE,
+};
 
 struct board_ops;
 
@@ -145,7 +147,7 @@ struct task_console {
 
 struct task_struct {
     struct cpu_context cpu_context;	// CPU 状態
-    long state;                     // プロセスの状態(TASK_RUNNING とか)
+    long state;                     // プロセスの状態(TASK_RUNNING, TASK_ZOMBIE)
     long counter;                   // プロセスがどれくらい実行されるかを保持
                                     // tick ごとに 1 減り、0 になると他のプロセスに切り替わる
     long priority;                  // タスクがスケジュールされるときにこの値が counter にコピーされる

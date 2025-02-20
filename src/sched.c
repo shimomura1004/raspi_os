@@ -14,6 +14,8 @@ struct task_struct *task[NR_TASKS] = {&(init_task), };
 int nr_tasks = 1;
 
 // タスク切換え
+// 複数の CPU が同時に呼び出すのでスレッドセーフにしないといけない
+// todo: 複数 CPU で動かす場合は、停止時と異なる CPU で VM が動くかもしれない
 static void _schedule(void)
 {
 	int next, c;
@@ -26,8 +28,8 @@ static void _schedule(void)
 		// 先頭から順番に状態を見ていく
 		for (int i = 0; i < NR_TASKS; i++){
 			p = task[i];
-			// RUNNING 状態で、かつ一番カウンタが大きいものを探す
-			if (p && p->state == TASK_RUNNING && p->counter > c) {
+			// RUNNING/RUNNABLE 状態で、かつ一番カウンタが大きいものを探す
+			if (p && p->state != TASK_ZOMBIE && p->counter > c) {
 				c = p->counter;
 				next = i;
 			}
@@ -177,6 +179,7 @@ void vm_leaving_work() {
 
 const char *task_state_str[] = {
 	"RUNNING",
+	"RUNNABLE",
 	"ZOMBIE",
 };
 
