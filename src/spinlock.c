@@ -16,16 +16,11 @@ void init_cpus() {
 	}
 }
 
-// todo: current_cpu から戻るときに戻りアドレス x30 の値がおかしい
-//       アセンブラとのあいだで変数のサイズがあってない？
-//       スタックが他コアと共有されていて破壊されている？ -> fixed
-//       割込みによるレジスタ保全が不十分？
 struct cpu_struct *current_cpu() {
     unsigned long cpuid = get_cpuid();
     return cpus + cpuid;
 //	return &cpus[get_cpuid()];
 }
-
 
 extern void _spinlock_acquire(struct spinlock *);
 extern void _spinlock_release(struct spinlock *);

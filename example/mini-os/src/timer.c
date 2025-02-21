@@ -6,6 +6,7 @@
 const unsigned int interval = 20000;
 unsigned int curVal = 0;
 
+// todo: 一度に全 CPU コアの切り替えが発生する…？
 void timer_init ( void )
 {
 	curVal = get32(TIMER_CLO);

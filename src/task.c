@@ -8,6 +8,7 @@
 #include "board.h"
 #include "fifo.h"
 #include "irq.h"
+#include "loader.h"
 
 // 各スレッド用の領域の末尾に置かれた task_struct へのポインタを返す
 struct pt_regs * task_pt_regs(struct task_struct *tsk) {
@@ -16,7 +17,8 @@ struct pt_regs * task_pt_regs(struct task_struct *tsk) {
 }
 
 static void prepare_task(loader_func_t loader, void *arg) {
-	INFO("loading... arg=%ld, EL=%d", arg, get_el());
+	struct raw_binary_loader_args *loader_args = (struct raw_binary_loader_args *)arg;
+	INFO("loading... %s, EL=%d", loader_args->filename, get_el());
 
 	// PSTATE の中身は SPSR レジスタに戻したうえで eret することで復元される
 	// ここで設定した regs->pstate は restore_sysregs で SPSR に戻される
