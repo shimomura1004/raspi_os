@@ -48,6 +48,17 @@ struct raw_binary_loader_args test_bin_args = {
 	.filename = "TEST2.BIN",
 };
 
+// 各 CPU コアで必要な初期化処理
+static void initialize_cpu_core() {
+	// VBAR_EL2 レジスタに割込みベクタのアドレスを設定する
+	// 各 CPU コアで呼び出す必要がある
+	irq_vector_init();
+
+	// // todo: 各 CPU コアで呼び出す必要があるかもしれない
+	// timer_init();
+}
+
+// 全コア共通で一度だけ実施する初期化処理
 static void initialize_hypervisor() {
 	uart_init();
 	init_printf(NULL, putc);
@@ -59,7 +70,7 @@ static void initialize_hypervisor() {
 
 	init_initial_task();
 
-	irq_vector_init();
+	// todo: 各 CPU コアで呼び出す必要があるかもしれない
 	timer_init();
 
 	// 中途半端なところで割込み発生しないようにタイマと UART の有効化が終わるまで割込み禁止
