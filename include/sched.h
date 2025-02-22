@@ -5,6 +5,8 @@
 
 #ifndef __ASSEMBLER__
 
+#include "spinlock.h"
+
 #define THREAD_SIZE                	4096
 #define NR_TASKS                	64
 
@@ -160,6 +162,7 @@ struct task_struct {
     struct cpu_sysregs cpu_sysregs;
     struct task_stat stat;
     struct task_console console;
+    struct spinlock lock;
 };
 
 extern void sched_init(void);
@@ -188,6 +191,7 @@ extern void show_task_list(void);
         /* cpu_sysregs   */ {0}, \
         /* stat          */ {0}, \
         /* console       */ {0}, \
+        /* lock          */ {0, 0, -1}, \
     }
 
 struct cpu_struct {

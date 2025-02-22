@@ -28,17 +28,23 @@ static void _schedule(void)
 		// 先頭から順番に状態を見ていく
 		for (int i = 0; i < NR_TASKS; i++){
 			p = task[i];
+			acquire_lock(&p->lock);
+
 			// RUNNING/RUNNABLE 状態で、かつ一番カウンタが大きいものを探す
 			if (p && p->state != TASK_ZOMBIE && p->counter > c) {
 				c = p->counter;
 				next = i;
 			}
+
+			release_lock(&p->lock);
 		}
 		// まだ実行時間(counter)が残っているものがあったらそれを実行する
 		if (c) {
 			break;
 		}
+
 		// すべてのタスクが実行時間を使い切っていたら、全タスクに実行時間を補充する
+		// todo: おそらくロックが必要
 		for (int i = 0; i < NR_TASKS; i++) {
 			p = task[i];
 			if (p) {
