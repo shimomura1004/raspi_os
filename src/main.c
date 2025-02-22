@@ -63,6 +63,8 @@ static void initialize_cpu_core(unsigned long cpuid) {
 
 	// // todo: 各 CPU コアで呼び出す必要があるかもしれない
 	// timer_init();
+
+	// printf("CPU%d initialized\n", cpuid);
 }
 
 // 全コア共通で一度だけ実施する初期化処理
@@ -85,6 +87,7 @@ static void initialize_hypervisor() {
 	enable_interrupt_controller();
 	enable_irq();
 
+	// SD カードの初期化
 	if (sd_init() < 0) {
 		PANIC("sd_init() failed");
 	}
@@ -133,7 +136,11 @@ void hypervisor_main(unsigned long cpuid)
 
 	INFO("CPU%d runs IDLE process", cpuid);
 
-	while (1){
+	// 初期化を終えると IDLE プロセスになる
+	// すべての VM が CPU を放棄した時に返ってくる場所
+	// このループがなくてもタイマ割込み起因でタスク切り替えは起こる
+	// todo: CPU コアごとに IDLE プロセスが必要
+	while (1) {
 		// todo: schedule を呼ぶ前に手動で割込みを禁止にしないといけないのは危ない
 		disable_irq();
 		// このプロセスでは特にやることがないので CPU を明け渡す
