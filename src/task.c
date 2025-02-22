@@ -106,7 +106,7 @@ int create_task(loader_func_t loader, void *arg) {
 	int pid = nr_tasks++;
 	// 新たに作った task_struct 構造体のアドレスを task 配列に入れておく
 	// これでそのうち今作ったタスクに処理が切り替わり、switch_from_kthread から実行開始される
-	task[pid] = p;
+	tasks[pid] = p;
 	p->pid = pid;
 
 	init_task_console(p);
@@ -128,5 +128,5 @@ void flush_task_console(struct task_struct *tsk) {
 }
 
 void init_initial_task() {
-	task[0]->name = "IDLE";
+	tasks[0]->name = "IDLE";
 }

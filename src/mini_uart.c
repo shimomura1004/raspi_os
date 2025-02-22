@@ -72,7 +72,7 @@ void handle_uart_irq(void) {
             // VM を切り替えるのではなく、単に UART 入力の送り先を変えるだけ
             uart_forwarded_task = received - '0';
             printf("\nswitched to %d\n", uart_forwarded_task);
-            tsk = task[uart_forwarded_task];
+            tsk = tasks[uart_forwarded_task];
             if (tsk->state == TASK_RUNNING || tsk->state == TASK_RUNNABLE) {
                 flush_task_console(tsk);
             }
@@ -92,7 +92,7 @@ void handle_uart_irq(void) {
     }
     else {
 enqueue_char:
-        tsk = task[uart_forwarded_task];
+        tsk = tasks[uart_forwarded_task];
         // もし VM が終了してしまっていたら無視する
         if (tsk->state == TASK_RUNNING ||  tsk->state == TASK_RUNNABLE) {
             enqueue_fifo(tsk->console.in_fifo, received);

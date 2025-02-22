@@ -9,7 +9,7 @@
 static struct task_struct init_task = INIT_TASK;
 // 現在実行中のタスクの task_struct
 struct task_struct *current = &(init_task);
-struct task_struct *task[NR_TASKS] = {&(init_task), };
+struct task_struct *tasks[NR_TASKS] = {&(init_task), };
 // 現在実行中のタスクの数(init_task があるので初期値は1)
 int nr_tasks = 1;
 
@@ -27,7 +27,7 @@ static void _schedule(void)
 		// タスクの数は決め打ちで NR_TASKS 個
 		// 先頭から順番に状態を見ていく
 		for (int i = 0; i < NR_TASKS; i++){
-			p = task[i];
+			p = tasks[i];
 			acquire_lock(&p->lock);
 
 			// RUNNING/RUNNABLE 状態で、かつ一番カウンタが大きいものを探す
@@ -46,7 +46,7 @@ static void _schedule(void)
 		// すべてのタスクが実行時間を使い切っていたら、全タスクに実行時間を補充する
 		// todo: おそらくロックが必要
 		for (int i = 0; i < NR_TASKS; i++) {
-			p = task[i];
+			p = tasks[i];
 			if (p) {
 				// 何回もループした場合にカウンタの値が大きくなりすぎないように
 				// 今のカウンタの値を半分にして、プライオリティを足したもので更新
@@ -60,7 +60,7 @@ static void _schedule(void)
 	}
 
 	// 切り替え先タスクを見つけて switch_to する
-	switch_to(task[next]);
+	switch_to(tasks[next]);
 }
 
 // 自主的に CPU 時間を手放しプロセスを切り替える
@@ -131,10 +131,10 @@ void timer_tick()
 
 void exit_task(){
 	for (int i = 0; i < NR_TASKS; i++){
-		if (task[i] == current) {
+		if (tasks[i] == current) {
 			// 実行中のプロセスの構造体を見つけて zombie にする(=スケジューリング対象から外れる)
 			// todo: メモリは解放しなくていい？
-			task[i]->state = TASK_ZOMBIE;
+			tasks[i]->state = TASK_ZOMBIE;
 			break;
 		}
 	}
@@ -193,9 +193,9 @@ void show_task_list() {
     printf("  %3s %12s %8s %7s %9s %7s %7s %7s %7s %7s\n",
 		   "pid", "name", "state", "pages", "saved-pc", "wfx", "hvc", "sysregs", "pf", "mmio");
     for (int i = 0; i < nr_tasks; i++) {
-        struct task_struct *tsk = task[i];
+        struct task_struct *tsk = tasks[i];
         printf("%c %3d %12s %8s %7d %9x %7d %7d %7d %7d %7d\n",
-               is_uart_forwarded_task(task[i]) ? '*' : ' ',
+               is_uart_forwarded_task(tasks[i]) ? '*' : ' ',
 			   tsk->pid,
 			   tsk->name ? tsk->name : "",
                task_state_str[tsk->state],

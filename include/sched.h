@@ -22,7 +22,7 @@ enum TASK__STATE {
 struct board_ops;
 
 extern struct task_struct *current;
-extern struct task_struct * task[NR_TASKS];
+extern struct task_struct * tasks[NR_TASKS];
 extern int nr_tasks;
 
 // 控えないといけないレジスタ値を保存する
