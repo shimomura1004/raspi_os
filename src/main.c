@@ -1,6 +1,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+// todo: 不要なものがないか確認
 #include "printf.h"
 #include "utils.h"
 #include "timer.h"
@@ -15,6 +16,9 @@
 
 // boot.S で初期化が終わるまでコアを止めるのに使うフラグ
 volatile unsigned long initialized_flag = 0;
+
+// todo: どこか適切な場所に移す
+struct spinlock log_lock;
 
 // todo: 他の種類の OS のロード
 // この情報は、あとから VM にコンテキストスイッチしたときに参照される

@@ -4,15 +4,22 @@
 #include "printf.h"
 #include "entry.h"
 #include "sched.h"
+#include "utils.h"
+#include "spinlock.h"
+
+extern struct spinlock log_lock;
 
 #define _LOG_COMMON(level, fmt, ...) do { \
+    acquire_lock(&log_lock); \
+    unsigned long cpuid = get_cpuid(); \
     if (current) { \
-        printf("<cpu:%d>[pid:%d] %s: ", get_cpuid(), current->pid, level); \
+        printf("<cpu:%d>[pid:%d] %s: ", cpuid, current->pid, level); \
     } \
     else { \
-        printf("%s[?]: ", level); \
+        printf("<cpu:%d>[pid:?] %s: ", cpuid, level); \
     } \
     printf(fmt "\n", ##__VA_ARGS__); \
+    release_lock(&log_lock); \
 } while (0)
 
 #define INFO(fmt, ...) _LOG_COMMON("INFO", fmt, ##__VA_ARGS__)
