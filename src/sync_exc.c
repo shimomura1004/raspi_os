@@ -203,6 +203,7 @@ void handle_sync_exception(unsigned long esr, unsigned long elr, unsigned long f
 		break;
 	case ESR_EL2_EC_IABT_LOW:
 		WARN("IABT_LOW is not implemented.");
+		WARN("%s\nesr: 0x%lx, address: 0x%lx", sync_error_reasons[eclass], esr, elr);
 		break;
 	case ESR_EL2_EC_DABT_LOW:
 		// todo: ゲストが uart の状態を読むたびに vmexit/enter が発生している
@@ -212,7 +213,7 @@ void handle_sync_exception(unsigned long esr, unsigned long elr, unsigned long f
 		}
 		break;
 	default:
-		PANIC("uncaught synchronous exception:\n%s\nesr: %x, address: %x", sync_error_reasons[eclass], esr, elr);
+		PANIC("uncaught synchronous exception:\n%s\nesr: 0x%lx, address: 0x%lx", sync_error_reasons[eclass], esr, elr);
 		break;
 	}
 }

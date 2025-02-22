@@ -6,8 +6,13 @@
 #include "debug.h"
 #include "elf.h"
 #include "arm/mmu.h"
+#include "spinlock.h"
+
+struct spinlock loader_lock = {0, 0, -1};
 
 int load_file_to_memory(struct task_struct *tsk, const char *name, unsigned long va) {
+    acquire_lock(&loader_lock);
+
     struct fat32_fs hfat;
     if (fat32_get_handle(&hfat) < 0) {
         WARN("failed to find fat32 file system");
@@ -41,6 +46,7 @@ int load_file_to_memory(struct task_struct *tsk, const char *name, unsigned long
 
     tsk->name = name;
 
+    release_lock(&loader_lock);
     return 0;
 }
 
@@ -84,6 +90,9 @@ int elf_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
     uint16_t program_header_size = header->program_header_size;
     *pc = header->entry_point & 0xffffffffffff;
 
+    // todo: ロード中に実行される CPU コアが変わってはいけない
+    unsigned long cpuid = get_cpuid();
+
     // セグメントを順番にロード
     for (int i = 0; i < program_header_num; i++) {
         // ハイパーバイザのメモリ空間にプログラムヘッダを読み込む(1ページで十分)
@@ -114,12 +123,11 @@ int elf_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
         INFO("file_size/memory_size: 0x%lx/0x%lx", file_size, memory_size);
 
         // 指定されたアドレスにセグメントをコピーする(ページ単位のコピーをループする)
-        // todo: 関数化
         while (memory_size > 0) {
             // コピー先となるゲストのメモリ空間にページを確保する
             // allocate_task_page の中の map_stage2_page で stage2 テーブルを更新している
             // todo: 中途半端なアドレスな場合、うまく動かないかも
-            uint8_t *vm_buf = (uint8_t *)allocate_task_page(current, virtual_addr);
+            uint8_t *vm_buf = (uint8_t *)allocate_task_page(current[cpuid], virtual_addr);
 
             // コピー元のデータをハイパーバイザのメモリ空間に読み込む
             int actualsize = fat32_read(&file, vm_buf, offset, PAGE_SIZE);
@@ -137,7 +145,7 @@ int elf_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
 
     *sp = loader_args->sp;
     INFO("pc: 0x%lx in 48bit, sp: 0x%lx(0x%lx in 48bit)", *pc & 0xffffffffffff, *sp, *sp & 0xffffffffffff);
-    current->name = loader_args->filename;
+    current[cpuid]->name = loader_args->filename;
 
     free_page(buf);
     return 0;
@@ -146,7 +154,10 @@ int elf_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
 int raw_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
     struct raw_binary_loader_args *loader_args = (struct raw_binary_loader_args *)args;
 
-    if (load_file_to_memory(current, loader_args->filename, loader_args->loader_addr) < 0) {
+    // todo: ロード中に実行される CPU コアが変わってはいけない
+    unsigned long cpuid = get_cpuid();
+
+    if (load_file_to_memory(current[cpuid], loader_args->filename, loader_args->loader_addr) < 0) {
         return -1;
     }
 
@@ -190,9 +201,12 @@ int test_program_loader(void *arg, unsigned long *pc, unsigned long *sp) {
     }
     unsigned long entry_point = func - begin;
 
+    // todo: ロード中に実行される CPU コアが変わってはいけない
+    unsigned long cpuid = get_cpuid();
+
 	// 現在実行中のタスクのページテーブルにマッピングを追加
 	// current タスク用のアドレス空間にページを追加するので、仮想アドレスは任意の値でいい
-    unsigned long code_page = allocate_task_page(current, 0);
+    unsigned long code_page = allocate_task_page(current[cpuid], 0);
     if (code_page == 0) {
         return -1;
     }

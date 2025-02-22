@@ -3,24 +3,31 @@
 
 #include "printf.h"
 #include "entry.h"
-#include "sched.h"
+#include "utils.h"
+
+#include "spinlock.h"
+extern struct spinlock log_lock;
 
 #define _LOG_COMMON(level, fmt, ...) do { \
-    if (current) { \
-        printf("<cpu:%d>[pid:%d] %s: ", get_cpuid(), current->pid, level); \
+    acquire_lock(&log_lock); \
+    unsigned long cpuid = get_cpuid(); \
+    if (current[cpuid]) { \
+        printf("<cpu:%d>[pid:%d] %s: ", cpuid, current[cpuid]->pid, level); \
     } \
     else { \
-        printf("%s[?]: ", level); \
+        printf("<cpu:%d>[pid:?] %s: ", cpuid, level); \
     } \
     printf(fmt "\n", ##__VA_ARGS__); \
+    release_lock(&log_lock); \
 } while (0)
 
 #define INFO(fmt, ...) _LOG_COMMON("INFO", fmt, ##__VA_ARGS__)
 #define WARN(fmt, ...) _LOG_COMMON("WARN", fmt, ##__VA_ARGS__)
 
 #define PANIC(fmt, ...) do { \
+    unsigned long cpuid = get_cpuid(); \
     _LOG_COMMON("PANIC", fmt, ##__VA_ARGS__); \
-    if (current) { \
+    if (current[cpuid]) { \
         exit_task(); \
     } \
     else { \

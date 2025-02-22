@@ -1,6 +1,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+// todo: 不要なものがないか確認
 #include "printf.h"
 #include "utils.h"
 #include "timer.h"
@@ -12,6 +13,12 @@
 #include "sd.h"
 #include "debug.h"
 #include "loader.h"
+#include "spinlock.h"
+#include "cpu.h"
+
+volatile unsigned long initialized_flag = 0;
+
+struct spinlock log_lock;
 
 // todo: 他の種類の OS のロード
 // この情報は、あとから VM にコンテキストスイッチしたときに参照される
@@ -50,12 +57,17 @@ struct raw_binary_loader_args test_bin_args = {
 
 // 各 CPU コアで必要な初期化処理
 static void initialize_cpu_core() {
+	// CPU 構造体の初期化
+	init_my_cpu();
+
 	// VBAR_EL2 レジスタに割込みベクタのアドレスを設定する
-	// 各 CPU コアで呼び出す必要がある
 	irq_vector_init();
 
-	// // todo: 各 CPU コアで呼び出す必要があるかもしれない
-	// timer_init();
+	// ホストの IDLE プロセス用のコンソールの初期化
+	// todo: current が必ず IDLE を指しているのかの確認が必要
+	init_task_console(current_cpu()->current);
+
+	printf("CPU%d initialized\n", get_cpu_id());
 }
 
 // 全コア共通で一度だけ実施する初期化処理
@@ -63,20 +75,17 @@ static void initialize_hypervisor() {
 	uart_init();
 	init_printf(NULL, putc);
 
-	printf("=== raspvisor ===\n");
-
-	// ホスト用のコンソールの初期化
-	init_task_console(current);
-
-	init_initial_task();
-
-	// todo: 各 CPU コアで呼び出す必要があるかもしれない
-	timer_init();
-
-	// 中途半端なところで割込み発生しないようにタイマと UART の有効化が終わるまで割込み禁止
+	// todo: タイマは共通な気がする…
 	disable_irq();
+	init_initial_task();
+	timer_init();
 	enable_interrupt_controller();
 	enable_irq();
+
+	// 中途半端なところで割込み発生しないようにタイマと UART の有効化が終わるまで割込み禁止
+	// disable_irq();
+	// enable_interrupt_controller();
+	// enable_irq();
 
 	if (sd_init() < 0) {
 		PANIC("sd_init() failed");
@@ -106,14 +115,50 @@ static void load_guest_oss() {
 }
 
 // hypervisor としてのスタート地点
-// todo: マルチコアで実行し、複数コアで文字出力するとクラッシュする
 void hypervisor_main()
 {
-	// ハイパーバイザの初期化とゲストのロードを実施
-	initialize_hypervisor();
-	load_guest_oss();
+	// 実行中の CPU コアを初期化
+	initialize_cpu_core();
+
+	if (initialized_flag == 0) {
+		init_lock(&log_lock, "log_lock");
+	}
+
 	
-	while (1){
+	unsigned long cpuid = get_cpuid();
+
+	switch (cpuid) {
+	case 0: {
+		// ハイパーバイザの初期化とゲストのロードを実施
+		initialize_hypervisor();
+		printf("raspvisor initialized\n");
+
+		load_guest_oss();
+
+		INFO("CPU0 works");
+
+		// CPU0 はなにもせず、コア0以外のブロックを解除
+		initialized_flag = 1;
+		// while(initialized_flag == 1);
+		break;
+	}
+	case 1: {
+		// todo: CPUID の仮想化が必要
+		//       ゲスト OS で cpuid が 1 になっているので、スリープする気がする		
+		initialized_flag = 2;
+		break;
+	}
+	default: {
+		PANIC("sleeping CPU? %d", cpuid);
+		break;
+	}
+	}
+	
+	// 初期化を終えると IDLE プロセスになる
+	// すべての VM が CPU を放棄した時に返ってくる場所
+	// このループがなくてもタイマ割込み起因でタスク切り替えは起こる
+	// todo: CPU コアごとに IDLE プロセスが必要
+	while (1) {
 		// todo: schedule を呼ぶ前に手動で割込みを禁止にしないといけないのは危ない
 		disable_irq();
 		// このプロセスでは特にやることがないので CPU を明け渡す

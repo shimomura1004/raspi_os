@@ -39,7 +39,7 @@ unsigned long allocate_task_page(struct task_struct *task, unsigned long ipa) {
 
 void set_task_page_notaccessable(struct task_struct *task, unsigned long va) {
 	map_stage2_page(task, va, 0, MMU_STAGE2_MMIO_FLAGS);
-if (current->pid != 0)INFO("VA 0x%lx -> IPA 0x%lx -> PA 0x%lx (set_task_page_notaccessable)", va, get_ipa(va), 0);
+// if (current->pid != 0)INFO("VA 0x%lx -> IPA 0x%lx -> PA 0x%lx (set_task_page_notaccessable)", va, get_ipa(va), 0);
 }
 
 // 未使用のページを探してその場所(DRAM 内のオフセット)を返す

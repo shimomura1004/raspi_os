@@ -7,11 +7,16 @@
 #include "task.h"
 
 static struct task_struct init_task = INIT_TASK;
+// todo: cpu コアが複数あるのに current が 1 つしかない！
 // 現在実行中のタスクの task_struct
-struct task_struct *current = &(init_task);
+// struct task_struct *current = &(init_task);
+struct task_struct *current[4] = {&(init_task), };
+
 struct task_struct *task[NR_TASKS] = {&(init_task), };
 // 現在実行中のタスクの数(init_task があるので初期値は1)
 int nr_tasks = 1;
+
+static struct spinlock task_list_lock = {0, 0, -1};
 
 // タスク切換え
 // 複数の CPU が同時に呼び出すのでスレッドセーフにしないといけない
@@ -21,6 +26,7 @@ static void _schedule(void)
 	int next, c;
 	struct task_struct *p;
 
+	acquire_lock(&task_list_lock);
 	while (1) {
 		c = -1;
 		next = 0;
@@ -31,7 +37,8 @@ static void _schedule(void)
 			acquire_lock(&p->lock);
 
 			// RUNNING/RUNNABLE 状態で、かつ一番カウンタが大きいものを探す
-			if (p && p->state != TASK_ZOMBIE && p->counter > c) {
+			// if (p && p->state != TASK_ZOMBIE && p->counter > c) {
+			if (p && p->state == TASK_RUNNABLE && p->counter > c) {
 				c = p->counter;
 				next = i;
 			}
@@ -40,6 +47,27 @@ static void _schedule(void)
 		}
 		// まだ実行時間(counter)が残っているものがあったらそれを実行する
 		if (c) {
+			acquire_lock(&task[next]->lock);
+
+			if (task[next]->state == TASK_RUNNING) {
+				// もし選んだタスクが RUNNING だったら、それは他の CPU で
+				// 既に実行されているということなので、その場合はやりなおす
+				release_lock(&task[next]->lock);
+				continue;
+			}
+			else if (task[next]->state == TASK_RUNNABLE) {
+				// もし RUNNABLE だったら、そのタスクを RUNNING に変更して
+				// 切り替え先として確保する
+				task[next]->state = TASK_RUNNING;
+				current->state = TASK_RUNNABLE;
+				release_lock(&task[next]->lock);
+			}
+			else {
+				// この場合はタスクは ZOMBIE 状態なのでやりなおす
+				release_lock(&task[next]->lock);
+				continue;
+			}
+
 			break;
 		}
 
@@ -58,6 +86,9 @@ static void _schedule(void)
 		// timer_tick で割込みを有効にしておく必要がある
 		// ただし、割込みは許可されるが preemption(タスク切り替え)は許可されていないことに注意
 	}
+
+	// todo: 先にロックを解放してしまっていいのか確認する
+	release_lock(&task_list_lock);
 
 	// 切り替え先タスクを見つけて switch_to する
 	switch_to(task[next]);

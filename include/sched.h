@@ -21,7 +21,8 @@ enum TASK__STATE {
 
 struct board_ops;
 
-extern struct task_struct *current;
+// extern struct task_struct *current
+extern struct task_struct *current[4];
 extern struct task_struct * task[NR_TASKS];
 extern int nr_tasks;
 
@@ -148,7 +149,7 @@ struct task_console {
 };
 
 struct task_struct {
-    struct cpu_context cpu_context;	// CPU 状態
+    struct cpu_context cpu_context;	// CPU 内のレジスタの状態
     long state;                     // プロセスの状態(TASK_RUNNING, TASK_ZOMBIE)
     long counter;                   // プロセスがどれくらい実行されるかを保持
                                     // tick ごとに 1 減り、0 になると他のプロセスに切り替わる
@@ -195,8 +196,8 @@ extern void show_task_list(void);
     }
 
 struct cpu_struct {
-    // この CPU が実行している VM
-    struct task_struct *current;
+    struct task_struct *current;    // この CPU が実行している VM
+    unsigned long id;               // CPU の ID
 
     // 排他制御時に割込みを禁止するとき、何回割込み禁止が要求されたかを保持する
     // 全員が割込み禁止を解除したら、本当に割込みを許可する
