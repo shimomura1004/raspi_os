@@ -13,6 +13,9 @@
 #include "debug.h"
 #include "loader.h"
 
+// boot.S で初期化が終わるまでコアを止めるのに使うフラグ
+volatile unsigned long initialized_flag = 0;
+
 // todo: 他の種類の OS のロード
 // この情報は、あとから VM にコンテキストスイッチしたときに参照される
 // そのときまで解放されないようにグローバル変数としておく
@@ -49,7 +52,7 @@ struct raw_binary_loader_args test_bin_args = {
 };
 
 // 各 CPU コアで必要な初期化処理
-static void initialize_cpu_core() {
+static void initialize_cpu_core(unsigned long cpuid) {
 	// VBAR_EL2 レジスタに割込みベクタのアドレスを設定する
 	// 各 CPU コアで呼び出す必要がある
 	irq_vector_init();
@@ -107,12 +110,25 @@ static void load_guest_oss() {
 
 // hypervisor としてのスタート地点
 // todo: マルチコアで実行し、複数コアで文字出力するとクラッシュする
-void hypervisor_main()
+void hypervisor_main(unsigned long cpuid)
 {
-	// ハイパーバイザの初期化とゲストのロードを実施
-	initialize_hypervisor();
-	load_guest_oss();
-	
+	// 実行中の CPU コアを初期化
+	initialize_cpu_core(cpuid);
+
+	// CPU 0 がハイパーバイザの初期化を実施
+	if (cpuid == 0) {
+		// ハイパーバイザの初期化とゲストのロードを実施
+		initialize_hypervisor();
+		INFO("raspvisor initialized");
+
+		load_guest_oss();
+		INFO("guest VMs are prepared");
+
+		initialized_flag = 1;
+	}
+
+	INFO("CPU%d runs IDLE process", cpuid);
+
 	while (1){
 		// todo: schedule を呼ぶ前に手動で割込みを禁止にしないといけないのは危ない
 		disable_irq();

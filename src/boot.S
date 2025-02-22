@@ -5,6 +5,9 @@
 
 .section ".text.boot"
 
+// 初期化が終わったことを表すメモリ
+.extern initialized_flag
+
 // SCTLR_EL1: system control register: キャッシュや MMU が有効か無効か、など
 // HCR_EL2: hypervisor configuration register: ハイパーバイザ関連の機能
 // SCR_EL3: secure configuration register: secure monitor
@@ -16,17 +19,26 @@
 // ここが OS のスタートポイントになる
 .globl _start
 _start:
-    // コア 0 以外のコアは無限ループさせる
+    // コア 0 以外のコアは初期化が終わるまで待機
 	mrs	x0, mpidr_el1
 	and	x0, x0,#0xFF		// Check processor id
 	cbz	x0, el3_entry		// Hang for all non-primary CPU
-	b	proc_hang
 
-// コア 0 以外のコアを無限ループさせて止める
-// todo: マルチコア対応したい、その場合はロックが必要
-proc_hang:
+cmp x0, #2
+b.eq sleep
+cmp x0, #3
+b.eq sleep
+	// コア 0 以外のコアを無限ループさせて止める
+	// todo: マルチコア対応したい、その場合はロックが必要
+	ldr x0, =initialized_flag
+loop:
+	ldr x1, [x0]
+	cbz x1, loop
+	dsb ish
+	b el3_entry
+sleep:
 	wfi
-	b proc_hang
+	b sleep
 
 // EL3 の実質的なスタート
 el3_entry:
@@ -80,6 +92,13 @@ el3_entry:
 
 // ここから EL2 として実行される
 el2_entry:
+	// テーブルを用意するのはコア 0 のみ
+	mrs	x0, mpidr_el1
+	and	x0, x0, #0xFF
+	cbz x0, page_table_setup
+	b after_page_table_setup
+
+page_table_setup:
 	// リンカスクリプトで設定される bss 領域の先頭/末尾を x0/x1 に入れる
 	adr	x0, bss_begin
 	adr	x1, bss_end
@@ -93,6 +112,7 @@ el2_entry:
 	// EL2 用のページテーブルを準備
 	bl 	__create_page_tables
 
+after_page_table_setup:
 	// VA_START を足すことでカーネルの仮想アドレスにしている
 	mov	x0, #VA_START
 	// #define PAGE_SHIFT	 	12
@@ -104,7 +124,14 @@ el2_entry:
 	// Arm では少し大きなセクション(2MB)という単位でメモリを扱うこともできる
 	// aarch64 もスタックは下方向に伸びるので、スタックは 2 * 2MB で 4MB 確保されている
 	// sp には仮想アドレスが入っているので MMU が有効になってからじゃないと使えない
-	add	sp, x0, #LOW_MEMORY
+	// add	sp, x0, #LOW_MEMORY
+
+// CPU ID に応じて SP にオフセットをつける (SP = LOW_MEMORY * CPUID)
+mov x1, #LOW_MEMORY
+bl get_cpuid
+add x0, x0, #1
+mul x0, x1, x0
+add sp, x0, #VA_START
 
 	// TTBR(translate table base register)は複数ある: TTBR{0,1}_el{0,1} + TTBR0_el{2,3}
 	// TTBR は x86 の cr3 に相当する(risc-v のsatp)
@@ -159,7 +186,8 @@ el2_entry:
 	// これ以降、MMU が有効になった状態で命令が実行されることを確実にする
 	isb
 
-	// hypervisor_main 関数にジャンプ
+	// CPUID を第一引数に入れて hypervisor_main 関数にジャンプ
+	bl get_cpuid
 	br 	x2
 
 	//-------- ここからマクロ定義 ------------------------------------------------
