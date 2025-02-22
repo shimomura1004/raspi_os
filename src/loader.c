@@ -6,8 +6,15 @@
 #include "debug.h"
 #include "elf.h"
 #include "arm/mmu.h"
+#include "spinlock.h"
+
+// todo: 初期化処理を呼んで初期化するようにする
+struct spinlock loader_lock = {0, 0, -1};
 
 int load_file_to_memory(struct task_struct *tsk, const char *name, unsigned long va) {
+    // todo: ロックの単位が大きいのでもっと細分化する
+    acquire_lock(&loader_lock);
+
     struct fat32_fs hfat;
     if (fat32_get_handle(&hfat) < 0) {
         WARN("failed to find fat32 file system");
@@ -41,6 +48,7 @@ int load_file_to_memory(struct task_struct *tsk, const char *name, unsigned long
 
     tsk->name = name;
 
+    release_lock(&loader_lock);
     return 0;
 }
 
