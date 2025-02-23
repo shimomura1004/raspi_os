@@ -234,20 +234,20 @@ el01_sync_hvc64:
 	bl handle_sync_exception_hvc64
 	kernel_exit
 
-// vmtask_create で作られたタスクに切り替わったときに最初に行われる処理
+// create_vm で作られた VM に切り替わったときに最初に行われる処理
 // x19 には指定された関数のポインタが、x20 には引数が入っている
 .globl switch_from_kthread
 switch_from_kthread:
-	// x19 (task.c: prepare_task)に無条件分岐する
-	//   void prepare_task(loader_func_t loader, void *arg)
-	// task.c: create_task で以下のように準備されている
-	// 	 p->cpu_context.x19 = (unsigned long)prepare_task;
+	// x19 (task.c: prepare_vm)に無条件分岐する
+	//   void prepare_vm(loader_func_t loader, void *arg)
+	// task.c: create_vm で以下のように準備されている
+	// 	 p->cpu_context.x19 = (unsigned long)prepare_vm;
 	//   p->cpu_context.x20 = (unsigned long)loader;
 	//   p->cpu_context.x21 = (unsigned long)arg;
 
 	// x23 は kenel_exit のときに spsr に書き戻され eret の戻りアドレスに使われる
-	// todo: プロセス初期化時は x22,x23 は無効値が入っている
-	//       この処理はプロセス初期化時にしか呼ばれないので、mov しても意味ないはず
+	// todo: VM 初期化時は x22,x23 は無効値が入っている
+	//       この処理は VM 初期化時にしか呼ばれないので、mov しても意味ないはず
 	mov	x0, x20
 	mov x1, x21
 	mov x3, x22

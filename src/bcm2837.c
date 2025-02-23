@@ -179,7 +179,7 @@ const struct bcm2837_state initial_state = {
 #define ADDR_IN_AUX(a)      (AUX_IRQ <= (a) && (a) <= AUX_MU_BAUD_REG)
 #define ADDR_IN_SYSTIMER(a) (TIMER_CS <= (a) && (a) < TIMER_C3)
 
-static void bcm2837_initialize(struct task_struct *tsk) {
+static void bcm2837_initialize(struct vm_struct *tsk) {
     struct bcm2837_state *state = (struct bcm2837_state *)allocate_page();
 
     *state = initial_state;
@@ -192,7 +192,7 @@ static void bcm2837_initialize(struct task_struct *tsk) {
     unsigned long begin = DEVICE_BASE;
     unsigned long end = PHYS_MEMORY_SIZE - SECTION_SIZE;
     for (; begin < end; begin += PAGE_SIZE) {
-        set_task_page_notaccessable(tsk, begin);
+        set_vm_page_notaccessable(tsk, begin);
     }
 }
 
@@ -226,9 +226,9 @@ static void bcm2837_initialize(struct task_struct *tsk) {
 // GPU pending 2 register (IRQ pending register?)
 //   [31:0] IRQ pending source 63:32 (See IRQ table above)
 
-static unsigned long handle_aux_read(struct task_struct *tsk, unsigned long addr);
+static unsigned long handle_aux_read(struct vm_struct *tsk, unsigned long addr);
 #define BIT(v, n) ((v) & (1 << (n)))
-static unsigned long handle_intctrl_read(struct task_struct *tsk, unsigned long addr) {
+static unsigned long handle_intctrl_read(struct vm_struct *tsk, unsigned long addr) {
     struct bcm2837_state *state = (struct bcm2837_state *)tsk->board_data;
 
     switch (addr) {
@@ -272,7 +272,7 @@ static unsigned long handle_intctrl_read(struct task_struct *tsk, unsigned long 
     return 0;
 }
 
-static void handle_intctrl_write(struct task_struct *tsk, unsigned long addr, unsigned long val) {
+static void handle_intctrl_write(struct vm_struct *tsk, unsigned long addr, unsigned long val) {
     struct bcm2837_state *state = (struct bcm2837_state *)tsk->board_data;
 
     // 書き込みができないレジスタもあるので handle_intctrl_read と一対一で対応しない
@@ -303,7 +303,7 @@ static void handle_intctrl_write(struct task_struct *tsk, unsigned long addr, un
 
 #define LCR_DLAB 0x80
 
-static unsigned long handle_aux_read(struct task_struct *tsk, unsigned long addr) {
+static unsigned long handle_aux_read(struct vm_struct *tsk, unsigned long addr) {
     struct bcm2837_state *state = (struct bcm2837_state *)tsk->board_data;
 
     // todo: アドレスが AUX の範囲内で、無効なら return となっている
@@ -399,7 +399,7 @@ static unsigned long handle_aux_read(struct task_struct *tsk, unsigned long addr
     return 0;
 }
 
-static void handle_aux_write(struct task_struct *tsk, unsigned long addr, unsigned long val) {
+static void handle_aux_write(struct vm_struct *tsk, unsigned long addr, unsigned long val) {
     struct bcm2837_state *state = (struct bcm2837_state *)tsk->board_data;
 
     // // todo: aux が disable になると、ここにひっかかって enable にすることができないのでは？
@@ -478,7 +478,7 @@ static void handle_aux_write(struct task_struct *tsk, unsigned long addr, unsign
 #define TO_PHYSICAL_COUNT(s, v) (v + (s)->systimer.offset)
 
 // VM からタイマカウントを読み取る(VM が実際に実行された時間だけを返す)
-static unsigned long handle_systimer_read(struct task_struct *tsk, unsigned long addr) {
+static unsigned long handle_systimer_read(struct vm_struct *tsk, unsigned long addr) {
     struct bcm2837_state *state = (struct bcm2837_state *)tsk->board_data;
 
     switch (addr) {
@@ -501,7 +501,7 @@ static unsigned long handle_systimer_read(struct task_struct *tsk, unsigned long
     return 0;
 }
 
-static void handle_systimer_write(struct task_struct *tsk, unsigned long addr, unsigned long val) {
+static void handle_systimer_write(struct vm_struct *tsk, unsigned long addr, unsigned long val) {
     struct bcm2837_state *state = (struct bcm2837_state *)tsk->board_data;
     // タイマカウンタは64ビット、比較は下位32ビットで行われる
     //   Each channel has an output compare register, which is compared against
@@ -538,7 +538,7 @@ static void handle_systimer_write(struct task_struct *tsk, unsigned long addr, u
 }
 
 // mmio 領域へのアクセスがあった場合、アドレスに応じてアクセスするデバイスを切りかえる
-static unsigned long bcm2837_mmio_read(struct task_struct *tsk, unsigned long addr) {
+static unsigned long bcm2837_mmio_read(struct vm_struct *tsk, unsigned long addr) {
     if (ADDR_IN_INTCTRL(addr)) {
         return handle_intctrl_read(tsk, addr);
     }
@@ -552,7 +552,7 @@ static unsigned long bcm2837_mmio_read(struct task_struct *tsk, unsigned long ad
     return 0;
 }
 
-static void bcm2837_mmio_write(struct task_struct *tsk, unsigned long addr, unsigned long val) {
+static void bcm2837_mmio_write(struct vm_struct *tsk, unsigned long addr, unsigned long val) {
     if (ADDR_IN_INTCTRL(addr)) {
         handle_intctrl_write(tsk, addr, val);
     }
@@ -583,7 +583,7 @@ static int check_and_update_expiration(uint32_t *expire, uint64_t lapse) {
 }
 
 // ハイパーバイザでの処理を終えて VM に処理を戻すときに呼ばれる
-void bcm2837_entering_vm(struct task_struct *tsk) {
+void bcm2837_entering_vm(struct vm_struct *tsk) {
     struct bcm2837_state *state = (struct bcm2837_state *)tsk->board_data;
 
     // update systimer's offset
@@ -632,17 +632,17 @@ void bcm2837_entering_vm(struct task_struct *tsk) {
 }
 
 // VM での処理を抜けてハイパーバイザに処理に入るときに呼ばれる
-void bcm2837_leaving_vm(struct task_struct *tsk) {
+void bcm2837_leaving_vm(struct vm_struct *tsk) {
     struct bcm2837_state *state = (struct bcm2837_state *)tsk->board_data;
     // VM が実行されていた最後のカウンタ値を保存しておく
     state->systimer.last_physical_count = get_physical_timer_count();
 }
 
-static int bcm2837_is_irq_asserted(struct task_struct *tsk) {
+static int bcm2837_is_irq_asserted(struct vm_struct *tsk) {
     return handle_intctrl_read(tsk, IRQ_BASIC_PENDING) != 0;
 }
 
-static int bcm2837_is_fiq_asserted(struct task_struct *tsk) {
+static int bcm2837_is_fiq_asserted(struct vm_struct *tsk) {
     struct bcm2837_state *state = (struct bcm2837_state *)tsk->board_data;
 
     // FIQ が有効でない場合は常に 0 を返す
@@ -667,7 +667,7 @@ static int bcm2837_is_fiq_asserted(struct task_struct *tsk) {
     return 0;
 }
 
-void bcm2837_debug(struct task_struct *tsk) {
+void bcm2837_debug(struct vm_struct *tsk) {
 }
 
 const struct board_ops bcm2837_board_ops = {

@@ -34,10 +34,10 @@
 .globl cpu_switch_to
 cpu_switch_to:
 	// THREAD_CPU_CONTEXT は task_struct 構造体の中の cpu_context のオフセット
-	// x0 には current のアドレスが入っている(つまり、切り替え前のプロセスの構造体)
+	// x0 には current のアドレスが入っている(つまり、切り替え元の VM の構造体)
 	mov	x10, #THREAD_CPU_CONTEXT
-	// 切り替え元のタスクの構造体のアドレス(x0)にオフセットを足したものを x8 に入れる
-	// つまり切り替え元のタスクの cpu_context のアドレスが x8 に入る
+	// 切り替え元の vm_struct 構造体のアドレス(x0)にオフセットを足したものを x8 に入れる
+	// つまり切り替え元の VM の cpu_context のアドレスが x8 に入る
 	add	x8, x0, x10
 	// 今のスタックポインタを x9 に入れる
 	mov	x9, sp
@@ -53,8 +53,8 @@ cpu_switch_to:
 	stp	x29, x9, [x8], #16      // fp <= x29, sp <= x9(=sp)
 	// x30 はリンクレジスタであり、戻り先アドレスが入っている、これを pc に入れる 
 	str	x30, [x8]               // pc <= x30
-	// 切り替え先のタスク構造体のアドレス(x1)にオフセットを足したものを x8 に入れる
-	// つまり切り替え先のタスクの cpu_context のアドレスが x8 に入る
+	// 切り替え先の vm_struct 構造体のアドレス(x1)にオフセットを足したものを x8 に入れる
+	// つまり切り替え先の VM の cpu_context のアドレスが x8 に入る
 	add	x8, x1, x10
 	// 同様にレジスタを戻す
 	ldp	x19, x20, [x8], #16		// restore callee-saved registers

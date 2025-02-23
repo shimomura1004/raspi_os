@@ -6,34 +6,34 @@
 #include "board.h"
 #include "task.h"
 
-static struct task_struct init_task = INIT_TASK;
-// 現在実行中のタスクの task_struct
+static struct vm_struct init_vm = INIT_VM;
+// 現在実行中の VM の vm_struct
 // todo: cpu コアが複数あるのに current が 1 つしかない！
 //       削除して、cpu_core_struct の current_vm に置き換える
-struct task_struct *current = &(init_task);
-struct task_struct *tasks[NR_TASKS] = {&(init_task), };
-// 現在実行中のタスクの数(init_task があるので初期値は1)
-int nr_tasks = 1;
+struct vm_struct *current = &(init_vm);
+struct vm_struct *vms[NUMBER_OF_VMS] = {&(init_vm), };
+// 現在実行中の VM の数(init_vm があるので初期値は1)
+int current_number_of_vms = 1;
 
-// タスク切換え
+//  VM 切換え
 // 複数の CPU が同時に呼び出すのでスレッドセーフにしないといけない
 // todo: 複数 CPU で動かす場合は、停止時と異なる CPU で VM が動くかもしれない
 static void _schedule(void)
 {
 	int next, c;
-	struct task_struct *p;
+	struct vm_struct *p;
 
 	while (1) {
 		c = -1;
 		next = 0;
-		// タスクの数は決め打ちで NR_TASKS 個
+		// VM の最大数は決め打ちで NUMBER_OF_VMS 個
 		// 先頭から順番に状態を見ていく
-		for (int i = 0; i < NR_TASKS; i++){
-			p = tasks[i];
+		for (int i = 0; i < NUMBER_OF_VMS; i++){
+			p = vms[i];
 			acquire_lock(&p->lock);
 
 			// RUNNING/RUNNABLE 状態で、かつ一番カウンタが大きいものを探す
-			if (p && p->state != TASK_ZOMBIE && p->counter > c) {
+			if (p && p->state != VM_ZOMBIE && p->counter > c) {
 				c = p->counter;
 				next = i;
 			}
@@ -45,32 +45,32 @@ static void _schedule(void)
 			break;
 		}
 
-		// すべてのタスクが実行時間を使い切っていたら、全タスクに実行時間を補充する
+		// すべての VM が実行時間を使い切っていたら、全 VM に実行時間を補充する
 		// todo: おそらくロックが必要
-		for (int i = 0; i < NR_TASKS; i++) {
-			p = tasks[i];
+		for (int i = 0; i < NUMBER_OF_VMS; i++) {
+			p = vms[i];
 			if (p) {
 				// 何回もループした場合にカウンタの値が大きくなりすぎないように
 				// 今のカウンタの値を半分にして、プライオリティを足したもので更新
 				p->counter = (p->counter >> 1) + p->priority;
 			}
 		}
-		// TASK_RUNNING 状態のものが見つかるまでずっとループする
-		// 割込みを有効にしておかないと誰もタスクの状態を変更できず無限ループになってしまうので
+		// VM_RUNNING 状態のものが見つかるまでずっとループする
+		// 割込みを有効にしておかないと誰も VM の状態を変更できず無限ループになってしまうので
 		// timer_tick で割込みを有効にしておく必要がある
-		// ただし、割込みは許可されるが preemption(タスク切り替え)は許可されていないことに注意
+		// ただし、割込みは許可されるが preemption(タスク(VM)切り替え)は許可されていないことに注意
 	}
 
-	// 切り替え先タスクを見つけて switch_to する
-	switch_to(tasks[next]);
+	// 切り替え先 VM に switch_to する
+	switch_to(vms[next]);
 }
 
-// 自主的に CPU 時間を手放しプロセスを切り替える
+// 自主的に CPU 時間を手放し VM を切り替える
 // todo: schedule を呼ぶ前に手動で IRQ を無効化する必要があり危険
-//       現状 schedule を呼ぶのは、main, handle_trap_wfx, exit_task のみ
+//       現状 schedule を呼ぶのは、main, handle_trap_wfx, exit_vm のみ
 //       main は手動で無効化している
 //       handle_trap_wfx は割込から呼ばれるので、割込みは無効化されている
-//       exit_task は PANIC マクロから呼ばれる、割込みが無効かどうかわからず危ないのでは
+//       exit_vm は PANIC マクロから呼ばれる、割込みが無効かどうかわからず危ないのでは
 void schedule(void)
 {
 	// 自主的に CPU を手放した場合はカウンタを 0 にする
@@ -78,8 +78,8 @@ void schedule(void)
 	_schedule();
 }
 
-void set_cpu_virtual_interrupt(struct task_struct *tsk) {
-	// もし current のタスク(VM)に対して irq が発生していたら、仮想割込みを設定する
+void set_cpu_virtual_interrupt(struct vm_struct *tsk) {
+	// もし current の VM に対して irq が発生していたら、仮想割込みを設定する
 	if (HAVE_FUNC(tsk->board_ops, is_irq_asserted) && tsk->board_ops->is_irq_asserted(tsk)) {
 		assert_virq();
 	}
@@ -98,26 +98,26 @@ void set_cpu_virtual_interrupt(struct task_struct *tsk) {
 	// todo: vserror は？
 }
 
-// 指定したタスクに切り替える
-void switch_to(struct task_struct * next)
+// 指定した VM に切り替える
+void switch_to(struct vm_struct * next)
 {
 	if (current == next) {
 		return;
 	}
 
-	struct task_struct * prev = current;
+	struct vm_struct * prev = current;
 	current = next;
 
-	// レジスタを控えて実際にタスクを切り替える
-	// 戻ってくるときは別のタスクになっている
+	// レジスタを控えて実際に VM を切り替える
+	// 戻ってくるときは別の VM になっている
 	cpu_switch_to(prev, next);
 }
 
-// タイマが発火すると呼ばれ、タスク切り替えを行う
+// タイマが発火すると呼ばれ、VM 切り替えを行う
 void timer_tick()
 {
 	--current->counter;
-	// まだタスクが十分な時間実行されていなかったら切り替えずに終了
+	// まだ VM が十分な時間実行されていなかったら切り替えずに終了
 	if (current->counter > 0) {
 		return;
 	}
@@ -131,12 +131,12 @@ void timer_tick()
 	//disable_irq();
 }
 
-void exit_task(){
-	for (int i = 0; i < NR_TASKS; i++){
-		if (tasks[i] == current) {
-			// 実行中のプロセスの構造体を見つけて zombie にする(=スケジューリング対象から外れる)
+void exit_vm(){
+	for (int i = 0; i < NUMBER_OF_VMS; i++){
+		if (vms[i] == current) {
+			// 実行中の VM の構造体を見つけて zombie にする(=スケジューリング対象から外れる)
 			// todo: メモリは解放しなくていい？
-			tasks[i]->state = TASK_ZOMBIE;
+			vms[i]->state = VM_ZOMBIE;
 			break;
 		}
 	}
@@ -144,7 +144,7 @@ void exit_task(){
 	schedule();
 }
 
-void set_cpu_sysregs(struct task_struct *tsk) {
+void set_cpu_sysregs(struct vm_struct *tsk) {
 	set_stage2_pgd(tsk->mm.first_table, tsk->pid);
 	restore_sysregs(&tsk->cpu_sysregs);
 }
@@ -157,15 +157,15 @@ void vm_entering_work() {
 
 	// VM 処理に復帰するとき、コンソールがこの VM に紐づいていたら
 	// キューに入っていた値を全部出力する
-	if (is_uart_forwarded_task(current)) {
-		flush_task_console(current);
+	if (is_uart_forwarded_vm(current)) {
+		flush_vm_console(current);
 	}
 
 	// todo: entering_vm, flush, set_cpu_sysregs, set_cpu_virtual_interrupt の正しい呼び出し順がわからない
 	// 控えておいたレジスタの値を戻す
 	set_cpu_sysregs(current);
 
-	// 今実行を再開しようとしているタスク(VM)に対し仮想割込みを設定する
+	// 今実行を再開しようとしている VM に対し仮想割込みを設定する
 	//   ハイパーバイザ環境では VM に対し割込みを発生させる必要があるので
 	//   VM が実行開始するタイミングで仮想割込みを生成しないといけない
 	set_cpu_virtual_interrupt(current);
@@ -180,29 +180,30 @@ void vm_leaving_work() {
 		current->board_ops->leaving_vm(current);
 	}
 
-	if (is_uart_forwarded_task(current)) {
-		flush_task_console(current);
+	if (is_uart_forwarded_vm(current)) {
+		flush_vm_console(current);
 	}
 }
 
-const char *task_state_str[] = {
+const char *vm_state_str[] = {
 	"RUNNING",
 	"RUNNABLE",
 	"ZOMBIE",
 };
 
-void show_task_list() {
+// todo: VM に割り当てられた CPU ID も表示したい
+void show_vm_list() {
     printf("  %3s %12s %8s %7s %9s %7s %7s %7s %7s %7s\n",
 		   "pid", "name", "state", "pages", "saved-pc", "wfx", "hvc", "sysregs", "pf", "mmio");
-    for (int i = 0; i < nr_tasks; i++) {
-        struct task_struct *tsk = tasks[i];
+    for (int i = 0; i < current_number_of_vms; i++) {
+        struct vm_struct *tsk = vms[i];
         printf("%c %3d %12s %8s %7d %9x %7d %7d %7d %7d %7d\n",
-               is_uart_forwarded_task(tasks[i]) ? '*' : ' ',
+               is_uart_forwarded_vm(vms[i]) ? '*' : ' ',
 			   tsk->pid,
 			   tsk->name ? tsk->name : "",
-               task_state_str[tsk->state],
-			   tsk->mm.user_pages_count,
-			   task_pt_regs(tsk)->pc,
+               vm_state_str[tsk->state],
+			   tsk->mm.vm_pages_count,
+			   vm_pt_regs(tsk)->pc,
                tsk->stat.wfx_trap_count,
 			   tsk->stat.hvc_trap_count,
                tsk->stat.sysregs_trap_count,

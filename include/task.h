@@ -15,14 +15,14 @@
 #define PSR_MODE_EL3h 0x0000000d	// 0b1101: EL3 with SP_EL3 (EL3h)
 
 typedef int (*loader_func_t)(void *, unsigned long *, unsigned long *);
-struct pt_regs *task_pt_regs(struct task_struct *);
+struct pt_regs *vm_pt_regs(struct vm_struct *);
 
-int create_task(loader_func_t, void *);
-void init_task_console(struct task_struct *);
-int is_uart_forwarded_task(struct task_struct *);
-void flush_task_console(struct task_struct *);
+int create_vm(loader_func_t, void *);
+void init_vm_console(struct vm_struct *);
+int is_uart_forwarded_vm(struct vm_struct *);
+void flush_vm_console(struct vm_struct *);
 void increment_current_pc(int);
-void init_initial_task(void);
+void init_initial_vm(void);
 
 // PSTATE
 // https://developer.arm.com/documentation/102412/0103/Handling-exceptions/Taking-an-exception?lang=en#md244-taking-an-exception__saving-the-current-processor-state

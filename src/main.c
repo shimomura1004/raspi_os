@@ -75,9 +75,9 @@ static void initialize_hypervisor() {
 	printf("=== raspvisor ===\n");
 
 	// ホスト用のコンソールの初期化
-	init_task_console(current);
+	init_vm_console(current);
 
-	init_initial_task();
+	init_initial_vm();
 
 	// todo: 各 CPU コアで呼び出す必要があるかもしれない
 	timer_init();
@@ -94,24 +94,24 @@ static void initialize_hypervisor() {
 }
 
 static void load_guest_oss() {
-	if (create_task(raw_binary_loader, &echo_bin_args) < 0) {
-		printf("error while starting task #1");
+	if (create_vm(raw_binary_loader, &echo_bin_args) < 0) {
+		printf("error while starting VM #1");
 	}
 
-	if (create_task(raw_binary_loader, &mini_os_bin_args) < 0) {
-		printf("error while starting task #2");
+	if (create_vm(raw_binary_loader, &mini_os_bin_args) < 0) {
+		printf("error while starting VM #2");
 	}
 
-	// if (create_task(elf_binary_loader, &mini_os_elf_args) < 0) {
-	// 	printf("error while starting task #3");
+	// if (create_vm(elf_binary_loader, &mini_os_elf_args) < 0) {
+	// 	printf("error while starting VM #3");
 	// }
 
-	// if (create_task(elf_binary_loader, &echo_elf_args) < 0) {
-	// 	printf("error while starting task #4");
+	// if (create_vm(elf_binary_loader, &echo_elf_args) < 0) {
+	// 	printf("error while starting VM #4");
 	// }
 
-	// if (create_task(raw_binary_loader, &test_bin_args) < 0) {
-	// 	printf("error while starting task #5");
+	// if (create_vm(raw_binary_loader, &test_bin_args) < 0) {
+	// 	printf("error while starting VM #5");
 	// }
 }
 
@@ -136,9 +136,9 @@ void hypervisor_main(unsigned long cpuid)
 
 	INFO("CPU%d runs IDLE process", cpuid);
 
-	// 初期化を終えると IDLE プロセスになる
+	// 初期化を終えると IDLE プロセス(= IDLE VM)になる
 	// すべての VM が CPU を放棄した時に返ってくる場所
-	// このループがなくてもタイマ割込み起因でタスク切り替えは起こる
+	// このループがなくてもタイマ割込み起因で VM 切り替えは起こる
 	// todo: CPU コアごとに IDLE プロセスが必要
 	while (1) {
 		// todo: schedule を呼ぶ前に手動で割込みを禁止にしないといけないのは危ない

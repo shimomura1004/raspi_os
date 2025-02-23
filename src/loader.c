@@ -11,7 +11,7 @@
 // todo: 初期化処理を呼んで初期化するようにする
 struct spinlock loader_lock = {0, 0, -1};
 
-int load_file_to_memory(struct task_struct *tsk, const char *name, unsigned long va) {
+int load_file_to_memory(struct vm_struct *tsk, const char *name, unsigned long va) {
     // todo: ロックの単位が大きいのでもっと細分化する
     acquire_lock(&loader_lock);
 
@@ -32,7 +32,7 @@ int load_file_to_memory(struct task_struct *tsk, const char *name, unsigned long
     unsigned long current_va = va & PAGE_MASK;
 
     while (remain > 0) {
-        uint8_t *buf = (uint8_t *)allocate_task_page(tsk, current_va);
+        uint8_t *buf = (uint8_t *)allocate_vm_page(tsk, current_va);
         int readsize = MIN(PAGE_SIZE, remain);
         int actualsize = fat32_read(&file, buf, offset, readsize);
 
@@ -125,9 +125,9 @@ int elf_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
         // todo: 関数化
         while (memory_size > 0) {
             // コピー先となるゲストのメモリ空間にページを確保する
-            // allocate_task_page の中の map_stage2_page で stage2 テーブルを更新している
+            // allocate_vm_page の中の map_stage2_page で stage2 テーブルを更新している
             // todo: 中途半端なアドレスな場合、うまく動かないかも
-            uint8_t *vm_buf = (uint8_t *)allocate_task_page(current, virtual_addr);
+            uint8_t *vm_buf = (uint8_t *)allocate_vm_page(current, virtual_addr);
 
             // コピー元のデータをハイパーバイザのメモリ空間に読み込む
             int actualsize = fat32_read(&file, vm_buf, offset, PAGE_SIZE);
@@ -198,9 +198,9 @@ int test_program_loader(void *arg, unsigned long *pc, unsigned long *sp) {
     }
     unsigned long entry_point = func - begin;
 
-	// 現在実行中のタスクのページテーブルにマッピングを追加
-	// current タスク用のアドレス空間にページを追加するので、仮想アドレスは任意の値でいい
-    unsigned long code_page = allocate_task_page(current, 0);
+	// 現在実行中の VM のページテーブルにマッピングを追加
+	// current vm 用のアドレス空間にページを追加するので、仮想アドレスは任意の値でいい
+    unsigned long code_page = allocate_vm_page(current, 0);
     if (code_page == 0) {
         return -1;
     }

@@ -106,8 +106,8 @@ static void handle_trap_system(unsigned long esr) {
 		} \
 	} while (0)
 
-	// hypercall したタスク(VM)のプロセス情報を取り出す
-	struct pt_regs *regs = task_pt_regs(current);
+	// hypercall した VM のプロセス情報を取り出す
+	struct pt_regs *regs = vm_pt_regs(current);
 
 	// ESR.ISS[24:0] instruction specific syndrome
 	// exception class に応じて使われ方が違う

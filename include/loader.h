@@ -14,6 +14,6 @@ int elf_binary_loader(void *, unsigned long *, unsigned long *);
 int raw_binary_loader(void *, unsigned long *, unsigned long *);
 int test_program_loader(void *, unsigned long *, unsigned long *);
 
-int load_file_to_memory(struct task_struct *tsk, const char *name, unsigned long va);
+int load_file_to_memory(struct vm_struct *tsk, const char *name, unsigned long va);
 
 #endif

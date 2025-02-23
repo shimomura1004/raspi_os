@@ -28,7 +28,7 @@ extern struct spinlock log_lock;
 #define PANIC(fmt, ...) do { \
     _LOG_COMMON("PANIC", fmt, ##__VA_ARGS__); \
     if (current) { \
-        exit_task(); \
+        exit_vm(); \
     } \
     else { \
         err_hang(); \

@@ -10,20 +10,22 @@
 #include "irq.h"
 #include "loader.h"
 
-// 各スレッド用の領域の末尾に置かれた task_struct へのポインタを返す
-struct pt_regs * task_pt_regs(struct task_struct *tsk) {
-	unsigned long p = (unsigned long)tsk + THREAD_SIZE - sizeof(struct pt_regs);
+// todo: task は全体的に vm にしていきたい、このファイル名も変えたい
+
+// 各スレッド用の領域の末尾に置かれた vm_struct へのポインタを返す
+struct pt_regs * vm_pt_regs(struct vm_struct *vm) {
+	unsigned long p = (unsigned long)vm + THREAD_SIZE - sizeof(struct pt_regs);
 	return (struct pt_regs *)p;
 }
 
-static void prepare_task(loader_func_t loader, void *arg) {
+static void prepare_vm(loader_func_t loader, void *arg) {
 	struct raw_binary_loader_args *loader_args = (struct raw_binary_loader_args *)arg;
 	INFO("loading... %s, EL=%d", loader_args->filename, get_el());
 
 	// PSTATE の中身は SPSR レジスタに戻したうえで eret することで復元される
 	// ここで設定した regs->pstate は restore_sysregs で SPSR に戻される
 	// その後 kernel_exit で eret され実際のレジスタに復元される
-	struct pt_regs *regs = task_pt_regs(current);
+	struct pt_regs *regs = vm_pt_regs(current);
 	regs->pstate = PSR_MODE_EL1h;	// EL を1、使用する SP を SP_EL1 にする
 	regs->pstate |= (0xf << 6);		// DAIF をすべて1にする、つまり全ての例外をマスクしている
 
@@ -58,33 +60,33 @@ static void prepare_initial_sysregs(void) {
 }
 
 void increment_current_pc(int ilen) {
-	struct pt_regs *regs = task_pt_regs(current);
+	struct pt_regs *regs = vm_pt_regs(current);
 	regs->pc += ilen;
 }
 
 // EL2 で動くタスク(=VM)を作る
-int create_task(loader_func_t loader, void *arg) {
-	struct task_struct *p;
+int create_vm(loader_func_t loader, void *arg) {
+	struct vm_struct *p;
 
 	// 新たなページを確保
 	unsigned long page = allocate_page();
-	// ページの先頭に task_struct を置く
-	p = (struct task_struct *) page;
+	// ページの先頭に vm_struct を置く
+	p = (struct vm_struct *) page;
 	// ページの末尾を pt_regs 用の領域とする
-	struct pt_regs *childregs = task_pt_regs(p);
+	struct pt_regs *childregs = vm_pt_regs(p);
 
 	if (!p) {
 		return -1;
 	}
 
 	// switch_from_kthread 内で x19 のアドレスにジャンプする
-	p->cpu_context.x19 = (unsigned long)prepare_task;
+	p->cpu_context.x19 = (unsigned long)prepare_vm;
 	p->cpu_context.x20 = (unsigned long)loader;
 	p->cpu_context.x21 = (unsigned long)arg;
 	p->flags = 0;
 
 	p->priority = current->priority;
-	p->state = TASK_RUNNABLE;
+	p->state = VM_RUNNABLE;
 	p->counter = p->priority;
 	p->name = "VM";
 
@@ -97,29 +99,29 @@ int create_task(loader_func_t loader, void *arg) {
 	prepare_initial_sysregs();
 	memcpy(&p->cpu_sysregs, &initial_sysregs, sizeof(struct cpu_sysregs));
 
-	// el1 のプロセスは最初 switch_from_kthread 関数から動き出す
+	// el1 で動くゲスト OS カーネルは、最初は switch_from_kthread 関数から動き出す
 	p->cpu_context.pc = (unsigned long)switch_from_kthread;
 	// switch_from_kthread の中で kernel_exit が呼ばれる
 	// そのとき SP が指す先には退避したレジスタが格納されている必要がある
 	p->cpu_context.sp = (unsigned long)childregs;
-	// 今動いているタスク数を増やし、その連番をそのまま PID とする
-	int pid = nr_tasks++;
-	// 新たに作った task_struct 構造体のアドレスを task 配列に入れておく
-	// これでそのうち今作ったタスクに処理が切り替わり、switch_from_kthread から実行開始される
-	tasks[pid] = p;
+	// 今動いている VM 数を増やし、その連番をそのまま PID とする
+	int pid = current_number_of_vms++;
+	// 新たに作った vm_struct 構造体のアドレスを vms 配列に入れておく
+	// これでそのうち今作った VM に処理が切り替わり、switch_from_kthread から実行開始される
+	vms[pid] = p;
 	p->pid = pid;
 
-	init_task_console(p);
+	init_vm_console(p);
 
 	return pid;
 }
 
-void init_task_console(struct task_struct *tsk) {
+void init_vm_console(struct vm_struct *tsk) {
 	tsk->console.in_fifo = create_fifo();
 	tsk->console.out_fifo = create_fifo();
 }
 
-void flush_task_console(struct task_struct *tsk) {
+void flush_vm_console(struct vm_struct *tsk) {
 	struct fifo *outfifo = tsk->console.out_fifo;
 	unsigned long val;
 	while (dequeue_fifo(outfifo, &val) == 0) {
@@ -127,6 +129,6 @@ void flush_task_console(struct task_struct *tsk) {
 	}
 }
 
-void init_initial_task() {
-	tasks[0]->name = "IDLE";
+void init_initial_vm() {
+	vms[0]->name = "IDLE";
 }

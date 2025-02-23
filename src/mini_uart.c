@@ -45,10 +45,10 @@ char uart_recv(void) {
 #define ESCAPE_CHAR '?'
 
 // UART から入力されたデータを送り込む先の VM の番号(0 のときはホスト)
-static int uart_forwarded_task = 0;
+static int uart_forwarded_vm = 0;
 
-int is_uart_forwarded_task(struct task_struct *tsk) {
-    return tsk->pid == uart_forwarded_task;
+int is_uart_forwarded_vm(struct vm_struct *tsk) {
+    return tsk->pid == uart_forwarded_vm;
 }
 
 void uart_send_string(char *str) {
@@ -57,28 +57,28 @@ void uart_send_string(char *str) {
     }
 }
 
-// uart_forwarded_task が指す VM かホストに文字データを追加する
+// uart_forwarded_vm が指す VM かホストに文字データを追加する
 // todo: キューに値が入っているときは、そのゲストに切り替わったときに仮想割り込みを発生させる
 void handle_uart_irq(void) {
     static int is_escaped = 0;
 
     char received = get32(AUX_MU_IO_REG) & 0xff;
-    struct task_struct *tsk;
+    struct vm_struct *tsk;
 
     if (is_escaped) {
         is_escaped = 0;
 
         if (isdigit(received)) {
             // VM を切り替えるのではなく、単に UART 入力の送り先を変えるだけ
-            uart_forwarded_task = received - '0';
-            printf("\nswitched to %d\n", uart_forwarded_task);
-            tsk = tasks[uart_forwarded_task];
-            if (tsk->state == TASK_RUNNING || tsk->state == TASK_RUNNABLE) {
-                flush_task_console(tsk);
+            uart_forwarded_vm = received - '0';
+            printf("\nswitched to %d\n", uart_forwarded_vm);
+            tsk = vms[uart_forwarded_vm];
+            if (tsk->state == VM_RUNNING || tsk->state == VM_RUNNABLE) {
+                flush_vm_console(tsk);
             }
         }
         else if (received == 'l') {
-            show_task_list();
+            show_vm_list();
         }
         else if (received == 't') {
             show_systimer_info();
@@ -92,9 +92,9 @@ void handle_uart_irq(void) {
     }
     else {
 enqueue_char:
-        tsk = tasks[uart_forwarded_task];
+        tsk = vms[uart_forwarded_vm];
         // もし VM が終了してしまっていたら無視する
-        if (tsk->state == TASK_RUNNING ||  tsk->state == TASK_RUNNABLE) {
+        if (tsk->state == VM_RUNNING ||  tsk->state == VM_RUNNABLE) {
             enqueue_fifo(tsk->console.in_fifo, received);
         }
     }

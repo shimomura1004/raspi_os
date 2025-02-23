@@ -1,32 +1,29 @@
 #ifndef _SCHED_H
 #define _SCHED_H
 
-#define THREAD_CPU_CONTEXT			0	// offset of cpu_context in task_struct
+#define THREAD_CPU_CONTEXT			0	// offset of cpu_context in vm_struct
 
 #ifndef __ASSEMBLER__
 
 #include "spinlock.h"
 
 #define THREAD_SIZE                	4096
-#define NR_TASKS                	64
+#define NUMBER_OF_VMS                	64
 
-#define FIRST_TASK task[0]
-#define LAST_TASK task[NR_TASKS-1]
-
-enum TASK__STATE {
-    TASK_RUNNING = 0,
-    TASK_RUNNABLE,
-    TASK_ZOMBIE,
+enum VM_STATE {
+    VM_RUNNING = 0,
+    VM_RUNNABLE,
+    VM_ZOMBIE,
 };
 
 struct board_ops;
 
-extern struct task_struct *current;
-extern struct task_struct * tasks[NR_TASKS];
-extern int nr_tasks;
+extern struct vm_struct *current;
+extern struct vm_struct * vms[NUMBER_OF_VMS];
+extern int current_number_of_vms;
 
 // 控えないといけないレジスタ値を保存する
-// プロセスが切り替わるときは必ず cpu_switch_to 関数が呼ばれるため
+// vm が切り替わるときは必ず cpu_switch_to 関数が呼ばれるため
 // ARM ABI により x0-x18 の値は呼び出し側で控えられる
 // それ以外のものだけを保存する
 struct cpu_context {
@@ -129,30 +126,30 @@ struct cpu_sysregs {
 };
 
 struct mm_struct {
-    unsigned long first_table;      // ゲスト OS の Stage2 変換テーブル
-    int user_pages_count;           // 今使っているユーザプロセス用ページの数
+    unsigned long first_table;      // VM の Stage2 変換テーブル
+    int vm_pages_count;           // 今使っている VM 用ページの数
     int kernel_pages_count;         // 今使っているカーネル用ページの数
 };
 
-struct task_stat {
-    long wfx_trap_count;            // ゲスト OS が wfi/wfe を実行した回数
-    long hvc_trap_count;            // ゲスト OS がハイパーコールを実行した回数
-    long sysregs_trap_count;        // ゲスト OS が sysregs にアクセスした回数
-    long pf_trap_count;             // ゲスト OS がページフォルトを発生させた回数
-    long mmio_trap_count;           // ゲスト OS が mmio 領域にアクセスした回数
+struct vm_stat {
+    long wfx_trap_count;            // VM が wfi/wfe を実行した回数
+    long hvc_trap_count;            // VM がハイパーコールを実行した回数
+    long sysregs_trap_count;        // VM が sysregs にアクセスした回数
+    long pf_trap_count;             // VM がページフォルトを発生させた回数
+    long mmio_trap_count;           // VM が mmio 領域にアクセスした回数
 };
 
-struct task_console {
+struct vm_console {
     struct fifo *in_fifo;
     struct fifo *out_fifo;
 };
 
-struct task_struct {
+struct vm_struct {
     struct cpu_context cpu_context;	// CPU 状態
-    long state;                     // プロセスの状態(TASK_RUNNING, TASK_ZOMBIE)
-    long counter;                   // プロセスがどれくらい実行されるかを保持
-                                    // tick ごとに 1 減り、0 になると他のプロセスに切り替わる
-    long priority;                  // タスクがスケジュールされるときにこの値が counter にコピーされる
+    long state;                     // VM の状態(VM_RUNNING, VM_ZOMBIE)
+    long counter;                   // VM が使える残りの CPU 時間を保持
+                                    // tick ごとに 1 減り、0 になると他の VM に切り替わる
+    long priority;                  // VM が CPU にスケジュールされるときにこの値が counter にコピーされる
     long pid;                       // VMID
     unsigned long flags;
     const char *name;
@@ -160,23 +157,23 @@ struct task_struct {
     void *board_data;
     struct mm_struct mm;
     struct cpu_sysregs cpu_sysregs;
-    struct task_stat stat;
-    struct task_console console;
+    struct vm_stat stat;
+    struct vm_console console;
     struct spinlock lock;
 };
 
 extern void sched_init(void);
 extern void schedule(void);
 extern void timer_tick(void);
-extern void set_cpu_virtual_interrupt(struct task_struct *);
-void set_cpu_sysregs(struct task_struct *);
-extern void switch_to(struct task_struct*);
-extern void cpu_switch_to(struct task_struct*, struct task_struct*);
-extern void exit_task(void);
-extern void show_task_list(void);
+extern void set_cpu_virtual_interrupt(struct vm_struct *);
+void set_cpu_sysregs(struct vm_struct *);
+extern void switch_to(struct vm_struct*);
+extern void cpu_switch_to(struct vm_struct*, struct vm_struct*);
+extern void exit_vm(void);
+extern void show_vm_list(void);
 
-// kernel_main の task_struct の初期値
-#define INIT_TASK \
+// kernel_main の vm_struct の初期値
+#define INIT_VM \
     { \
         /* cpu_context   */ {0}, \
         /* state         */ 0, \

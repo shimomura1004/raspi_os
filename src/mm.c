@@ -23,23 +23,23 @@ unsigned long allocate_page() {
 
 // VM で使うためのページを確保してマッピングし、ハイパーバイザ上の仮想アドレスを返す
 // つまり、ハイパーバイザ上でこのアドレスに書き込むことで、確保したメモリにアクセスできるということ
-unsigned long allocate_task_page(struct task_struct *task, unsigned long ipa) {
+unsigned long allocate_vm_page(struct vm_struct *vm, unsigned long ipa) {
 	// 未使用ページを探す、page は仮想アドレスではなくオフセット
 	unsigned long page = get_free_page();
 	if (page == 0) {
 		return 0;
 	}
-	// 新たに確保したページをこのタスク(VM)のアドレス空間にマッピングする
-	map_stage2_page(task, ipa, page, MMU_STAGE2_PAGE_FLAGS);
-	// INFO("VTTBR0_EL2(VMID %d): IPA 0x%lx(0x%lx in full) -> PA 0x%lx (allocate_task_page)", current->pid, ipa & 0xffffffffffff, ipa, page);
+	// 新たに確保したページをこの VM のアドレス空間にマッピングする
+	map_stage2_page(vm, ipa, page, MMU_STAGE2_PAGE_FLAGS);
+	// INFO("VTTBR0_EL2(VMID %d): IPA 0x%lx(0x%lx in full) -> PA 0x%lx (allocate_vm_page)", current->pid, ipa & 0xffffffffffff, ipa, page);
 
 	// 新たに確保したページの仮想アドレスを返す(リニアマッピングなのでオフセットを足すだけ)
 	return page + VA_START;
 }
 
-void set_task_page_notaccessable(struct task_struct *task, unsigned long va) {
-	map_stage2_page(task, va, 0, MMU_STAGE2_MMIO_FLAGS);
-if (current->pid != 0)INFO("VA 0x%lx -> IPA 0x%lx -> PA 0x%lx (set_task_page_notaccessable)", va, get_ipa(va), 0);
+void set_vm_page_notaccessable(struct vm_struct *vm, unsigned long va) {
+	map_stage2_page(vm, va, 0, MMU_STAGE2_MMIO_FLAGS);
+if (current->pid != 0)INFO("VA 0x%lx -> IPA 0x%lx -> PA 0x%lx (set_vm_page_notaccessable)", va, get_ipa(va), 0);
 }
 
 // 未使用のページを探してその場所(DRAM 内のオフセット)を返す
@@ -108,20 +108,20 @@ unsigned long map_stage2_table(unsigned long *table, unsigned long shift, unsign
 	return table[index] & PAGE_MASK;
 }
 
-// task のアドレス空間(VTTBR_EL2)のアドレス ipa に、指定されたページ page を割り当てる
+// vm のアドレス空間(VTTBR_EL2)のアドレス ipa に、指定されたページ page を割り当てる
 // ハイパーバイザが管理するメモリマッピングは、IPA->PA のみ
-void map_stage2_page(struct task_struct *task, unsigned long ipa, unsigned long page, unsigned long flags) {
+void map_stage2_page(struct vm_struct *vm, unsigned long ipa, unsigned long page, unsigned long flags) {
 	// 最上位のページテーブル
 	unsigned long lv1_table;
 
 	// stage2 変換用の VTTBR_EL2 に設定するテーブルを作る
-	if (!task->mm.first_table) {
+	if (!vm->mm.first_table) {
 		// ページテーブルがなかったら作る
-		task->mm.first_table = get_free_page();
+		vm->mm.first_table = get_free_page();
 		// 新しくページを確保したのでカウントアップする
-		task->mm.kernel_pages_count++;
+		vm->mm.kernel_pages_count++;
 	}
-	lv1_table = task->mm.first_table;
+	lv1_table = vm->mm.first_table;
 
 	// 新しくテーブルが追加されたかを示すフラグ
 	int new_table;
@@ -129,17 +129,17 @@ void map_stage2_page(struct task_struct *task, unsigned long ipa, unsigned long 
 	unsigned long lv2_table = map_stage2_table((unsigned long *)(lv1_table + VA_START), LV1_SHIFT, ipa, &new_table);
 	if (new_table) {
 		// もし新たにページが確保されていたらカウントアップする
-		task->mm.kernel_pages_count++;
+		vm->mm.kernel_pages_count++;
 	}
 	// Level 2 のテーブル(lv2_table)から対応するエントリ(lv3_table)を探す
 	unsigned long lv3_table = map_stage2_table((unsigned long *)(lv2_table + VA_START) , LV2_SHIFT, ipa, &new_table);
 	if (new_table) {
-		task->mm.kernel_pages_count++;
+		vm->mm.kernel_pages_count++;
 	}
 	// Level 3 のテーブル(lv3_table)の対応するエントリを探してページを登録
 	map_stage2_table_entry((unsigned long *)(lv3_table + VA_START), ipa, page, flags);
 	// ユーザ空間用のページ数をカウントアップする　
-	task->mm.user_pages_count++;
+	vm->mm.vm_pages_count++;
 }
 
 unsigned long get_ipa(unsigned long va) {
@@ -200,7 +200,7 @@ unsigned long get_ipa(unsigned long va) {
 // ESR_EL2
 // https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/ESR-EL2--Exception-Syndrome-Register--EL2-?lang=en#fieldset_0-24_0
 int handle_mem_abort(unsigned long addr, unsigned long esr) {
-	struct pt_regs *regs = task_pt_regs(current);
+	struct pt_regs *regs = vm_pt_regs(current);
 	unsigned int dfsc = esr & ISS_ABORT_DFSC_MASK;
 
 	if (dfsc >> 2 == 0x1) {
