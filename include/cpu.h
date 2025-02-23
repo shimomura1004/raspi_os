@@ -1,6 +1,6 @@
 #ifndef _CPU_H
 
-#define NUMBER_OF_CPUS 4
+#define NUMBER_OF_CPU_CORES 4
 
 struct cpu_core_struct {
     unsigned long id;                   // この CPU の ID
