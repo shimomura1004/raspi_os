@@ -7,8 +7,8 @@
 
 #include "spinlock.h"
 
-#define THREAD_SIZE                	4096
-#define NUMBER_OF_VMS                	64
+#define THREAD_SIZE     4096
+#define NUMBER_OF_VMS   64
 
 enum VM_STATE {
     VM_RUNNING = 0,
