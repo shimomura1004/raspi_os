@@ -194,15 +194,5 @@ extern void show_task_list(void);
         /* lock          */ {0, 0, -1}, \
     }
 
-struct cpu_struct {
-    // この CPU が実行している VM
-    struct task_struct *current;
-
-    // 排他制御時に割込みを禁止するとき、何回割込み禁止が要求されたかを保持する
-    // 全員が割込み禁止を解除したら、本当に割込みを許可する
-    int number_of_off;
-    int interrupt_enable;
-};
-
 #endif
 #endif

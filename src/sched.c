@@ -9,6 +9,7 @@
 static struct task_struct init_task = INIT_TASK;
 // 現在実行中のタスクの task_struct
 // todo: cpu コアが複数あるのに current が 1 つしかない！
+//       削除して、cpu_core_struct の current_vm に置き換える
 struct task_struct *current = &(init_task);
 struct task_struct *tasks[NR_TASKS] = {&(init_task), };
 // 現在実行中のタスクの数(init_task があるので初期値は1)

@@ -4,23 +4,7 @@
 #include "debug.h"
 #include "spinlock.h"
 #include "irq.h"
-
-// todo: 正しい位置に
-#define NUMBER_OF_CPUS 4
-struct cpu_struct cpus[NUMBER_OF_CPUS];
-void init_cpus() {
-	for (int i = 0; i < NUMBER_OF_CPUS; i++) {
-		cpus[i].current = NULL;
-		cpus[i].number_of_off = 0;
-		cpus[i].interrupt_enable = 0;
-	}
-}
-
-struct cpu_struct *current_cpu() {
-    unsigned long cpuid = get_cpuid();
-    return cpus + cpuid;
-//	return &cpus[get_cpuid()];
-}
+#include "cpu.h"
 
 extern void _spinlock_acquire(struct spinlock *);
 extern void _spinlock_release(struct spinlock *);
@@ -65,7 +49,7 @@ void push_disable_irq() {
     // int old = is_interrupt_enabled();
     disable_irq();
 
-    struct cpu_struct *cpu = current_cpu();
+    struct cpu_core_struct *cpu = current_cpu_core();
     if (cpu->number_of_off == 0) {
         // cpu->interrupt_enable = old;
     }
@@ -73,7 +57,7 @@ void push_disable_irq() {
 }
 
 void pop_disable_irq() {
-    struct cpu_struct *cpu = current_cpu();
+    struct cpu_core_struct *cpu = current_cpu_core();
     if (is_interrupt_enabled()) {
         PANIC("interruptible");
     }
