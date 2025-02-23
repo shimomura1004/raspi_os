@@ -1,6 +1,6 @@
 #include "mm.h"
 #include "sched.h"
-#include "task.h"
+#include "vm.h"
 #include "utils.h"
 #include "entry.h"
 #include "debug.h"
@@ -9,8 +9,6 @@
 #include "fifo.h"
 #include "irq.h"
 #include "loader.h"
-
-// todo: task は全体的に vm にしていきたい、このファイル名も変えたい
 
 // 各スレッド用の領域の末尾に置かれた vm_struct へのポインタを返す
 struct pt_regs * vm_pt_regs(struct vm_struct *vm) {

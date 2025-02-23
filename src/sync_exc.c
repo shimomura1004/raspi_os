@@ -2,7 +2,7 @@
 #include "mm.h"
 #include "sched.h"
 #include "debug.h"
-#include "task.h"
+#include "vm.h"
 #include "arm/sysregs.h"
 
 // eclass のインデックスに合わせたエラーメッセージ

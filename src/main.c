@@ -6,7 +6,7 @@
 #include "utils.h"
 #include "timer.h"
 #include "irq.h"
-#include "task.h"
+#include "vm.h"
 #include "sched.h"
 #include "mini_uart.h"
 #include "mm.h"

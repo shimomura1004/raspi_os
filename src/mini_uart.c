@@ -4,7 +4,7 @@
 #include "utils.h"
 #include "sched.h"
 #include "fifo.h"
-#include "task.h"
+#include "vm.h"
 #include "timer.h"
 
 static void _uart_send(char c) {

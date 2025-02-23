@@ -4,7 +4,7 @@
 #include "mm.h"
 #include "debug.h"
 #include "board.h"
-#include "task.h"
+#include "vm.h"
 
 static struct vm_struct init_vm = INIT_VM;
 // 現在実行中の VM の vm_struct
