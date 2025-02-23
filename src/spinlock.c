@@ -4,7 +4,7 @@
 #include "debug.h"
 #include "spinlock.h"
 #include "irq.h"
-#include "cpu.h"
+#include "cpu_core.h"
 
 extern void _spinlock_acquire(struct spinlock *);
 extern void _spinlock_release(struct spinlock *);

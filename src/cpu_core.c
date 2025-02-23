@@ -1,5 +1,5 @@
 #include <stddef.h>
-#include "cpu.h"
+#include "cpu_core.h"
 #include "sched.h"
 #include "utils.h"
 
