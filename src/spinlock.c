@@ -6,11 +6,42 @@
 #include "irq.h"
 #include "cpu_core.h"
 
-extern void _spinlock_acquire(struct spinlock *);
-extern void _spinlock_release(struct spinlock *);
+extern void _spinlock_acquire(unsigned long *);
+extern void _spinlock_release(unsigned long *);
 
 static int holding(struct spinlock *lock) {
     return lock->locked && lock->cpuid == get_cpuid();
+}
+
+// 多重で CPU 割込みを禁止するときに使う、割込み禁止関数
+// push された数と同じだけ pop しないと割込みが有効にならない
+static void push_disable_irq() {
+    // todo: interrupt_enable は必要ないのでは
+    // int old = is_interrupt_enabled();
+    disable_irq();
+
+    struct cpu_core_struct *cpu = current_cpu_core();
+    if (cpu->number_of_off == 0) {
+        // cpu->interrupt_enable = old;
+    }
+    cpu->number_of_off++;
+}
+
+static void pop_disable_irq() {
+    struct cpu_core_struct *cpu = current_cpu_core();
+    if (is_interrupt_enabled()) {
+        PANIC("interruptible");
+    }
+    if (cpu->number_of_off <= 0) {
+        PANIC("number_of_off is 0");
+    }
+
+    cpu->number_of_off--;
+    if (cpu->number_of_off == 0) {
+        // todo: ここでクラッシュしている？
+        // 片方のコアが文字列を出力中なのに、もう片方のコアが enable しようとしてる
+        enable_irq();
+    }
 }
 
 void init_lock(struct spinlock *lock, char *name) {
@@ -40,35 +71,4 @@ void release_lock(struct spinlock *lock) {
     _spinlock_release(&lock->locked);
 
 pop_disable_irq();
-}
-
-// 多重で CPU 割込みを禁止するときに使う、割込み禁止関数
-// push された数と同じだけ pop しないと割込みが有効にならない
-void push_disable_irq() {
-    // todo: interrupt_enable は必要ないのでは
-    // int old = is_interrupt_enabled();
-    disable_irq();
-
-    struct cpu_core_struct *cpu = current_cpu_core();
-    if (cpu->number_of_off == 0) {
-        // cpu->interrupt_enable = old;
-    }
-    cpu->number_of_off++;
-}
-
-void pop_disable_irq() {
-    struct cpu_core_struct *cpu = current_cpu_core();
-    if (is_interrupt_enabled()) {
-        PANIC("interruptible");
-    }
-    if (cpu->number_of_off <= 0) {
-        PANIC("number_of_off is 0");
-    }
-
-    cpu->number_of_off--;
-    if (cpu->number_of_off == 0) {
-        // todo: ここでクラッシュしている？
-        // 片方のコアが文字列を出力中なのに、もう片方のコアが enable しようとしてる
-        enable_irq();
-    }
 }
