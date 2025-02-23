@@ -170,6 +170,7 @@ int raw_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
 // ハイパーバイザ化により
 //   ハイパーバイザの仮想メモリ空間(IPA)と物理メモリ(PA)がリニアマッピング(boot.S で設定)
 //   VM の仮想メモリ空間(VA)とハイパーバイザのメモリ空間(IPA)は任意のマッピング(適宜設定)
+//   これとは別に、ホストの自身の VA も PA にリニアマッピングされる
 // ここでは VM 用(EL1)のメモリマッピングを行う
 
 // todo: 削除する
