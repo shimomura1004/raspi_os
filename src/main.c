@@ -72,9 +72,7 @@ static void initialize_hypervisor() {
 	uart_init();
 	init_printf(NULL, putc);
 
-	printf("=== raspvisor ===\n");
-
-	// ホスト用のコンソールの初期化
+	// IDLE VM 用の ホスト用のコンソールの初期化
 	init_vm_console(current);
 
 	init_initial_vm();
