@@ -1,20 +1,24 @@
 #include "utils.h"
 #include "sched.h"
 #include "printf.h"
-#include "peripherals/timer.h"
+#include "peripherals/systimer.h"
+
+// todo: これは system timer である
+//       コアごとにある generic timer ではない
+//       VM の切り替えには generic timer を使うべき
 
 // RPi3 には 1tick ごとにカウントアップするタイマが搭載されていて
 // 合計4個の比較用レジスタがあり、カウンタの値が一致すると対応する割込み線を発火させる
 
 const unsigned int interval = 20000;
 
-void timer_init () {
+void systimer_init () {
 	// 今のカウンタ値から interval tick 後に発火するように2個目のレジスタに値をセットする
 	put32(TIMER_C1, get32(TIMER_CLO) + interval);
 }
 
 // タスクスイッチ用
-void handle_timer1_irq() {
+void handle_systimer1_irq() {
 	// 定期的に呼び出されるよう、次の比較値をセットする
 	put32(TIMER_C1, get32(TIMER_CLO) + interval);
 	// 割込みをクリア
@@ -23,13 +27,13 @@ void handle_timer1_irq() {
 }
 
 // VM の割込み用
-void handle_timer3_irq() {
+void handle_systimer3_irq() {
 	// 割込みをクリア
 	put32(TIMER_CS, TIMER_CS_M3);
 }
 
 // システムタイマのレジスタ CLO/CHI を読み、合わせて64ビット値として返す
-unsigned long get_physical_timer_count() {
+unsigned long get_physical_systimer_count() {
 	unsigned long clo = get32(TIMER_CLO);
 	unsigned long chi = get32(TIMER_CHI);
 	return clo | (chi << 32);

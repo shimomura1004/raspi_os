@@ -24,7 +24,7 @@
  */
 
 
-#include "peripherals/timer.h"
+#include "peripherals/systimer.h"
 #include "utils.h"
 
 /**

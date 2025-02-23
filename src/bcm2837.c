@@ -4,10 +4,10 @@
 #include "bcm2837.h"
 #include "mm.h"
 #include "fifo.h"
-#include "timer.h"
+#include "systimer.h"
 #include "utils.h"
 #include "peripherals/mini_uart.h"
-#include "peripherals/timer.h"
+#include "peripherals/systimer.h"
 #include "peripherals/irq.h"
 
 // BCM2837 SoC を表現するデータ構造と関数群
@@ -184,7 +184,7 @@ static void bcm2837_initialize(struct vm_struct *tsk) {
 
     *state = initial_state;
 
-    state->systimer.last_physical_count = get_physical_timer_count();
+    state->systimer.last_physical_count = get_physical_systimer_count();
 
     tsk->board_data = state;
 
@@ -485,9 +485,9 @@ static unsigned long handle_systimer_read(struct vm_struct *tsk, unsigned long a
     case TIMER_CS:
         return state->systimer.cs;
     case TIMER_CLO:
-        return TO_VIRTUAL_COUNT(state, get_physical_timer_count()) & 0xffffffff;
+        return TO_VIRTUAL_COUNT(state, get_physical_systimer_count()) & 0xffffffff;
     case TIMER_CHI:
-        return TO_VIRTUAL_COUNT(state, get_physical_timer_count()) >> 32;
+        return TO_VIRTUAL_COUNT(state, get_physical_systimer_count()) >> 32;
     case TIMER_C0:
         return state->systimer.c0;
     case TIMER_C1:
@@ -587,7 +587,7 @@ void bcm2837_entering_vm(struct vm_struct *tsk) {
     struct bcm2837_state *state = (struct bcm2837_state *)tsk->board_data;
 
     // update systimer's offset
-    unsigned long current_physical_count = get_physical_timer_count();
+    unsigned long current_physical_count = get_physical_systimer_count();
     // この VM が動いていない間に経過した時間(lapse)を計算し、offset に積算する
     uint64_t lapse = current_physical_count - state->systimer.last_physical_count;
     state->systimer.offset += lapse;
@@ -635,7 +635,7 @@ void bcm2837_entering_vm(struct vm_struct *tsk) {
 void bcm2837_leaving_vm(struct vm_struct *tsk) {
     struct bcm2837_state *state = (struct bcm2837_state *)tsk->board_data;
     // VM が実行されていた最後のカウンタ値を保存しておく
-    state->systimer.last_physical_count = get_physical_timer_count();
+    state->systimer.last_physical_count = get_physical_systimer_count();
 }
 
 static int bcm2837_is_irq_asserted(struct vm_struct *tsk) {

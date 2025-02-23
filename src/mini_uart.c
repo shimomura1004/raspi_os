@@ -5,7 +5,7 @@
 #include "sched.h"
 #include "fifo.h"
 #include "vm.h"
-#include "timer.h"
+#include "systimer.h"
 
 static void _uart_send(char c) {
     // 送信バッファが空くまで待つビジーループ

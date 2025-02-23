@@ -1,6 +1,6 @@
 #include "peripherals/base.h"
 #include "peripherals/mini_uart.h"
-#include "peripherals/timer.h"
+#include "peripherals/systimer.h"
 
 .org 0x0
 

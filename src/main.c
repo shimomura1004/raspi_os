@@ -4,7 +4,7 @@
 // todo: 不要なものがないか確認
 #include "printf.h"
 #include "utils.h"
-#include "timer.h"
+#include "systimer.h"
 #include "irq.h"
 #include "vm.h"
 #include "sched.h"
@@ -79,8 +79,8 @@ static void initialize_hypervisor() {
 
 	init_initial_vm();
 
-	// todo: 各 CPU コアで呼び出す必要があるかもしれない
-	timer_init();
+	// システムタイマは全コアで共有されるのでここで初期化
+	systimer_init();
 
 	// 中途半端なところで割込み発生しないようにタイマと UART の有効化が終わるまで割込み禁止
 	disable_irq();
