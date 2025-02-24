@@ -116,6 +116,7 @@
 #define HCR_TWI         (1 << 13)
 
 // HCR: hypervisor configuration register
+// https://developer.arm.com/documentation/ddi0601/2024-12/AArch64-Registers/HCR-EL2--Hypervisor-Configuration-Register
 // E2H[34] (EL2 host): ホスト OS が EL2 で動くかどうか、0なら無効、1なら有効
 // RW[31] (exection state control for lower execption level):
 //   0b0: lower level はすべて aarch32
@@ -130,8 +131,13 @@
 //   0b0: 特に効果なし
 //   0b1: physical serror 例外は EL2 で処理される、など
 // IMO[4] (physiccal irq routing)
-//   0b0: HCR_EL2.TGE の値によって意味が変わる
-//   0b1: physical irq interrupt は EL2 で処理される、など
+//   0b0: When executing at Exception levels below EL2, and EL2 is enabled in the current Security state:
+//          When the value of HCR_EL2.TGE is 0, Physical IRQ interrupts are not taken to EL2.
+//          When the value of HCR_EL2.TGE is 1, Physical IRQ interrupts are taken to EL2 unless they are routed to EL3.
+//          Virtual IRQ interrupts are disabled.
+//   0b1: When executing at any Exception level, and EL2 is enabled in the current Security state:
+//          Physical IRQ interrupts are taken to EL2, unless they are routed to EL3.
+//          When the value of HCR_EL2.TGE is 0, then Virtual IRQ interrupts are enabled.
 // FMO[3] (physical FIQ routing)
 //   0b0: HCR_EL2.TGE の値によって意味が変わる
 //   0b1: physical FIQ interrupt は EL2 で処理される、など
