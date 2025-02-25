@@ -13,10 +13,10 @@ extern struct spinlock log_lock;
     acquire_lock(&log_lock); \
     unsigned long cpuid = get_cpuid(); \
     if (current) { \
-        printf("<cpu:%d>[pid:%d] %s: ", cpuid, current->pid, level); \
+        printf("<cpu:%d>[vmid:%d] %s: ", cpuid, current->vmid, level); \
     } \
     else { \
-        printf("<cpu:%d>[pid:?] %s: ", cpuid, level); \
+        printf("<cpu:%d>[vmid:?] %s: ", cpuid, level); \
     } \
     printf(fmt "\n", ##__VA_ARGS__); \
     release_lock(&log_lock); \

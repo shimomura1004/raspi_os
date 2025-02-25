@@ -145,7 +145,7 @@ void exit_vm(){
 }
 
 void set_cpu_sysregs(struct vm_struct *tsk) {
-	set_stage2_pgd(tsk->mm.first_table, tsk->pid);
+	set_stage2_pgd(tsk->mm.first_table, tsk->vmid);
 	restore_sysregs(&tsk->cpu_sysregs);
 }
 
@@ -194,12 +194,12 @@ const char *vm_state_str[] = {
 // todo: VM に割り当てられた CPU ID も表示したい
 void show_vm_list() {
     printf("  %3s %12s %8s %7s %9s %7s %7s %7s %7s %7s\n",
-		   "pid", "name", "state", "pages", "saved-pc", "wfx", "hvc", "sysregs", "pf", "mmio");
+		   "vmid", "name", "state", "pages", "saved-pc", "wfx", "hvc", "sysregs", "pf", "mmio");
     for (int i = 0; i < current_number_of_vms; i++) {
         struct vm_struct *tsk = vms[i];
         printf("%c %3d %12s %8s %7d %9x %7d %7d %7d %7d %7d\n",
                is_uart_forwarded_vm(vms[i]) ? '*' : ' ',
-			   tsk->pid,
+			   tsk->vmid,
 			   tsk->name ? tsk->name : "",
                vm_state_str[tsk->state],
 			   tsk->mm.vm_pages_count,

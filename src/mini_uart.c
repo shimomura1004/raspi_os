@@ -48,7 +48,7 @@ char uart_recv(void) {
 static int uart_forwarded_vm = 0;
 
 int is_uart_forwarded_vm(struct vm_struct *tsk) {
-    return tsk->pid == uart_forwarded_vm;
+    return tsk->vmid == uart_forwarded_vm;
 }
 
 void uart_send_string(char *str) {

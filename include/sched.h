@@ -150,7 +150,7 @@ struct vm_struct {
     long counter;                   // VM が使える残りの CPU 時間を保持
                                     // tick ごとに 1 減り、0 になると他の VM に切り替わる
     long priority;                  // VM が CPU にスケジュールされるときにこの値が counter にコピーされる
-    long pid;                       // VMID
+    long vmid;                      // VMID
     unsigned long flags;
     const char *name;
     const struct board_ops *board_ops;
@@ -179,7 +179,7 @@ extern void show_vm_list(void);
         /* state         */ 0, \
         /* counter       */ 0, \
         /* priority      */ 1, \
-        /* pid           */ 0, \
+        /* vmid          */ 0, \
         /* flags         */ 0, \
         /* name          */ "", \
         /* board_ops     */ 0, \

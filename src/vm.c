@@ -103,15 +103,15 @@ int create_vm(loader_func_t loader, void *arg) {
 	// そのとき SP が指す先には退避したレジスタが格納されている必要がある
 	p->cpu_context.sp = (unsigned long)childregs;
 	// 今動いている VM 数を増やし、その連番をそのまま PID とする
-	int pid = current_number_of_vms++;
+	int vmid = current_number_of_vms++;
 	// 新たに作った vm_struct 構造体のアドレスを vms 配列に入れておく
 	// これでそのうち今作った VM に処理が切り替わり、switch_from_kthread から実行開始される
-	vms[pid] = p;
-	p->pid = pid;
+	vms[vmid] = p;
+	p->vmid = vmid;
 
 	init_vm_console(p);
 
-	return pid;
+	return vmid;
 }
 
 void init_vm_console(struct vm_struct *tsk) {
