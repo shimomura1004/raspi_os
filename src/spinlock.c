@@ -16,13 +16,12 @@ static int holding(struct spinlock *lock) {
 // 多重で CPU 割込みを禁止するときに使う、割込み禁止関数
 // push された数と同じだけ pop しないと割込みが有効にならない
 static void push_disable_irq() {
-    // todo: interrupt_enable は必要ないのでは
-    // int old = is_interrupt_enabled();
+    int old = is_interrupt_enabled();
     disable_irq();
 
     struct cpu_core_struct *cpu = current_cpu_core();
     if (cpu->number_of_off == 0) {
-        // cpu->interrupt_enable = old;
+        cpu->interrupt_enable = old;
     }
     cpu->number_of_off++;
 }
@@ -38,9 +37,9 @@ static void pop_disable_irq() {
 
     cpu->number_of_off--;
     if (cpu->number_of_off == 0) {
-        // todo: ここでクラッシュしている？
-        // 片方のコアが文字列を出力中なのに、もう片方のコアが enable しようとしてる
-        enable_irq();
+        if (cpu->interrupt_enable) {
+            enable_irq();
+        }
     }
 }
 
