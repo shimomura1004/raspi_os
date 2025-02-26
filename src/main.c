@@ -61,9 +61,6 @@ static void initialize_cpu_core(unsigned long cpuid) {
 	// 各 CPU コアで呼び出す必要がある
 	irq_vector_init();
 
-	// // todo: 各 CPU コアで呼び出す必要があるかもしれない
-	// timer_init();
-
 	// printf("CPU%d initialized\n", cpuid);
 }
 

@@ -214,6 +214,8 @@ int handle_mem_abort(unsigned long addr, unsigned long esr) {
 			return -1;
 		}
 		// IPA -> PA の変換を登録
+		// todo: ページ境界に合わないアドレスがくることがあるので応急処置
+		addr = addr / PAGE_SIZE * PAGE_SIZE;
 		map_stage2_page(current, get_ipa(addr) & PAGE_MASK, page, MMU_STAGE2_PAGE_FLAGS);
 		// INFO("VTTBR0_EL2(VMID %d): IPA 0x%lx(0x%lx in full) -> PA 0x%lx (handle_mem_abort)",
 		// 	 current->vmid, get_ipa(addr) & 0xffffffffffff, addr, page);
