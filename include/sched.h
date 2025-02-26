@@ -172,24 +172,5 @@ extern void cpu_switch_to(struct vm_struct*, struct vm_struct*);
 extern void exit_vm(void);
 extern void show_vm_list(void);
 
-// kernel_main の vm_struct の初期値
-#define INIT_VM \
-    { \
-        /* cpu_context   */ {0}, \
-        /* state         */ 0, \
-        /* counter       */ 0, \
-        /* priority      */ 1, \
-        /* vmid          */ 0, \
-        /* flags         */ 0, \
-        /* name          */ "", \
-        /* board_ops     */ 0, \
-        /* board_data    */ 0, \
-        /* mm            */ {0}, \
-        /* cpu_sysregs   */ {0}, \
-        /* stat          */ {0}, \
-        /* console       */ {0}, \
-        /* lock          */ {0, 0, -1}, \
-    }
-
 #endif
 #endif

@@ -6,7 +6,23 @@
 #include "board.h"
 #include "vm.h"
 
-static struct vm_struct init_vm = INIT_VM;
+static struct vm_struct init_vm = {
+	.cpu_context = {0},
+	.state       = 0,
+	.counter     = 0,
+	.priority    = 1,
+	.vmid        = 0,
+	.flags       = 0,
+	.name        = "",
+	.board_ops   = 0,
+	.board_data  = 0,
+	.mm          = {0},
+	.cpu_sysregs = {0},
+	.stat        = {0},
+	.console     = {0},
+	.lock        = {0, 0, -1},
+};
+
 // 現在実行中の VM の vm_struct
 // todo: cpu コアが複数あるのに current が 1 つしかない！
 //       削除して、cpu_core_struct の current_vm に置き換える
