@@ -52,6 +52,9 @@ void show_invalid_entry_message(int type, unsigned long esr, unsigned long elr, 
 void handle_irq(void)
 {
 	// todo: daifset で割込みを止めてもシステムタイマによる割込みが発生してしまう、なぜ？
+	// todo: cpu1 で実行すると uart の割込みが発生しない、なぜ？
+	//   https://github.com/s-matyukevich/raspberry-pi-os/blob/master/docs/lesson03/linux/interrupt_controllers.md
+	//   "by default local interrupt controller is configured in such a way that all external interrupts are sent to the first core"
 	unsigned int irq = get32(IRQ_PENDING_1);
 	if (irq & SYSTEM_TIMER_IRQ_1_BIT) {
 		irq &= ~SYSTEM_TIMER_IRQ_1_BIT;
