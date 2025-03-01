@@ -116,7 +116,7 @@ void hypervisor_main(unsigned long cpuid)
 	initialize_cpu_core(cpuid);
 
 	// CPU 0 がハイパーバイザの初期化を実施
-	if (cpuid == 1) {
+	if (cpuid == 0) {
 		// ハイパーバイザの初期化とゲストのロードを実施
 		initialize_hypervisor();
 		INFO("raspvisor initialized");
@@ -126,6 +126,9 @@ void hypervisor_main(unsigned long cpuid)
 
 		initialized_flag = 1;
 	}
+
+	// いったんコア1を止める
+	while (cpuid == 1);
 
 	INFO("CPU%d runs IDLE process", cpuid);
 
