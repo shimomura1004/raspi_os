@@ -173,8 +173,10 @@ save_sysregs:
 	stp x1, x2, [x0], #16
 	mrs x1, fpsr
 	mrs x2, midr_el1		// todo: 読み出し時は midr_el1 だけど書き込み時は vpidr_el2
+//	mrs x2, vpidr_el2
 	stp x1, x2, [x0], #16
-	mrs x1, mpidr_el1		// todo: 読み出し時は mpidr_el1 だけど書き込み時は vmpidr_el2
+//	mrs x1, mpidr_el1		// todo: 読み出し時は mpidr_el1 だけど書き込み時は vmpidr_el2
+	mrs x1, vmpidr_el2
 	mrs x2, par_el1
 	stp x1, x2, [x0], #16
 	mrs x1, sp_el0
@@ -215,8 +217,10 @@ get_all_sysregs:
 	stp x1, x2, [x0], #16
 	mrs x1, fpsr
 	mrs x2, midr_el1		// todo: 読み出し時は midr_el1 だけど書き込み時は vpidr_el2
+//	mrs x2, vpidr_el2
 	stp x1, x2, [x0], #16
-	mrs x1, mpidr_el1		// todo: 読み出し時は mpidr_el1 だけど書き込み時は vmpidr_el2
+//	mrs x1, mpidr_el1		// todo: 読み出し時は mpidr_el1 だけど書き込み時は vmpidr_el2
+	mrs x1, vmpidr_el2
 	mrs x2, par_el1
 	stp x1, x2, [x0], #16
 	mrs x1, sp_el0

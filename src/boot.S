@@ -87,6 +87,10 @@ el3_entry:
 	adr	x0, el2_entry
 	msr	elr_el3, x0
 
+// このコアが読み取る CPU ID を0にする
+// ldr x1, =0x80000000
+// msr vmpidr_el2, x1
+
 	// 指定した状態(EL2)で、指定したアドレス(el2_entry)に復帰
 	eret
 
