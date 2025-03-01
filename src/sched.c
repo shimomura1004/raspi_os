@@ -212,18 +212,18 @@ void show_vm_list() {
     printf("  %3s %12s %8s %7s %9s %7s %7s %7s %7s %7s\n",
 		   "vmid", "name", "state", "pages", "saved-pc", "wfx", "hvc", "sysregs", "pf", "mmio");
     for (int i = 0; i < current_number_of_vms; i++) {
-        struct vm_struct *tsk = vms[i];
+        struct vm_struct *vm = vms[i];
         printf("%c %3d %12s %8s %7d %9x %7d %7d %7d %7d %7d\n",
                is_uart_forwarded_vm(vms[i]) ? '*' : ' ',
-			   tsk->vmid,
-			   tsk->name ? tsk->name : "",
-               vm_state_str[tsk->state],
-			   tsk->mm.vm_pages_count,
-			   vm_pt_regs(tsk)->pc,
-               tsk->stat.wfx_trap_count,
-			   tsk->stat.hvc_trap_count,
-               tsk->stat.sysregs_trap_count,
-			   tsk->stat.pf_trap_count,
-               tsk->stat.mmio_trap_count);
+			   vm->vmid,
+			   vm->name ? vm->name : "",
+               vm_state_str[vm->state],
+			   vm->mm.vm_pages_count,
+			   vm_pt_regs(vm)->pc,
+               vm->stat.wfx_trap_count,
+			   vm->stat.hvc_trap_count,
+               vm->stat.sysregs_trap_count,
+			   vm->stat.pf_trap_count,
+               vm->stat.mmio_trap_count);
     }
 }
