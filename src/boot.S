@@ -211,7 +211,7 @@ after_page_table_setup:
 	// #define PUD_SHIFT			PAGE_SHIFT + 2*TABLE_SHIFT
 	// #define PMD_SHIFT			PAGE_SHIFT + TABLE_SHIFT
 
-	//======== create_table_entry ===============================================
+	//======== create_pgd_entry ===============================================
 
 	// ページグローバルディレクトリを作る
 	.macro	create_pgd_entry, tbl, virt, tmp1, tmp2
@@ -368,6 +368,13 @@ __create_page_tables:
 	// ここまでくると、カーネルのアドレス空間(0x0000_0000_0000_0000 以降)に、
 	// 物理アドレス 0x0000_0000_0000_0000~0x0000_0000_4000_0000 がマップされている
 	// つまり RPi3 のすべての有効な物理アドレスがマップされているということ
+
+// ローカルペリフェラルは物理アドレス 0x40000000(1GB) 以降にある
+// todo: よって PMD の追加が必要(PMD 1つにつき 1GB まで)
+mov x1, #0x40000000
+ldr x2, =(VA_START + 0x40000000)
+ldr x3, =(VA_START + 0x40200000 - SECTION_SIZE)
+create_block_map x0, x1, x2, x3, MMU_DEVICE_FLAGS, x4
 
 	// x30 に戻りアドレスを入れて ret する
 	mov	x30, x29						// restore return address
