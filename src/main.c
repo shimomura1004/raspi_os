@@ -60,8 +60,6 @@ static void initialize_cpu_core(unsigned long cpuid) {
 	// VBAR_EL2 レジスタに割込みベクタのアドレスを設定する
 	// 各 CPU コアで呼び出す必要がある
 	irq_vector_init();
-
-	// printf("CPU%d initialized\n", cpuid);
 }
 
 // 全コア共通で一度だけ実施する初期化処理
@@ -93,9 +91,9 @@ static void load_guest_oss() {
 		printf("error while starting VM #1");
 	}
 
-	if (create_vm(raw_binary_loader, &mini_os_bin_args) < 0) {
-		printf("error while starting VM #2");
-	}
+	// if (create_vm(raw_binary_loader, &mini_os_bin_args) < 0) {
+	// 	printf("error while starting VM #2");
+	// }
 
 	// if (create_vm(elf_binary_loader, &mini_os_elf_args) < 0) {
 	// 	printf("error while starting VM #3");
@@ -118,7 +116,7 @@ void hypervisor_main(unsigned long cpuid)
 	initialize_cpu_core(cpuid);
 
 	// CPU 0 がハイパーバイザの初期化を実施
-	if (cpuid == 0) {
+	if (cpuid == 1) {
 		// ハイパーバイザの初期化とゲストのロードを実施
 		initialize_hypervisor();
 		INFO("raspvisor initialized");
