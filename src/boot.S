@@ -24,12 +24,13 @@ _start:
 	and	x0, x0,#0xFF		// Check processor id
 	cbz	x0, el3_entry		// Hang for all non-primary CPU
 
+// コア 2,3 は無限ループさせて止める
 cmp x0, #2
 b.eq sleep
 cmp x0, #3
 b.eq sleep
-	// コア 0 以外のコアを無限ループさせて止める
-	// todo: マルチコア対応したい、その場合はロックが必要
+
+	// コア1は initialized_flag がセットされるのを待って実行
 	ldr x0, =initialized_flag
 loop:
 	ldr x1, [x0]
@@ -130,12 +131,12 @@ after_page_table_setup:
 	// sp には仮想アドレスが入っているので MMU が有効になってからじゃないと使えない
 	// add	sp, x0, #LOW_MEMORY
 
-// CPU ID に応じて SP にオフセットをつける (SP = LOW_MEMORY * CPUID)
-mov x1, #LOW_MEMORY
-bl get_cpuid
-add x0, x0, #1
-mul x0, x1, x0
-add sp, x0, #VA_START
+	// CPU ID に応じて SP にオフセットをつける (SP = LOW_MEMORY * CPUID)
+	mov x1, #LOW_MEMORY
+	bl get_cpuid
+	add x0, x0, #1
+	mul x0, x1, x0
+	add sp, x0, #VA_START
 
 	// TTBR(translate table base register)は複数ある: TTBR{0,1}_el{0,1} + TTBR0_el{2,3}
 	// TTBR は x86 の cr3 に相当する(risc-v のsatp)
