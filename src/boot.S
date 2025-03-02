@@ -196,70 +196,102 @@ after_page_table_setup:
 	bl get_cpuid
 	br 	x2
 
-	//-------- ここからマクロ定義 ------------------------------------------------
+//-------- ここからマクロ定義 ------------------------------------------------
+// todo: できれば C にしたい
 
-	// RPi3 の RAM は 1GB しかないので、PGD と PUD は1つずつで十分である
+// AArch64 の仮想アドレス(48bit)の構成
+//   [PGD: 9bit][PUD: 9bit][PMD: 9bit][PTE: 9bit][OFFSET: 12bit]
+// RPi OS ではセクションマッピングを使う、セクションのサイズは 2MB
+//   -> PTE がなくなり、オフセットが21bit(2MB)になる
 
-	// create_pgd_entry を実行すると、3ページ分確保したメモリ領域に、前から順番に
-	//   PGD, PUD, まだ初期化していない PMD
-	// が確保される
-	// またセクションマッピングを使うので PTE は不要
+// RPi3 の RAM は 1GB しかないので、PGD と PUD は1つずつで十分である
+// ただ1GB以降の物理アドレスに存在するローカルペリフェラルも同様にリニアマップしたいので
+// PMD をもう1つ追加する
 
-	// #define PAGE_SHIFT	 		12
-	// #define TABLE_SHIFT 			9
-	// #define PGD_SHIFT			PAGE_SHIFT + 3*TABLE_SHIFT
-	// #define PUD_SHIFT			PAGE_SHIFT + 2*TABLE_SHIFT
-	// #define PMD_SHIFT			PAGE_SHIFT + TABLE_SHIFT
+// create_pgd_entry を実行すると、4ページ分確保したメモリ領域に、前から順番に
+//   [PGD] pg_dir が指すところ
+//   [PUD]
+//   [PMD] DRAM 用、未初期化
+//   [PMD] ローカルペリフェラル用、未初期化
+// が確保される
+// またセクションマッピングを使うので PTE は不要
 
-	//======== create_pgd_entry ===============================================
+// #define PAGE_SHIFT	 		12
+// #define TABLE_SHIFT 			9
+// #define PGD_SHIFT			PAGE_SHIFT + 3*TABLE_SHIFT
+// #define PUD_SHIFT			PAGE_SHIFT + 2*TABLE_SHIFT
 
-	// ページグローバルディレクトリを作る
-	.macro	create_pgd_entry, tbl, virt, tmp1, tmp2
-	// page global directory を作る
-	create_table_entry \tbl, \virt, PGD_SHIFT, \tmp1, \tmp2
-	// page upper directory を作る
-	create_table_entry \tbl, \virt, PUD_SHIFT, \tmp1, \tmp2
-	.endm
+//======== create_pgd_entry ===============================================
 
-	// #define PTRS_PER_TABLE	(1 << TABLE_SHIFT) ページ1つあたりのエントリ数(512個)
-	// #define PAGE_SIZE   		(1 << PAGE_SHIFT)
-	// #define MM_TYPE_PAGE_TABLE		0x3
+// ページグローバルディレクトリを作る
+// メモリ上に [PGD][PUD][PMD] の順にテーブルが直接並んでいることを前提にしている
 
-	//======== create_table_entry ===============================================
+.macro	create_pgd_entry, tbl, virt, tmp1, tmp2, tmp3
+	// PGD(page global directory) を作る
+    //   直後にある PMD を指すエントリが追加される
+	create_table_entry \tbl, \virt, PGD_SHIFT, #1, \tmp1, \tmp2, \tmp3
+	add	\tbl, \tbl, #PAGE_SIZE
 
-	.macro	create_table_entry, tbl, virt, shift, tmp1, tmp2
+	// PUD(page upper directory) を作る
+    //   直後にある PMD を指すエントリ(DRAM 用とローカルペリフェラル用)が追加される
+	create_table_entry \tbl, \virt, PUD_SHIFT, #1, \tmp1, \tmp2, \tmp3
+    // todo: virt を1ページ分ずらさないといけない
+    // todo: virt が 0x0 のままになっているので動かない
+    // todo: 応急処置で直接設定
+    mov \virt, #0x40000000
+	create_table_entry \tbl, \virt, PUD_SHIFT, #2, \tmp1, \tmp2, \tmp3
+	add	\tbl, \tbl, #PAGE_SIZE
+.endm
+
+// #define PTRS_PER_TABLE	(1 << TABLE_SHIFT) ページ1つあたりのエントリ数(512個)
+// #define PAGE_SIZE   		(1 << PAGE_SHIFT)
+// #define MM_TYPE_PAGE_TABLE		0x3
+
+//======== create_table_entry ===============================================
+
+// tbl:             エントリを更新するページテーブルのアドレス
+// virt:            エントリに追加する仮想アドレス
+// shift:           PGD/PUD/PMD のどの部分を更新するかを示すシフト量
+// nextpage_offset: 追加するエントリが指す次ページのアドレスが、tbl から見て何ページ先にあるか
+// tmp1,2,3:        作業用に使えるレジスタ
+
+// str はストア命令
+//   STR   Xt, [base, Xm {,LSL|SXTX {#0 | #3}} ]   // レジスタオフセット
+//     Xt: メモリに保存する値を保持するレジスタ
+//     base: 書き込み先のベースとなるアドレスを保持するレジスタ
+//     Xm: ベースに対するオフセットを保持するレジスタ
+//     lsl #3: オフセットを左に3ビットシフト(8倍)することを指示している
+
+.macro	create_table_entry, tbl, virt, shift, nextpage_offset, tmp1, tmp2, tmp3
 	// logical shift right
 	lsr	\tmp1, \virt, #\shift
 	// テーブルインデックスの部分だけマスクして tmp1 に取り出す
 	and	\tmp1, \tmp1, #PTRS_PER_TABLE - 1			// table index
 	// tmp2 に次のページのアドレスを入れる
-	add	\tmp2, \tbl, #PAGE_SIZE
+    mov \tmp2, #PAGE_SIZE
+    mov \tmp3, \nextpage_offset
+    mul \tmp2, \tmp2, \tmp3
+	add	\tmp2, \tbl, \tmp2
 	// アドレスの下位2ビットにフラグを設定し、これがページテーブルであると宣言
 	orr	\tmp2, \tmp2, #MM_TYPE_PAGE_TABLE
-	// str はストア命令
-	//   STR   Xt, [base, Xm {,LSL|SXTX {#0 | #3}} ]   // レジスタオフセット
-	//     Xt: メモリに保存する値を保持するレジスタ
-	//     base: 書き込み先のベースとなるアドレスを保持するレジスタ
-	//     Xm: ベースに対するオフセットを保持するレジスタ
-	//     lsl #3: オフセットを左に3ビットシフト(8倍)することを指示している
-	// tmp1 にはエントリの位置が入っているので、アドレスにするために8倍する必要がある
-	// つまり、ここでページエントリを書き込んでいる
+
+	// ページエントリを書き込む
+	//   tmp1: 更新したいエントリのインデックス(アドレスにするために8倍する必要がある)
+    //   tmp2: 書き込む値(PGD を更新するときは PUD のアドレス、PUD を更新するときは PMD のアドレス)
 	str	\tmp2, [\tbl, \tmp1, lsl #3]
-	// このあと page upper directory の処理も行うので1ページ分アドレスを進めておく
-	add	\tbl, \tbl, #PAGE_SIZE					// next level table page
-	.endm
+.endm
 
-	//======== create_block_map ===============================================
+//======== create_block_map ===============================================
 
-	// PMD テーブルのエントリを準備する
+// PMD テーブルのエントリを準備する
 
-	// tbl - PMD テーブルへのポインタ
-	// phys - マップ対象の物理アドレスの開始位置
-	// start - マップ先の仮想アドレスの先頭
-	// end - マップ先の仮想アドレスの末尾
-	// flags - エントリの lower attributes にセットするフラグ
+// tbl:     PMD テーブルへのポインタ
+// phys:    マップ対象の物理アドレスの開始位置
+// start:   マップ先の仮想アドレスの先頭
+// end:     マップ先の仮想アドレスの末尾
+// flags:   エントリの lower attributes にセットするフラグ
 
-	.macro	create_block_map, tbl, phys, start, end, flags, tmp1
+.macro	create_block_map, tbl, phys, start, end, flags, tmp1
 	// start のアドレスから PUD のインデックスを取り出す
 	lsr	\start, \start, #SECTION_SHIFT
 	and	\start, \start, #PTRS_PER_TABLE - 1			// table index
@@ -286,9 +318,9 @@ after_page_table_setup:
 	// b.ls は less than or same なので、start と end が同じときも 9999 にジャンプする
 	// なので end は SECTION_SIZE 分小さい値にしておかないとオーバーランする
 	b.ls	9999b
-	.endm
+.endm
 
-	//=============================================================================
+//=============================================================================
 
 // BCM2837 では RAM が物理アドレスの 0 番地から 1GB 搭載される
 // そのうち 0x0000_0000 から 0x3F00_0000 までは DRAM
@@ -306,33 +338,33 @@ __create_page_tables:
 	// pg_dir(リンカスクリプトで指定)のベースアドレスを x0 に代入
 	adrp	x0, pg_dir
 
-	// x1 にページディレクトリのサイズ(4KB x 3)を代入
+	// x1 にページディレクトリのサイズ(4KB x 4)を代入
 	// #define PAGE_SHIFT	 		12
 	// #define PAGE_SIZE   			(1 << PAGE_SHIFT)
-	// #define PG_DIR_SIZE			(3 * PAGE_SIZE)
+	// #define PG_DIR_SIZE			(4 * PAGE_SIZE)
 	mov	x1, #PG_DIR_SIZE
 
-	// pg_dir が指す位置から3ページ分を 0 クリアする
-	// PGD, PUD, PMD の3つ分、RPi3 の DRAM は1GBで、2MB の倍数なのでセクションマッピングが使える
+	// pg_dir が指す位置から4ページ分を 0 クリアする
+	// PGD, PUD, PMDx2 の4つ分、RPi3 の DRAM は1GBで、2MB の倍数なのでセクションマッピングが使える
 	// よって PTE はいらない
 	bl 	memzero
 
 	// memzero で x0 の値は更新されるので改めて設定
 	adrp	x0, pg_dir
-	// #define VA_START 0xffff000000000000
+
 	mov	x1, #VA_START
 	// create_pgd_entry は以下のように定義されたマクロ
 	// 	.macro	create_pgd_entry, tbl, virt, tmp1, tmp2
 	// x0 で指定したページテーブルに、x1 のアドレス以降を使ったマッピングを作る
 	// x2, x3 は作業用に自由に使っていいレジスタ
-	create_pgd_entry x0, x1, x2, x3
+	create_pgd_entry x0, x1, x2, x3, x4
 
 
-	/* Mapping kernel and init stack*/
+	/* Mapping kernel and init stack */
 	// 通常の DRAM 領域のマッピング
 	// xzr はゼロレジスタ
 	mov 	x1, xzr							// start mapping from physical offset 0
-	mov 	x2, #VA_START						// first virtual address
+	mov 	x2, #VA_START					// first virtual address
 
 	// 通常の DRAM 領域の最後のセクションのアドレスを計算している
 	// #define DEVICE_BASE 		0x3F000000
@@ -351,30 +383,31 @@ __create_page_tables:
 	//   つまり1ブロック分小さくしておかないとオーバーランする
 	create_block_map x0, x1, x2, x3, MMU_FLAGS, x4
 
-	/* Mapping device memory*/
+	/* Mapping device memory */
 	// デバイス領域のマッピング
-	mov 	x1, #DEVICE_BASE					// start mapping from device base address
-	ldr 	x2, =(VA_START + DEVICE_BASE)				// first virtual address
-	// #define PHYS_MEMORY_SIZE		0x4000_0000 = 1GB
-	ldr	x3, =(VA_START + PHYS_MEMORY_SIZE - SECTION_SIZE)	// last virtual address
+	mov 	x1, #DEVICE_BASE                                // start mapping from device base address
+	ldr 	x2, =(VA_START + DEVICE_BASE)                   // first virtual address
+	ldr	x3, =(VA_START + PHYS_MEMORY_SIZE - SECTION_SIZE)   // last virtual address
 
 	// tbl = x0 = pg_dir
 	// phys = x1 = DEVICE_BASE
 	// start = x2 = VA_START + DEVICE_BASE
 	// end = x3 = VA_START + PHYS_MEMORY_SIZE - SECTION_SIZE
 	create_block_map x0, x1, x2, x3, MMU_DEVICE_FLAGS, x4
+	add	x0, x0, #PAGE_SIZE
 
 	// 現状 VA_START が 0x0000_0000_0000_0000 なので、
 	// ここまでくると、カーネルのアドレス空間(0x0000_0000_0000_0000 以降)に、
 	// 物理アドレス 0x0000_0000_0000_0000~0x0000_0000_4000_0000 がマップされている
 	// つまり RPi3 のすべての有効な物理アドレスがマップされているということ
 
-// ローカルペリフェラルは物理アドレス 0x40000000(1GB) 以降にある
-// todo: よって PMD の追加が必要(PMD 1つにつき 1GB まで)
-mov x1, #0x40000000
-ldr x2, =(VA_START + 0x40000000)
-ldr x3, =(VA_START + 0x40200000 - SECTION_SIZE)
-create_block_map x0, x1, x2, x3, MMU_DEVICE_FLAGS, x4
+    // ローカルペリフェラルは物理アドレス 0x40000000(1GB) 以降にある
+    //   0x200000 = 2MB(セクション1つぶん)
+    // よって PMD の追加が必要(PMD 1つにつき 1GB まで)
+    mov x1, #0x40000000
+    ldr x2, =(VA_START + 0x40000000)
+    ldr x3, =(VA_START + 0x40200000 - SECTION_SIZE)
+    create_block_map x0, x1, x2, x3, MMU_DEVICE_FLAGS, x4
 
 	// x30 に戻りアドレスを入れて ret する
 	mov	x30, x29						// restore return address
