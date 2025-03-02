@@ -52,10 +52,19 @@
 # BCM2873
 - BCM2873 のメモリマップは以下のマニュアルに書かれている
     - BCM2837-ARM-Peripherals.-.Revised.-.V2-1.pdf
+    - 1.2.3 ARM physical addresses
+        - Physical addresses range from 0x3F000000 to 0x3FFFFFFF for peripherals.
+          The bus addresses for peripherals are set up to map onto the peripheral
+          bus address range starting at 0x7E000000. Thus a peripheral advertised
+          here at bus address 0x7Ennnnnn is available at physical address 0x3Fnnnnnn.
 - ![alt text](docs/bcm2873_memmap.png)
     - 右端が仮想アドレスで、MMU を使って CPU の物理アドレス(ARM Physical Adress)に変換される
     - 真ん中が CPU の物理アドレス(ARM Physical Address)で、VC/ARM MMU によってバスアドレス(VC CPU Bus Address)に変換される
     - 左端がバスアドレス(VC CPU Bus Address)で、ボードの内容がそのまま配置されるようなアドレス空間である(合計1GB の SDRAM が不連続に配置されていたりする)
+    - マニュアルに書かれているアドレスはバスアドレスである
+        - Arm CPU の物理アドレスでは 0x3F000000 に置かれるが、マニュアル上は 0x7E000000 となっている
+        - たとえば AUX_IRQ レジスタは、マニュアル上は 0x7E215000 となっているが、Arm CPU から見ると (PBASE+0x00215000) = 0x3F000000 + 0x00215000 に配置される
+        - VC のバスアドレスでは、AUX_IRQ のオフセットは 0x7E215000 - 0x7E000000 = 0x215000 であり、Arm の物理アドレス上のオフセット定義とぴったり合う
 - RPi3b には IOMMU や SMMU はないので、たとえば DMA コントローラでは物理アドレスを直接指定する必要がある
 - RPi3B では外部割込みはコア0に割り当てられている
     - https://github.com/s-matyukevich/raspberry-pi-os/blob/master/docs/lesson03/linux/interrupt_controllers.md
