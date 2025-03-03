@@ -69,6 +69,37 @@
 - RPi3B では外部割込みはコア0に割り当てられている
     - https://github.com/s-matyukevich/raspberry-pi-os/blob/master/docs/lesson03/linux/interrupt_controllers.md
 
+## Mailbox 割込み
+- Mailbox の割込みを有効にするためには、interrupt control に値を書き込む
+    - 0x4000_0050 Core0 Mailboxes Interrupt control
+        - 7,6,5,4bit: fast interrupt(0: disabled, 1: enabled)
+        - 3,2,1,0bit: interrupt(0: disabled, 1: enabled)
+- 内部割込みの発生状態は Core interrupt source レジスタで確認できる
+    - Address: 0x4000_0060 Core0 interrupt source
+    - Address: 0x4000_0064 Core1 interrupt source
+    - Address: 0x4000_0068 Core2 interrupt source
+    - Address: 0x4000_006C Core3 interrupt source
+- 発生している割込みとビットの対応は以下の通り
+    - 31-28 <Reserved>
+    - 17:12 Peripheral 1..15 interrupt (Currently not used)
+    - 11 Local timer interrupt
+    - 10 AXI-outstanding interrupt <For core 0 only!> all others are 0
+    - 9 PMU interrupt
+    - 8 GPU interrupt <Can be high in one core only>
+    - 7 Mailbox 3 interrupt
+    - 6 Mailbox 2 interrupt
+    - 5 Mailbox 1 interrupt
+    - 4 Mailbox 0 interrupt
+    - 3 CNTVIRQ interrupt
+    - 2 CNTHPIRQ interrupt
+    - 1 CNTPNSIRQ interrupt
+    - 0 CNTPSIRQ interrupt (Physical Timer -1)
+- Core [n] Mailbox [m] Set に値を書き込む
+    - コア m からコア n に値を送信する
+- Core [n] Mailbox [m] Rd/Clr
+    - コア m からコア n に送信された値を読み取る
+    - 書き込むとクリア
+
 # Memory Mapping
 ## 二段階アドレス変換
 - https://www.starlab.io/blog/deep-dive-mmu-virtualization-with-xen-on-arm
