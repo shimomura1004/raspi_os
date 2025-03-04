@@ -13,6 +13,7 @@
 #include "sd.h"
 #include "debug.h"
 #include "loader.h"
+#include "peripherals/irq.h"
 
 // boot.S で初期化が終わるまでコアを止めるのに使うフラグ
 volatile unsigned long initialized_flag = 0;
@@ -75,6 +76,12 @@ static void initialize_hypervisor() {
 	// システムタイマは全コアで共有されるのでここで初期化
 	systimer_init();
 
+	// Core 0~3 の MAILBOX の割込みを有効化
+	// put32(MBOX_CORE0_CONTROL, MBOX_INTERRUPT_ENABLE_IRQ_ALL);
+	put32(MBOX_CORE1_CONTROL, MBOX_INTERRUPT_ENABLE_IRQ_ALL);
+	put32(MBOX_CORE2_CONTROL, MBOX_INTERRUPT_ENABLE_IRQ_ALL);
+	put32(MBOX_CORE3_CONTROL, MBOX_INTERRUPT_ENABLE_IRQ_ALL);
+
 	// 中途半端なところで割込み発生しないようにタイマと UART の有効化が終わるまで割込み禁止
 	disable_irq();
 	enable_interrupt_controller();
@@ -127,8 +134,15 @@ void hypervisor_main(unsigned long cpuid)
 		initialized_flag = 1;
 	}
 
-	// いったんコア1を止める
+	// 全コアの割込みを有効化する
+	enable_irq();
+
+	// デバッグのため、いったんコア1を止める
 	while (cpuid == 1);
+
+// todo: この書き込みによってコア1で割込みが発生しているのは確認済み
+//       しかし irq フラグが設定されないせいで mbox のハンドラが呼ばれていない
+put32(MBOX_CORE1_SET_0, 1);
 
 	INFO("CPU%d runs IDLE process", cpuid);
 
