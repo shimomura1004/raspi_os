@@ -49,6 +49,7 @@ void show_invalid_entry_message(int type, unsigned long esr, unsigned long elr, 
 }
 
 // 割込みベクタがジャンプしてくる先
+// todo: コアごとにハンドラをわける
 void handle_irq(void)
 {
 	// todo: daifset で割込みを止めてもシステムタイマによる割込みが発生してしまう、なぜ？

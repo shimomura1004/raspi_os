@@ -191,7 +191,9 @@ fiq_invalid_el01_32:
 error_invalid_el01_32:
 	handle_invalid_entry ERROR_INVALID_EL01_32
 
-
+// todo: el2_irq と el01_irq が同じハンドラ handle_irq を呼び出しているが正しいか？
+//       el2 から呼び出すときは本物のメモリ領域を直接読むべきでは？
+//       → el2 でアクセスするとトラップされないので本物がそのまま読まれる？
 el2_irq:
 	kernel_entry
 	bl	handle_irq
