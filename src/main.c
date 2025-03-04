@@ -14,6 +14,7 @@
 #include "debug.h"
 #include "loader.h"
 #include "peripherals/irq.h"
+#include "peripherals/mailbox.h"
 
 // boot.S で初期化が終わるまでコアを止めるのに使うフラグ
 volatile unsigned long initialized_flag = 0;
@@ -76,11 +77,10 @@ static void initialize_hypervisor() {
 	// システムタイマは全コアで共有されるのでここで初期化
 	systimer_init();
 
-	// Core 0~3 の MAILBOX の割込みを有効化
-	// put32(MBOX_CORE0_CONTROL, MBOX_INTERRUPT_ENABLE_IRQ_ALL);
-	put32(MBOX_CORE1_CONTROL, MBOX_INTERRUPT_ENABLE_IRQ_ALL);
-	put32(MBOX_CORE2_CONTROL, MBOX_INTERRUPT_ENABLE_IRQ_ALL);
-	put32(MBOX_CORE3_CONTROL, MBOX_INTERRUPT_ENABLE_IRQ_ALL);
+	// Core 1~3 の Core 0 からの MAILBOX の割込みを有効化
+	put32(MBOX_CORE1_CONTROL, MBOX_CONTROL_IRQ_0_BIT);
+	put32(MBOX_CORE2_CONTROL, MBOX_CONTROL_IRQ_0_BIT);
+	put32(MBOX_CORE3_CONTROL, MBOX_CONTROL_IRQ_0_BIT);
 
 	// 中途半端なところで割込み発生しないようにタイマと UART の有効化が終わるまで割込み禁止
 	disable_irq();

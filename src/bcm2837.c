@@ -9,6 +9,7 @@
 #include "peripherals/mini_uart.h"
 #include "peripherals/systimer.h"
 #include "peripherals/irq.h"
+#include "peripherals/mailbox.h"
 
 // BCM2837 SoC を表現するデータ構造と関数群
 // ハイパーバイザでは BCM2837 をエミュレートする

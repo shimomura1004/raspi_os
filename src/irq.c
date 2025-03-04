@@ -2,6 +2,7 @@
 #include "systimer.h"
 #include "entry.h"
 #include "peripherals/irq.h"
+#include "peripherals/mailbox.h"
 #include "arm/sysregs.h"
 #include "sched.h"
 #include "debug.h"
