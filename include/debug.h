@@ -12,8 +12,8 @@ extern struct spinlock log_lock;
 #define _LOG_COMMON(level, fmt, ...) do { \
     acquire_lock(&log_lock); \
     unsigned long cpuid = get_cpuid(); \
-    if (current) { \
-        printf("<cpu:%d>[vmid:%d] %s: ", cpuid, current->vmid, level); \
+    if (current()) { \
+        printf("<cpu:%d>[vmid:%d] %s: ", cpuid, current()->vmid, level); \
     } \
     else { \
         printf("<cpu:%d>[vmid:?] %s: ", cpuid, level); \
@@ -27,7 +27,7 @@ extern struct spinlock log_lock;
 
 #define PANIC(fmt, ...) do { \
     _LOG_COMMON("PANIC", fmt, ##__VA_ARGS__); \
-    if (current) { \
+    if (current()) { \
         exit_vm(); \
     } \
     else { \

@@ -18,8 +18,10 @@ enum VM_STATE {
 
 struct board_ops;
 
-extern struct vm_struct *current;
-extern struct vm_struct * vms[NUMBER_OF_VMS];
+struct vm_struct *current();
+void initiate_idle_vms();
+
+extern struct vm_struct *vms[NUMBER_OF_VMS];
 extern int current_number_of_vms;
 
 // 控えないといけないレジスタ値を保存する

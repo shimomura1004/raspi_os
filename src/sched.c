@@ -5,6 +5,7 @@
 #include "debug.h"
 #include "board.h"
 #include "vm.h"
+#include "cpu_core.h"
 
 static struct vm_struct init_vm = {
 	.cpu_context = {0},
@@ -23,11 +24,31 @@ static struct vm_struct init_vm = {
 	.lock        = {0, 0, -1},
 };
 
+static struct vm_struct idle_vms[NUMBER_OF_CPU_CORES];
+struct vm_struct *currents[NUMBER_OF_CPU_CORES];
+
+void initiate_idle_vms() {
+	for (int i = 0; i<NUMBER_OF_CPU_CORES; i++) {
+		currents[i] = &idle_vms[i];
+		memcpy(&idle_vms[i], &init_vm, sizeof(struct vm_struct));
+	}
+}
+
 // 現在実行中の VM の vm_struct
 // todo: cpu コアが複数あるのに current が 1 つしかない！
 //       削除して、cpu_core_struct の current_vm に置き換える
-struct vm_struct *current = &(init_vm);
-struct vm_struct *vms[NUMBER_OF_VMS] = {&(init_vm), };
+struct vm_struct *current() {
+	// return currents[get_cpuid()];
+	return currents[0];
+}
+void set_current(struct vm_struct *vm) {
+	// currents[get_cpuid()] = vm;
+	currents[0] = vm;
+}
+
+//struct vm_struct *vms[NUMBER_OF_VMS] = {&(init_vm), };
+struct vm_struct *vms[NUMBER_OF_VMS] = {&(idle_vms[0]), };
+
 // 現在実行中の VM の数(init_vm があるので初期値は1)
 int current_number_of_vms = 1;
 
@@ -90,7 +111,7 @@ static void _schedule(void)
 void schedule(void)
 {
 	// 自主的に CPU を手放した場合はカウンタを 0 にする
-	current->counter = 0;
+	current()->counter = 0;
 	_schedule();
 }
 
@@ -117,12 +138,12 @@ void set_cpu_virtual_interrupt(struct vm_struct *tsk) {
 // 指定した VM に切り替える
 void switch_to(struct vm_struct * next)
 {
-	if (current == next) {
+	if (current() == next) {
 		return;
 	}
 
-	struct vm_struct * prev = current;
-	current = next;
+	struct vm_struct * prev = current();
+	set_current(next);
 
 	// レジスタを控えて実際に VM を切り替える
 	// 戻ってくるときは別の VM になっている
@@ -132,12 +153,12 @@ void switch_to(struct vm_struct * next)
 // タイマが発火すると呼ばれ、VM 切り替えを行う
 void timer_tick()
 {
-	--current->counter;
+	--current()->counter;
 	// まだ VM が十分な時間実行されていなかったら切り替えずに終了
-	if (current->counter > 0) {
+	if (current()->counter > 0) {
 		return;
 	}
-	current->counter = 0;
+	current()->counter = 0;
 
 	// 割込みハンドラは割込み無効状態で開始される
 	// _schedule 関数の処理中に割込みを使う部分があるので割込みを有効にする
@@ -149,7 +170,7 @@ void timer_tick()
 
 void exit_vm(){
 	for (int i = 0; i < NUMBER_OF_VMS; i++){
-		if (vms[i] == current) {
+		if (vms[i] == current()) {
 			// 実行中の VM の構造体を見つけて zombie にする(=スケジューリング対象から外れる)
 			// todo: メモリは解放しなくていい？
 			vms[i]->state = VM_ZOMBIE;
@@ -167,37 +188,37 @@ void set_cpu_sysregs(struct vm_struct *tsk) {
 
 // ハイパーバイザでの処理を終えて VM に処理を戻すときに kernel_exit から呼ばれる
 void vm_entering_work() {
-	if (HAVE_FUNC(current->board_ops, entering_vm)) {
-		current->board_ops->entering_vm(current);
+	if (HAVE_FUNC(current()->board_ops, entering_vm)) {
+		current()->board_ops->entering_vm(current());
 	}
 
 	// VM 処理に復帰するとき、コンソールがこの VM に紐づいていたら
 	// キューに入っていた値を全部出力する
-	if (is_uart_forwarded_vm(current)) {
-		flush_vm_console(current);
+	if (is_uart_forwarded_vm(current())) {
+		flush_vm_console(current());
 	}
 
 	// todo: entering_vm, flush, set_cpu_sysregs, set_cpu_virtual_interrupt の正しい呼び出し順がわからない
 	// 控えておいたレジスタの値を戻す
-	set_cpu_sysregs(current);
+	set_cpu_sysregs(current());
 
 	// 今実行を再開しようとしている VM に対し仮想割込みを設定する
 	//   ハイパーバイザ環境では VM に対し割込みを発生させる必要があるので
 	//   VM が実行開始するタイミングで仮想割込みを生成しないといけない
-	set_cpu_virtual_interrupt(current);
+	set_cpu_virtual_interrupt(current());
 }
 
 // VM での処理を抜けてハイパーバイザに処理に入るときに kernel_entry から呼ばれる
 void vm_leaving_work() {
 	// 今のレジスタの値を控える
-	save_sysregs(&current->cpu_sysregs);
+	save_sysregs(&current()->cpu_sysregs);
 
-	if (HAVE_FUNC(current->board_ops, leaving_vm)) {
-		current->board_ops->leaving_vm(current);
+	if (HAVE_FUNC(current()->board_ops, leaving_vm)) {
+		current()->board_ops->leaving_vm(current());
 	}
 
-	if (is_uart_forwarded_vm(current)) {
-		flush_vm_console(current);
+	if (is_uart_forwarded_vm(current())) {
+		flush_vm_console(current());
 	}
 }
 
