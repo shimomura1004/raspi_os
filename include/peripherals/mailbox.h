@@ -110,4 +110,6 @@
 #define MBOX_CORE3_RD_CLR_2     (MBOX_CORE3_RD_CLR_BASE + 0x8)  // Core3 -> Core2
 #define MBOX_CORE3_RD_CLR_3     (MBOX_CORE3_RD_CLR_BASE + 0xC)  // Core3 -> Core3
 
+void handle_mailbox_irq(unsigned long cpuid);
+
 #endif

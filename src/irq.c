@@ -105,6 +105,8 @@ static void handle_irq_subcore(unsigned long cpuid) {
 		// -> source を読めば判断はできる
 		// source の各ビットを独立して使用可能
 		put32(mbox_rd_clrs[cpuid - 1], 0x1);
+
+		handle_mailbox_irq(cpuid);
 	}
 }
 
