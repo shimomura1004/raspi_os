@@ -142,7 +142,7 @@ void hypervisor_main(unsigned long cpuid)
 
 // todo: この書き込みによってコア1で割込みが発生しているのは確認済み
 //       しかし irq フラグが設定されないせいで mbox のハンドラが呼ばれていない
-put32(MBOX_CORE1_SET_0, 1);
+put32(MBOX_CORE1_SET_0, 0x1);
 
 	INFO("CPU%d runs IDLE process", cpuid);
 
