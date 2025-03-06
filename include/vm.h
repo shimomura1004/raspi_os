@@ -22,7 +22,6 @@ void init_vm_console(struct vm_struct *);
 int is_uart_forwarded_vm(struct vm_struct *);
 void flush_vm_console(struct vm_struct *);
 void increment_current_pc(int);
-void init_initial_vm(void);
 
 // PSTATE
 // https://developer.arm.com/documentation/102412/0103/Handling-exceptions/Taking-an-exception?lang=en#md244-taking-an-exception__saving-the-current-processor-state

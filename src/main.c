@@ -70,12 +70,8 @@ static void initialize_hypervisor() {
 	uart_init();
 	init_printf(NULL, putc);
 
-	// IDLE VM 用の ホスト用のコンソールの初期化
-	init_vm_console(current());
-
-	init_initial_vm();
-
 	// システムタイマは全コアで共有されるのでここで初期化
+	// todo: generic timer にする
 	systimer_init();
 
 	// Core 1~3 の Core 0 からの MAILBOX の割込みを有効化
@@ -94,6 +90,10 @@ static void initialize_hypervisor() {
 	}
 }
 
+// todo: ゲスト SP がマップされてない → トラップしてマップされるべきところが、cpu0 じゃないから動いてない？
+// はじめに idle vm を4つ用意していたが、vmid 0 以外はまだ開始していないので、pc が 0 のままだった
+// そのため再度 pc 0 から実行開始してしまい、おかしくなっていた
+// 最初にコア数分の idle vm を用意するのはいいが、while ループに入るまでは zombie にしておくのがよさそう
 static void load_guest_oss() {
 	if (create_vm(raw_binary_loader, &echo_bin_args) < 0) {
 		printf("error while starting VM #1");
@@ -146,6 +146,9 @@ void hypervisor_main(unsigned long cpuid)
 put32(MBOX_CORE1_SET_0, 0x1);
 
 	INFO("CPU%d runs IDLE process", cpuid);
+
+	// ここまできたら、実行中のコア用の idle vm を runnable にする
+	current()->state = VM_RUNNABLE;
 
 	// 初期化を終えると IDLE プロセス(= IDLE VM)になる
 	// すべての VM が CPU を放棄した時に返ってくる場所

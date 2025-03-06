@@ -31,7 +31,7 @@ unsigned long allocate_vm_page(struct vm_struct *vm, unsigned long ipa) {
 	}
 	// 新たに確保したページをこの VM のアドレス空間にマッピングする
 	map_stage2_page(vm, ipa, page, MMU_STAGE2_PAGE_FLAGS);
-	// INFO("VTTBR0_EL2(VMID %d): IPA 0x%lx(0x%lx in full) -> PA 0x%lx (allocate_vm_page)", current()->vmid, ipa & 0xffffffffffff, ipa, page);
+	INFO("VTTBR0_EL2(VMID %d): IPA 0x%lx(0x%lx in full) -> PA 0x%lx (allocate_vm_page)", current()->vmid, ipa & 0xffffffffffff, ipa, page);
 
 	// 新たに確保したページの仮想アドレスを返す(リニアマッピングなのでオフセットを足すだけ)
 	return page + VA_START;
@@ -217,8 +217,8 @@ int handle_mem_abort(unsigned long addr, unsigned long esr) {
 		// todo: ページ境界に合わないアドレスがくることがあるので応急処置
 		addr = addr / PAGE_SIZE * PAGE_SIZE;
 		map_stage2_page(current(), get_ipa(addr) & PAGE_MASK, page, MMU_STAGE2_PAGE_FLAGS);
-		// INFO("VTTBR0_EL2(VMID %d): IPA 0x%lx(0x%lx in full) -> PA 0x%lx (handle_mem_abort)",
-		// 	 current()->vmid, get_ipa(addr) & 0xffffffffffff, addr, page);
+		INFO("VTTBR0_EL2(VMID %d): IPA 0x%lx(0x%lx in full) -> PA 0x%lx (handle_mem_abort)",
+			 current()->vmid, get_ipa(addr) & 0xffffffffffff, addr, page);
 
 		current()->stat.pf_trap_count++;
 		return 0;

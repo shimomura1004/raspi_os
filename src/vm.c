@@ -126,7 +126,3 @@ void flush_vm_console(struct vm_struct *tsk) {
 		printf("%c", val);
 	}
 }
-
-void init_initial_vm() {
-	vms[0]->name = "IDLE";
-}

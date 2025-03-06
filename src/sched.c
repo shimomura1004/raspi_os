@@ -25,12 +25,28 @@ static struct vm_struct init_vm = {
 };
 
 static struct vm_struct idle_vms[NUMBER_OF_CPU_CORES];
+// idle vm や動的に作られた vm などへの参照を保持する配列
+struct vm_struct *vms[NUMBER_OF_VMS];
+
+// 各 CPU コアで実行中の VM
+// todo: CPU 構造体に入れたい
 struct vm_struct *currents[NUMBER_OF_CPU_CORES];
 
+// 現在実行中の VM の数(idle_vms があるので初期値は NUMBER_OF_CPU_CORES)
+int current_number_of_vms = NUMBER_OF_CPU_CORES;
+
 void initiate_idle_vms() {
-	for (int i = 0; i<NUMBER_OF_CPU_CORES; i++) {
+	for (int i = 0; i < NUMBER_OF_CPU_CORES; i++) {
 		currents[i] = &idle_vms[i];
 		memcpy(&idle_vms[i], &init_vm, sizeof(struct vm_struct));
+
+		vms[i] = &idle_vms[i];
+		vms[i]->name = "IDLE";
+		vms[i]->vmid = i;
+		vms[i]->state = VM_ZOMBIE;
+
+		// IDLE VM 用の ホスト用のコンソールの初期化
+		init_vm_console(vms[i]);
 	}
 }
 
@@ -46,13 +62,7 @@ void set_current(struct vm_struct *vm) {
 	currents[0] = vm;
 }
 
-//struct vm_struct *vms[NUMBER_OF_VMS] = {&(init_vm), };
-struct vm_struct *vms[NUMBER_OF_VMS] = {&(idle_vms[0]), };
-
-// 現在実行中の VM の数(init_vm があるので初期値は1)
-int current_number_of_vms = 1;
-
-//  VM 切換え
+// VM 切換え
 // 複数の CPU が同時に呼び出すのでスレッドセーフにしないといけない
 // todo: 複数 CPU で動かす場合は、停止時と異なる CPU で VM が動くかもしれない
 static void _schedule(void)
