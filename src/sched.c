@@ -209,11 +209,11 @@ const char *vm_state_str[] = {
 
 // todo: VM に割り当てられた CPU ID も表示したい
 void show_vm_list() {
-    printf("  %3s %12s %8s %7s %9s %7s %7s %7s %7s %7s\n",
+    printf("  %4s %12s %8s %7s %9s %7s %7s %7s %7s %7s\n",
 		   "vmid", "name", "state", "pages", "saved-pc", "wfx", "hvc", "sysregs", "pf", "mmio");
     for (int i = 0; i < current_number_of_vms; i++) {
         struct vm_struct *vm = vms[i];
-        printf("%c %3d %12s %8s %7d %9x %7d %7d %7d %7d %7d\n",
+        printf("%c %4d %12s %8s %7d %9x %7d %7d %7d %7d %7d\n",
                is_uart_forwarded_vm(vms[i]) ? '*' : ' ',
 			   vm->vmid,
 			   vm->name ? vm->name : "",
