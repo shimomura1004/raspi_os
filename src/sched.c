@@ -238,15 +238,28 @@ const char *vm_state_str[] = {
 	"ZOMBIE",
 };
 
+// todo: cpu 構造体に vm 情報を入れたら不要になるはず
+int find_cpu_which_runs(struct vm_struct *vm) {
+	for (int i = 0; i < NUMBER_OF_CPU_CORES; i++) {
+		if (currents[i] == vm) {
+			return i;
+		}
+	}
+	return -1;
+}
+
 // todo: VM に割り当てられた CPU ID も表示したい
 void show_vm_list() {
-    printf("  %4s %12s %8s %7s %9s %7s %7s %7s %7s %7s\n",
-		   "vmid", "name", "state", "pages", "saved-pc", "wfx", "hvc", "sysregs", "pf", "mmio");
+    printf("  %4s %3s %12s %8s %7s %9s %7s %7s %7s %7s %7s\n",
+		   "vmid", "cpu", "name", "state", "pages", "saved-pc", "wfx", "hvc", "sysregs", "pf", "mmio");
     for (int i = 0; i < current_number_of_vms; i++) {
         struct vm_struct *vm = vms[i];
-        printf("%c %4d %12s %8s %7d %9x %7d %7d %7d %7d %7d\n",
+		int cpuid = find_cpu_which_runs(vm);
+        printf("%c %4d   %c %12s %8s %7d %9x %7d %7d %7d %7d %7d\n",
                is_uart_forwarded_vm(vms[i]) ? '*' : ' ',
 			   vm->vmid,
+			   // CPUID は1桁のみ対応
+			   (cpuid < 0 || vm->state == VM_ZOMBIE? '-' : '0' + cpuid),
 			   vm->name ? vm->name : "",
                vm_state_str[vm->state],
 			   vm->mm.vm_pages_count,
