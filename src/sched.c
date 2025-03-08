@@ -93,14 +93,18 @@ static void _schedule(void)
 		}
 
 		// すべての VM が実行時間を使い切っていたら、全 VM に実行時間を補充する
-		// todo: おそらくロックが必要
 		for (int i = 0; i < NUMBER_OF_VMS; i++) {
 			p = vms[i];
+
+			acquire_lock(&p->lock);
+
 			if (p) {
 				// 何回もループした場合にカウンタの値が大きくなりすぎないように
 				// 今のカウンタの値を半分にして、プライオリティを足したもので更新
 				p->counter = (p->counter >> 1) + p->priority;
 			}
+
+			release_lock(&p->lock);
 		}
 		// VM_RUNNING 状態のものが見つかるまでずっとループする
 		// 割込みを有効にしておかないと誰も VM の状態を変更できず無限ループになってしまうので
