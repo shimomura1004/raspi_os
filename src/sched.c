@@ -54,12 +54,10 @@ void initiate_idle_vms() {
 // todo: cpu コアが複数あるのに current が 1 つしかない！
 //       削除して、cpu_core_struct の current_vm に置き換える
 struct vm_struct *current() {
-	// return currents[get_cpuid()];
-	return currents[0];
+	return currents[get_cpuid()];
 }
 void set_current(struct vm_struct *vm) {
-	// currents[get_cpuid()] = vm;
-	currents[0] = vm;
+	currents[get_cpuid()] = vm;
 }
 
 // VM 切換え
@@ -69,6 +67,7 @@ static void _schedule(void)
 {
 	int next, c;
 	struct vm_struct *p;
+	unsigned long cpuid = get_cpuid();
 
 	while (1) {
 		c = -1;
@@ -77,6 +76,12 @@ static void _schedule(void)
 		// 先頭から順番に状態を見ていく
 		for (int i = 0; i < NUMBER_OF_VMS; i++){
 			p = vms[i];
+
+			// idle_vm のための特別対応、他の vCPU が idle_vm を実行してはいけない
+			if (p->vmid < NUMBER_OF_CPU_CORES && p->vmid != cpuid) {
+				continue;
+			}
+
 			acquire_lock(&p->lock);
 
 			// RUNNING/RUNNABLE 状態で、かつ一番カウンタが大きいものを探す
