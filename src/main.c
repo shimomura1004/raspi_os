@@ -99,9 +99,9 @@ static void load_guest_oss() {
 		printf("error while starting VM #1");
 	}
 
-	// if (create_vm(raw_binary_loader, &mini_os_bin_args) < 0) {
-	// 	printf("error while starting VM #2");
-	// }
+	if (create_vm(raw_binary_loader, &mini_os_bin_args) < 0) {
+		printf("error while starting VM #2");
+	}
 
 	// if (create_vm(elf_binary_loader, &mini_os_elf_args) < 0) {
 	// 	printf("error while starting VM #3");
