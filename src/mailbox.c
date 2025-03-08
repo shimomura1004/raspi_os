@@ -1,6 +1,8 @@
 #include "peripherals/mailbox.h"
+#include "sched.h"
 #include "debug.h"
 
 void handle_mailbox_irq(unsigned long cpuid) {
-    INFO("MAILBOX!");
+    // INFO("MAILBOX!");
+    timer_tick();
 }
