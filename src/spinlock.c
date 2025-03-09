@@ -53,12 +53,13 @@ void acquire_lock(struct spinlock *lock) {
     // todo: ロック中は割込みを禁止しておかないとデッドロックする可能性がある
 push_disable_irq();
 
+    unsigned long cpuid = get_cpuid();
     if (holding(lock)) {
-        PANIC("acquire: already locked by myself");
+        PANIC("acquire: already locked by myself(cpu: %d)", cpuid);
     }
 
     _spinlock_acquire(&lock->locked);
-    lock->cpuid = get_cpuid();
+    lock->cpuid = cpuid;
 }
 
 void release_lock(struct spinlock *lock) {

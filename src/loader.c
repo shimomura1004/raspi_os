@@ -37,7 +37,7 @@ int load_file_to_memory(struct vm_struct *tsk, const char *name, unsigned long v
         int actualsize = fat32_read(&file, buf, offset, readsize);
 
         if (readsize != actualsize) {
-            WARN("failed to read file");
+            WARN("failed to read raw file");
             return -1;
         }
 
@@ -74,7 +74,7 @@ int elf_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
     int actualsize = fat32_read(&file, buf, 0, readsize);
 
     if (readsize != actualsize) {
-        WARN("failed to read file");
+        WARN("failed to read elf file");
         return -1;
     }
 
@@ -100,7 +100,7 @@ int elf_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
         int actualsize = fat32_read(&file, buf, program_header_offset + program_header_size * i, readsize);
 
         if (readsize != actualsize) {
-            WARN("failed to read file");
+            WARN("failed to read file (program header)");
             return -1;
         }
 
