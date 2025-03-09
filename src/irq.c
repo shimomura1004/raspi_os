@@ -95,7 +95,7 @@ static void handle_irq_subcore(unsigned long cpuid) {
 	unsigned long source = get32(mbox_sources[cpuid - 1]);
 
 	if (source & IRQ_SOURCE_MBOX_0_BIT) {
-		INFO("source: 0x%lx", source);
+		// INFO("source: 0x%lx", source);
 
 		// todo: main で1回だけ mailbox に書くとずっと割込み発生する
 		//       ここでクリアすれば止まる
