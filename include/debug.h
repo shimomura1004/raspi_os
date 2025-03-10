@@ -6,6 +6,7 @@
 #include "sched.h"
 #include "utils.h"
 #include "spinlock.h"
+#include "irq.h"
 
 extern struct spinlock log_lock;
 
@@ -25,12 +26,14 @@ extern struct spinlock log_lock;
 #define INFO(fmt, ...) _LOG_COMMON("INFO", fmt, ##__VA_ARGS__)
 #define WARN(fmt, ...) _LOG_COMMON("WARN", fmt, ##__VA_ARGS__)
 
+// panic 後も割り込みが入ると普通に動いてしまうので割り込みを禁止する
 #define PANIC(fmt, ...) do { \
     _LOG_COMMON("PANIC", fmt, ##__VA_ARGS__); \
     if (current()) { \
         exit_vm(); \
     } \
     else { \
+        disable_irq(); \
         err_hang(); \
     } \
 } while(0)
