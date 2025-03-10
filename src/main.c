@@ -138,17 +138,19 @@ void hypervisor_main(unsigned long cpuid)
 	// 全コアの割込みを有効化する
 	enable_irq();
 
-	// デバッグのため、いったんコア1を止める
-	while (cpuid == 1);
-
 // todo: この書き込みによってコア1で割込みが発生しているのは確認済み
 //       しかし irq フラグが設定されないせいで mbox のハンドラが呼ばれていない
-put32(MBOX_CORE1_SET_0, 0x1);
+if (cpuid == 0) {
+//put32(MBOX_CORE1_SET_0, 0x1);
+}
 
 	INFO("CPU%d runs IDLE process", cpuid);
 
 	// ここまできたら、実行中のコア用の idle vm を runnable にする
 	current()->state = VM_RUNNABLE;
+
+	// デバッグのため、いったんコア1を止める
+	while (cpuid == 1);
 
 	// 初期化を終えると IDLE プロセス(= IDLE VM)になる
 	// すべての VM が CPU を放棄した時に返ってくる場所
