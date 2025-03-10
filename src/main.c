@@ -103,17 +103,17 @@ static void load_guest_oss() {
 		printf("error while starting VM #2");
 	}
 
-	// if (create_vm(elf_binary_loader, &mini_os_elf_args) < 0) {
-	// 	printf("error while starting VM #3");
-	// }
+	if (create_vm(elf_binary_loader, &mini_os_elf_args) < 0) {
+		printf("error while starting VM #3");
+	}
 
-	// if (create_vm(elf_binary_loader, &echo_elf_args) < 0) {
-	// 	printf("error while starting VM #4");
-	// }
+	if (create_vm(elf_binary_loader, &echo_elf_args) < 0) {
+		printf("error while starting VM #4");
+	}
 
-	// if (create_vm(raw_binary_loader, &test_bin_args) < 0) {
-	// 	printf("error while starting VM #5");
-	// }
+	if (create_vm(raw_binary_loader, &test_bin_args) < 0) {
+		printf("error while starting VM #5");
+	}
 }
 
 // hypervisor としてのスタート地点
@@ -161,6 +161,7 @@ if (cpuid == 0) {
 		disable_irq();
 		// このプロセスでは特にやることがないので CPU を明け渡す
 		// todo: schedule を自分で呼ばなければ、マルチコアで動作してもクラッシュしない
+		// todo: vm 数が少ないと idle のまま動かないコアがでてくる
 		// schedule();
 		enable_irq();
 	}

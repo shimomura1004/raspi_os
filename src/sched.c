@@ -11,7 +11,8 @@ static struct vm_struct init_vm = {
 	.cpu_context = {0},
 	.state       = 0,
 	.counter     = 0,
-	.priority    = 1,
+	// todo: priority を大きくしていけば複数の CPU コアで実行されるようになる
+	.priority    = 5,
 	.vmid        = 0,
 	.flags       = 0,
 	.name        = "",
@@ -74,7 +75,9 @@ static void _schedule(void)
 		next = 0;
 		// VM の最大数は決め打ちで NUMBER_OF_VMS 個
 		// 先頭から順番に状態を見ていく
-		for (int i = 0; i < NUMBER_OF_VMS; i++){
+		// todo: 積極的に idle vm を選ぶ理由がないので外す
+		// for (int i = 0; i < NUMBER_OF_VMS; i++){
+		for (int i = NUMBER_OF_CPU_CORES; i < NUMBER_OF_VMS; i++) {
 			p = vms[i];
 
 			// idle_vm のための特別対応、他の vCPU が idle_vm を実行してはいけない
@@ -85,7 +88,8 @@ static void _schedule(void)
 			acquire_lock(&p->lock);
 
 			// RUNNING/RUNNABLE 状態で、かつ一番カウンタが大きいものを探す
-			if (p && p->state != VM_ZOMBIE && p->counter > c) {
+			// if (p && p->state != VM_ZOMBIE && p->counter >= c) {
+			if (p && p->state == VM_RUNNABLE && p->counter >= c) {
 				c = p->counter;
 				next = i;
 			}
@@ -118,6 +122,7 @@ static void _schedule(void)
 	}
 
 	// 切り替え先 VM に switch_to する
+// INFO("switch: %d->%d", current()->vmid, next);
 	switch_to(vms[next]);
 
 	// todo: xv6 と同じように、タスク間で直接切り替えるのではなく、一度 idle_vm を経由するようにする
@@ -165,6 +170,11 @@ void switch_to(struct vm_struct * next)
 
 	struct vm_struct * prev = current();
 	set_current(next);
+
+	// 他のコアで同時に実行してしまわないように VM の状態を切り替える
+	// todo: 排他が必要と思われる
+	prev->state = VM_RUNNABLE;
+	next->state = VM_RUNNING;
 
 	// レジスタを控えて実際に VM を切り替える
 	// 戻ってくるときは別の VM になっている
