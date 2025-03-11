@@ -119,6 +119,8 @@ static void _schedule(void)
 
 	// 切り替え先 VM に switch_to する
 	switch_to(vms[next]);
+
+	// todo: xv6 と同じように、タスク間で直接切り替えるのではなく、一度 idle_vm を経由するようにする
 }
 
 // 自主的に CPU 時間を手放し VM を切り替える

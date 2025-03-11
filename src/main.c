@@ -150,7 +150,7 @@ if (cpuid == 0) {
 	current()->state = VM_RUNNABLE;
 
 	// デバッグのため、いったんコア1を止める
-	while (cpuid == 1);
+	while (cpuid == 0);
 
 	// 初期化を終えると IDLE プロセス(= IDLE VM)になる
 	// すべての VM が CPU を放棄した時に返ってくる場所

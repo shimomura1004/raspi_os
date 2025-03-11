@@ -2,6 +2,7 @@
 #include "sched.h"
 #include "printf.h"
 #include "peripherals/systimer.h"
+#include "peripherals/mailbox.h"
 
 // todo: これは system timer である
 //       コアごとにある generic timer ではない
@@ -17,13 +18,19 @@ void systimer_init () {
 	put32(TIMER_C1, get32(TIMER_CLO) + interval);
 }
 
-// タスクスイッチ用
+// VM スイッチ用
 void handle_systimer1_irq() {
 	// 定期的に呼び出されるよう、次の比較値をセットする
 	put32(TIMER_C1, get32(TIMER_CLO) + interval);
 	// 割込みをクリア
 	put32(TIMER_CS, TIMER_CS_M1);
-	timer_tick();
+
+	// VM 切り替え
+	// todo: CPUID1 で処理しても動くが、どうやらスイッチするとアドレス0から始まる？
+	// timer_tick();
+
+	// CPU1 にも割込みを送ってタスクを切り替える
+	put32(MBOX_CORE1_SET_0, 0x1);
 }
 
 // VM の割込み用
