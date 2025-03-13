@@ -150,7 +150,7 @@ if (cpuid == 0) {
 	current()->state = VM_RUNNABLE;
 
 	// デバッグのため、いったんコア1を止める
-	while (cpuid == 0);
+	// while (cpuid == 0);
 
 	// 初期化を終えると IDLE プロセス(= IDLE VM)になる
 	// すべての VM が CPU を放棄した時に返ってくる場所
@@ -160,8 +160,8 @@ if (cpuid == 0) {
 		// todo: schedule を呼ぶ前に手動で割込みを禁止にしないといけないのは危ない
 		disable_irq();
 		// このプロセスでは特にやることがないので CPU を明け渡す
-		// todo: ゲスト OS のコントロールができるといい
-		schedule();
+		// todo: schedule を自分で呼ばなければ、マルチコアで動作してもクラッシュしない
+		// schedule();
 		enable_irq();
 	}
 }
