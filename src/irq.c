@@ -86,13 +86,13 @@ static void handle_irq_maincore() {
 // サブコアの割込みハンドラは Mailbox の割込みのみを処理する
 static void handle_irq_subcore(unsigned long cpuid) {
 	static unsigned int mbox_sources[] = {
-		CORE1_IRQ_SOURCE, CORE2_IRQ_SOURCE, CORE3_IRQ_SOURCE
+		CORE0_IRQ_SOURCE, CORE1_IRQ_SOURCE, CORE2_IRQ_SOURCE, CORE3_IRQ_SOURCE
 	};
 	static unsigned int mbox_rd_clrs[] = {
-		MBOX_CORE1_RD_CLR_0, MBOX_CORE2_RD_CLR_0, MBOX_CORE3_RD_CLR_0
+		MBOX_CORE0_RD_CLR_0, MBOX_CORE1_RD_CLR_0, MBOX_CORE2_RD_CLR_0, MBOX_CORE3_RD_CLR_0
 	};
 
-	unsigned long source = get32(mbox_sources[cpuid - 1]);
+	unsigned long source = get32(mbox_sources[cpuid]);
 
 	if (source & IRQ_SOURCE_MBOX_0_BIT) {
 		// INFO("source: 0x%lx", source);
@@ -104,7 +104,7 @@ static void handle_irq_subcore(unsigned long cpuid) {
 		//       期待値は basic_irq の mailbox のビットが立つことだが、そうなってない
 		// -> source を読めば判断はできる
 		// source の各ビットを独立して使用可能
-		put32(mbox_rd_clrs[cpuid - 1], 0x1);
+		put32(mbox_rd_clrs[cpuid], 0x1);
 
 		handle_mailbox_irq(cpuid);
 	}
