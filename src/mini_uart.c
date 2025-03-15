@@ -98,9 +98,6 @@ enqueue_char:
             enqueue_fifo(tsk->console.in_fifo, received);
         }
     }
-
-    // todo: ホストドライバ自体がエコーバックしてしまっているが、VM でやらせるべき
-    // printf("receive %c\n", received);
 }
 
 void uart_init(void) {

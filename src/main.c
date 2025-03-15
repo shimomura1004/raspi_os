@@ -153,7 +153,6 @@ void hypervisor_main(unsigned long cpuid)
 	// 初期化を終えると IDLE プロセス(= IDLE VM)になる
 	// すべての VM が CPU を放棄した時に返ってくる場所
 	// このループがなくてもタイマ割込み起因で VM 切り替えは起こる
-	// todo: CPU コアごとに IDLE プロセスが必要
 	while (1) {
 		// todo: schedule を呼ぶ前に手動で割込みを禁止にしないといけないのは危ない
 		disable_irq();
