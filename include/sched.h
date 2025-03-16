@@ -166,14 +166,17 @@ struct vm_struct {
 };
 
 void sched_init(void);
-void schedule(void);
-void timer_tick(void);
+// void schedule(void);
+// void timer_tick(void);
 void set_cpu_virtual_interrupt(struct vm_struct *);
 void set_cpu_sysregs(struct vm_struct *);
 void switch_to(struct vm_struct*);
 void cpu_switch_to(struct vm_struct*, struct vm_struct*);
 void exit_vm(void);
 void show_vm_list(void);
+
+void yield();
+void scheduler();
 
 #endif
 #endif

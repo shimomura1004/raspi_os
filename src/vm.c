@@ -21,6 +21,9 @@ static void prepare_vm(loader_func_t loader, void *arg) {
 	struct vm_struct *vm = current_vm();
 	INFO("loading... %s, EL=%d", loader_args->filename, get_el());
 
+	// VM の切り替え前に必ずロックしているので、まずそれを解除する
+	release_lock(&vm->lock);
+
 	// PSTATE の中身は SPSR レジスタに戻したうえで eret することで復元される
 	// ここで設定した regs->pstate は restore_sysregs で SPSR に戻される
 	// その後 kernel_exit で eret され実際のレジスタに復元される
