@@ -119,6 +119,10 @@ static void prepare_guest_vms() {
 	if (create_vm(raw_binary_loader, &test_bin_args) < 0) {
 		printf("error while starting VM #5");
 	}
+
+	if (create_vm(elf_binary_loader, &echo_elf_args) < 0) {
+		printf("error while starting VM #6");
+	}
 }
 
 // hypervisor としてのスタート地点

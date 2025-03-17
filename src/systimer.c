@@ -30,8 +30,8 @@ void handle_systimer1_irq() {
 
 	// CPU0 以外のコアに mbox 割込みを送ってタスクを切り替えさせる
 	put32(MBOX_CORE1_SET_0, 0x1);
-	// put32(MBOX_CORE2_SET_0, 0x1);
-	// put32(MBOX_CORE3_SET_0, 0x1);
+	put32(MBOX_CORE2_SET_0, 0x1);
+	put32(MBOX_CORE3_SET_0, 0x1);
 }
 
 // VM の割込み用
