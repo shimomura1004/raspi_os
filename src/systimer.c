@@ -11,7 +11,6 @@
 // RPi3 には 1tick ごとにカウントアップするタイマが搭載されていて
 // 合計4個の比較用レジスタがあり、カウンタの値が一致すると対応する割込み線を発火させる
 
-// const unsigned int interval = 20000;
 const unsigned int interval = 20000;
 
 void systimer_init () {
