@@ -41,6 +41,18 @@ struct bcm2837_state {
         uint8_t basic_irqs_enabled;
     } intctrl;
 
+    // todo: ローカルペリフェラルの仮想化のための構造体
+    // struct local_peripherals_regs {
+    // uint8_t local_timer; //ARM Timer
+    // uint8_t local_mailbox; //ARM Mailbox
+    // uint8_t local_doorbell0; //ARM Doorbell 0
+    // uint8_t local_doorbell1; //ARM Doorbell 1
+    // uint8_t local_gpu0_halted; //GPU0 halted (Or GPU1 halted if bit 10 of control register 1 is set)
+    // uint8_t local_gpu1_halted; //GPU1 halted
+    // uint8_t local_illegal_access_1; //Illegal access type 1
+    // uint8_t local_illegal_access_0; //Illegal access type 0 
+    //} local;
+
     // aux_* は UART1, SPI1, SPI2 に関連するレジスタ
     struct aux_peripherals_regs {
         int      mu_rx_overrun;
@@ -237,6 +249,7 @@ static unsigned long handle_intctrl_read(struct vm_struct *vm, unsigned long add
         // todo: 8,9 ビット目以外のフィールドの実装が必要
         int pending1 = handle_intctrl_read(vm, IRQ_PENDING_1) != 0;
         int pending2 = handle_intctrl_read(vm, IRQ_PENDING_2) != 0;
+        // todo: ゲスト向けに mailbox を仮想化する
         return (pending1 << 8) | (pending2 << 9);
     }
     case IRQ_PENDING_1: {
