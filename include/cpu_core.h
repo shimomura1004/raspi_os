@@ -14,7 +14,7 @@ struct cpu_core_struct {
     int interrupt_enable;
 };
 
-void init_cpu_core(unsigned long cpuid);
+void init_cpu_core_struct(unsigned long cpuid);
 struct cpu_core_struct *current_cpu_core();
 
 #endif
