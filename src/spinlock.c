@@ -6,6 +6,8 @@
 #include "irq.h"
 #include "cpu_core.h"
 
+// todo: sleeplock も実装したい
+
 extern void _spinlock_acquire(unsigned long *);
 extern void _spinlock_release(unsigned long *);
 
