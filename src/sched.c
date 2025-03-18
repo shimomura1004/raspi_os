@@ -205,14 +205,16 @@ void scheduler(unsigned long cpuid) {
 				// 準備をして、この VM を復帰させる
 				vm->state = VM_RUNNING;
 				idle_vms[cpuid].state = VM_RUNNABLE;
+				current_cpu_core()->current_vm = vm;
+				set_current_vm(vm);
 
 				// しばらく vm を実行する
-				set_current_vm(vm);
 				cpu_switch_to(&idle_vms[cpuid], vm);
 
 				// ここに戻ってきたら、今まで動いていた VM を停止させる
 				vm->state = VM_RUNNABLE;
 				idle_vms[cpuid].state = VM_RUNNING;
+				current_cpu_core()->current_vm = &idle_vms[cpuid];
 				set_current_vm(&idle_vms[cpuid]);
 			}
 
@@ -224,7 +226,6 @@ void scheduler(unsigned long cpuid) {
 		// ただし、割込みは許可されるが preemption(タスク(VM)切り替え)は許可されていないことに注意
 	}
 }
-
 // CPU 時間を手放し VM を切り替える
 void yield() {
 	struct vm_struct *vm = current_vm();
