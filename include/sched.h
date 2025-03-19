@@ -18,7 +18,7 @@ enum VM_STATE {
 
 struct board_ops;
 
-struct vm_struct *current();
+struct vm_struct *current_vm();
 void initiate_idle_vms();
 
 extern struct vm_struct *vms[NUMBER_OF_VMS];
@@ -164,15 +164,15 @@ struct vm_struct {
     struct spinlock lock;
 };
 
-extern void sched_init(void);
-extern void schedule(void);
-extern void timer_tick(void);
-extern void set_cpu_virtual_interrupt(struct vm_struct *);
+void sched_init(void);
+void schedule(void);
+void timer_tick(void);
+void set_cpu_virtual_interrupt(struct vm_struct *);
 void set_cpu_sysregs(struct vm_struct *);
-extern void switch_to(struct vm_struct*);
-extern void cpu_switch_to(struct vm_struct*, struct vm_struct*);
-extern void exit_vm(void);
-extern void show_vm_list(void);
+void switch_to(struct vm_struct*);
+void cpu_switch_to(struct vm_struct*, struct vm_struct*);
+void exit_vm(void);
+void show_vm_list(void);
 
 #endif
 #endif

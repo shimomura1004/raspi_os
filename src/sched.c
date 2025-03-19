@@ -54,7 +54,7 @@ void initiate_idle_vms() {
 // 現在実行中の VM の vm_struct
 // todo: cpu コアが複数あるのに current が 1 つしかない！
 //       削除して、cpu_core_struct の current_vm に置き換える
-struct vm_struct *current() {
+struct vm_struct *current_vm() {
 	return currents[get_cpuid()];
 }
 void set_current(struct vm_struct *vm) {
@@ -138,7 +138,7 @@ static void _schedule(void)
 void schedule(void)
 {
 	// 自主的に CPU を手放した場合はカウンタを 0 にする
-	current()->counter = 0;
+	current_vm()->counter = 0;
 	_schedule();
 }
 
@@ -165,11 +165,11 @@ void set_cpu_virtual_interrupt(struct vm_struct *tsk) {
 // 指定した VM に切り替える
 void switch_to(struct vm_struct * next)
 {
-	if (current() == next) {
+	if (current_vm() == next) {
 		return;
 	}
 
-	struct vm_struct * prev = current();
+	struct vm_struct * prev = current_vm();
 	set_current(next);
 
 	// 他のコアで同時に実行してしまわないように VM の状態を切り替える
@@ -185,12 +185,12 @@ void switch_to(struct vm_struct * next)
 // タイマが発火すると呼ばれ、VM 切り替えを行う
 void timer_tick()
 {
-	--current()->counter;
+	--current_vm()->counter;
 	// まだ VM が十分な時間実行されていなかったら切り替えずに終了
-	if (current()->counter > 0) {
+	if (current_vm()->counter > 0) {
 		return;
 	}
-	current()->counter = 0;
+	current_vm()->counter = 0;
 
 	// 割込みハンドラは割込み無効状態で開始される
 	// _schedule 関数の処理中に割込みを使う部分があるので割込みを有効にする
@@ -202,7 +202,7 @@ void timer_tick()
 
 void exit_vm(){
 	for (int i = 0; i < NUMBER_OF_VMS; i++){
-		if (vms[i] == current()) {
+		if (vms[i] == current_vm()) {
 			// 実行中の VM の構造体を見つけて zombie にする(=スケジューリング対象から外れる)
 			// todo: メモリは解放しなくていい？
 			vms[i]->state = VM_ZOMBIE;
@@ -220,37 +220,37 @@ void set_cpu_sysregs(struct vm_struct *tsk) {
 
 // ハイパーバイザでの処理を終えて VM に処理を戻すときに kernel_exit から呼ばれる
 void vm_entering_work() {
-	if (HAVE_FUNC(current()->board_ops, entering_vm)) {
-		current()->board_ops->entering_vm(current());
+	if (HAVE_FUNC(current_vm()->board_ops, entering_vm)) {
+		current_vm()->board_ops->entering_vm(current_vm());
 	}
 
 	// VM 処理に復帰するとき、コンソールがこの VM に紐づいていたら
 	// キューに入っていた値を全部出力する
-	if (is_uart_forwarded_vm(current())) {
-		flush_vm_console(current());
+	if (is_uart_forwarded_vm(current_vm())) {
+		flush_vm_console(current_vm());
 	}
 
 	// todo: entering_vm, flush, set_cpu_sysregs, set_cpu_virtual_interrupt の正しい呼び出し順がわからない
 	// 控えておいたレジスタの値を戻す
-	set_cpu_sysregs(current());
+	set_cpu_sysregs(current_vm());
 
 	// 今実行を再開しようとしている VM に対し仮想割込みを設定する
 	//   ハイパーバイザ環境では VM に対し割込みを発生させる必要があるので
 	//   VM が実行開始するタイミングで仮想割込みを生成しないといけない
-	set_cpu_virtual_interrupt(current());
+	set_cpu_virtual_interrupt(current_vm());
 }
 
 // VM での処理を抜けてハイパーバイザに処理に入るときに kernel_entry から呼ばれる
 void vm_leaving_work() {
 	// 今のレジスタの値を控える
-	save_sysregs(&current()->cpu_sysregs);
+	save_sysregs(&current_vm()->cpu_sysregs);
 
-	if (HAVE_FUNC(current()->board_ops, leaving_vm)) {
-		current()->board_ops->leaving_vm(current());
+	if (HAVE_FUNC(current_vm()->board_ops, leaving_vm)) {
+		current_vm()->board_ops->leaving_vm(current_vm());
 	}
 
-	if (is_uart_forwarded_vm(current())) {
-		flush_vm_console(current());
+	if (is_uart_forwarded_vm(current_vm())) {
+		flush_vm_console(current_vm());
 	}
 }
 

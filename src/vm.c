@@ -23,7 +23,7 @@ static void prepare_vm(loader_func_t loader, void *arg) {
 	// PSTATE の中身は SPSR レジスタに戻したうえで eret することで復元される
 	// ここで設定した regs->pstate は restore_sysregs で SPSR に戻される
 	// その後 kernel_exit で eret され実際のレジスタに復元される
-	struct pt_regs *regs = vm_pt_regs(current());
+	struct pt_regs *regs = vm_pt_regs(current_vm());
 	regs->pstate = PSR_MODE_EL1h;	// EL を1、使用する SP を SP_EL1 にする
 	regs->pstate |= (0xf << 6);		// DAIF をすべて1にする、つまり全ての例外をマスクしている
 
@@ -31,7 +31,7 @@ static void prepare_vm(loader_func_t loader, void *arg) {
 		PANIC("failed to load");
 	}
 
-	set_cpu_sysregs(current());
+	set_cpu_sysregs(current_vm());
 
 	INFO("entering el1...");
 }
@@ -58,7 +58,7 @@ static void prepare_initial_sysregs(void) {
 }
 
 void increment_current_pc(int ilen) {
-	struct pt_regs *regs = vm_pt_regs(current());
+	struct pt_regs *regs = vm_pt_regs(current_vm());
 	regs->pc += ilen;
 }
 
@@ -83,7 +83,7 @@ int create_vm(loader_func_t loader, void *arg) {
 	p->cpu_context.x21 = (unsigned long)arg;
 	p->flags = 0;
 
-	p->priority = current()->priority;
+	p->priority = current_vm()->priority;
 	p->state = VM_RUNNABLE;
 	p->counter = p->priority;
 	p->name = "VM";

@@ -147,7 +147,7 @@ if (cpuid == 0) {
 	INFO("CPU%d runs IDLE process", cpuid);
 
 	// ここまできたら、実行中のコア用の idle vm を runnable にする
-	current()->state = VM_RUNNABLE;
+	current_vm()->state = VM_RUNNABLE;
 
 	// デバッグのため、いったんコア1を止める
 	// while (cpuid == 0);

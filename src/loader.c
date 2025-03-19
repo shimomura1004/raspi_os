@@ -127,7 +127,7 @@ int elf_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
             // コピー先となるゲストのメモリ空間にページを確保する
             // allocate_vm_page の中の map_stage2_page で stage2 テーブルを更新している
             // todo: 中途半端なアドレスな場合、うまく動かないかも
-            uint8_t *vm_buf = (uint8_t *)allocate_vm_page(current(), virtual_addr);
+            uint8_t *vm_buf = (uint8_t *)allocate_vm_page(current_vm(), virtual_addr);
 
             // コピー元のデータをハイパーバイザのメモリ空間に読み込む
             int actualsize = fat32_read(&file, vm_buf, offset, PAGE_SIZE);
@@ -145,7 +145,7 @@ int elf_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
 
     *sp = loader_args->sp;
     INFO("pc: 0x%lx in 48bit, sp: 0x%lx(0x%lx in 48bit)", *pc & 0xffffffffffff, *sp, *sp & 0xffffffffffff);
-    current()->name = loader_args->filename;
+    current_vm()->name = loader_args->filename;
 
     free_page(buf);
     return 0;
@@ -154,7 +154,7 @@ int elf_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
 int raw_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
     struct raw_binary_loader_args *loader_args = (struct raw_binary_loader_args *)args;
 
-    if (load_file_to_memory(current(), loader_args->filename, loader_args->loader_addr) < 0) {
+    if (load_file_to_memory(current_vm(), loader_args->filename, loader_args->loader_addr) < 0) {
         return -1;
     }
 
