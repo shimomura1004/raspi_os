@@ -15,6 +15,7 @@
 #include "loader.h"
 #include "peripherals/irq.h"
 #include "peripherals/mailbox.h"
+#include "cpu_core.h"
 
 // boot.S で初期化が終わるまでコアを止めるのに使うフラグ
 volatile unsigned long initialized_flag = 0;
@@ -58,7 +59,11 @@ struct raw_binary_loader_args test_bin_args = {
 };
 
 // 各 CPU コアで必要な初期化処理
+// todo: 名前がかぶっているのでどちらかを変えたい(initialize_cpu_core/init_cpu_core)
 static void initialize_cpu_core(unsigned long cpuid) {
+	// CPU コア構造体の初期化
+	init_cpu_core(cpuid);
+
 	// VBAR_EL2 レジスタに割込みベクタのアドレスを設定する
 	// 各 CPU コアで呼び出す必要がある
 	irq_vector_init();
