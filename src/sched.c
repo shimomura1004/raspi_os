@@ -188,12 +188,15 @@ void show_vm_list() {
 // 各コア専用に用意された idle vm で実行され、タイマ割込みが発生するとここに帰ってくる
 // 切り替える前に必ず VM のロックを取り、切り替え終わったらすぐにロックを解放する
 // todo: 割込みを無効にしないといけないタイミングがありそう
+// todo: vm の数が減って idle のままになる cpu コアが出ると割込みがマスクされてしまう
+//       タイマ割込みが発生したあとはずっと割込み無効になっている
 void scheduler(unsigned long cpuid) {
 	struct vm_struct *vm;
 
 	// todo: 割込みをどうするか考える、ただしタスクスイッチは禁止しないといけない
 	while (1) {
 		// 単純なラウンドロビンで VM に CPU 時間を割り当てる
+		// 先頭の VM は idle vm なので飛ばす
 		// todo: idle_vm は vms に入れなくてもいいのではないか？
 		for (int i = NUMBER_OF_CPU_CORES; i < NUMBER_OF_VMS; i++) {
 			vm = vms[i];
@@ -226,11 +229,11 @@ void scheduler(unsigned long cpuid) {
 		// ただし、割込みは許可されるが preemption(タスク(VM)切り替え)は許可されていないことに注意
 	}
 }
+
 // CPU 時間を手放し VM を切り替える
 void yield() {
 	struct vm_struct *vm = current_vm();
 
-	// todo: タイマ発火してここにくるときに、既にロックされてしまっている
 	// ロックを取ってから idle_vm に切り替える
 	acquire_lock(&vm->lock);
 
