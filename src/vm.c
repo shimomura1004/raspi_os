@@ -64,52 +64,52 @@ void increment_current_pc(int ilen) {
 
 // EL2 で動くタスク(=VM)を作る
 int create_vm(loader_func_t loader, void *arg) {
-	struct vm_struct *p;
+	struct vm_struct *vm;
 
 	// 新たなページを確保
 	unsigned long page = allocate_page();
 	// ページの先頭に vm_struct を置く
-	p = (struct vm_struct *) page;
+	vm = (struct vm_struct *) page;
 	// ページの末尾を pt_regs 用の領域とする
-	struct pt_regs *childregs = vm_pt_regs(p);
+	struct pt_regs *childregs = vm_pt_regs(vm);
 
-	if (!p) {
+	if (!vm) {
 		return -1;
 	}
 
 	// switch_from_kthread 内で x19 のアドレスにジャンプする
-	p->cpu_context.x19 = (unsigned long)prepare_vm;
-	p->cpu_context.x20 = (unsigned long)loader;
-	p->cpu_context.x21 = (unsigned long)arg;
-	p->flags = 0;
+	vm->cpu_context.x19 = (unsigned long)prepare_vm;
+	vm->cpu_context.x20 = (unsigned long)loader;
+	vm->cpu_context.x21 = (unsigned long)arg;
+	vm->flags = 0;
 
-	p->priority = current_vm()->priority;
-	p->state = VM_RUNNABLE;
-	p->counter = p->priority;
-	p->name = "VM";
+	vm->priority = current_vm()->priority;
+	vm->state = VM_RUNNABLE;
+	vm->counter = vm->priority;
+	vm->name = "VM";
 
 	// このプロセス(vm)で再現するハードウェア(BCM2837)を初期化
-	p->board_ops = &bcm2837_board_ops;
-	if (HAVE_FUNC(p->board_ops, initialize)) {
-		p->board_ops->initialize(p);
+	vm->board_ops = &bcm2837_board_ops;
+	if (HAVE_FUNC(vm->board_ops, initialize)) {
+		vm->board_ops->initialize(vm);
 	}
 
 	prepare_initial_sysregs();
-	memcpy(&p->cpu_sysregs, &initial_sysregs, sizeof(struct cpu_sysregs));
+	memcpy(&vm->cpu_sysregs, &initial_sysregs, sizeof(struct cpu_sysregs));
 
 	// el1 で動くゲスト OS カーネルは、最初は switch_from_kthread 関数から動き出す
-	p->cpu_context.pc = (unsigned long)switch_from_kthread;
+	vm->cpu_context.pc = (unsigned long)switch_from_kthread;
 	// switch_from_kthread の中で kernel_exit が呼ばれる
 	// そのとき SP が指す先には退避したレジスタが格納されている必要がある
-	p->cpu_context.sp = (unsigned long)childregs;
+	vm->cpu_context.sp = (unsigned long)childregs;
 	// 今動いている VM 数を増やし、その連番をそのまま PID とする
 	int vmid = current_number_of_vms++;
 	// 新たに作った vm_struct 構造体のアドレスを vms 配列に入れておく
 	// これでそのうち今作った VM に処理が切り替わり、switch_from_kthread から実行開始される
-	vms[vmid] = p;
-	p->vmid = vmid;
+	vms[vmid] = vm;
+	vm->vmid = vmid;
 
-	init_vm_console(p);
+	init_vm_console(vm);
 
 	return vmid;
 }

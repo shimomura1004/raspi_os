@@ -27,6 +27,7 @@ static struct vm_struct init_vm = {
 
 static struct vm_struct idle_vms[NUMBER_OF_CPU_CORES];
 // idle vm や動的に作られた vm などへの参照を保持する配列
+// todo: 直接触らせない
 struct vm_struct *vms[NUMBER_OF_VMS];
 
 // 各 CPU コアで実行中の VM
@@ -67,7 +68,7 @@ void set_current(struct vm_struct *vm) {
 static void _schedule(void)
 {
 	int next, c;
-	struct vm_struct *p;
+	struct vm_struct *vm;
 	unsigned long cpuid = get_cpuid();
 
 	while (1) {
@@ -78,23 +79,23 @@ static void _schedule(void)
 		// todo: 積極的に idle vm を選ぶ理由がないので外す
 		// for (int i = 0; i < NUMBER_OF_VMS; i++){
 		for (int i = NUMBER_OF_CPU_CORES; i < NUMBER_OF_VMS; i++) {
-			p = vms[i];
+			vm = vms[i];
 
 			// idle_vm のための特別対応、他の vCPU が idle_vm を実行してはいけない
-			if (p->vmid < NUMBER_OF_CPU_CORES && p->vmid != cpuid) {
+			if (vm->vmid < NUMBER_OF_CPU_CORES && vm->vmid != cpuid) {
 				continue;
 			}
 
-			acquire_lock(&p->lock);
+			acquire_lock(&vm->lock);
 
 			// RUNNING/RUNNABLE 状態で、かつ一番カウンタが大きいものを探す
-			// if (p && p->state != VM_ZOMBIE && p->counter >= c) {
-			if (p && p->state == VM_RUNNABLE && p->counter >= c) {
-				c = p->counter;
+			// if (vm && vm->state != VM_ZOMBIE && vm->counter >= c) {
+			if (vm && vm->state == VM_RUNNABLE && vm->counter >= c) {
+				c = vm->counter;
 				next = i;
 			}
 
-			release_lock(&p->lock);
+			release_lock(&vm->lock);
 		}
 		// まだ実行時間(counter)が残っているものがあったらそれを実行する
 		if (c) {
@@ -103,17 +104,17 @@ static void _schedule(void)
 
 		// すべての VM が実行時間を使い切っていたら、全 VM に実行時間を補充する
 		for (int i = 0; i < NUMBER_OF_VMS; i++) {
-			p = vms[i];
+			vm = vms[i];
 
-			acquire_lock(&p->lock);
+			acquire_lock(&vm->lock);
 
-			if (p) {
+			if (vm) {
 				// 何回もループした場合にカウンタの値が大きくなりすぎないように
 				// 今のカウンタの値を半分にして、プライオリティを足したもので更新
-				p->counter = (p->counter >> 1) + p->priority;
+				vm->counter = (vm->counter >> 1) + vm->priority;
 			}
 
-			release_lock(&p->lock);
+			release_lock(&vm->lock);
 		}
 		// VM_RUNNING 状態のものが見つかるまでずっとループする
 		// 割込みを有効にしておかないと誰も VM の状態を変更できず無限ループになってしまうので
