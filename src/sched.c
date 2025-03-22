@@ -87,18 +87,13 @@ void timer_tick() {
 }
 
 void exit_vm(){
-	for (int i = 0; i < NUMBER_OF_VMS; i++){
-		if (vms[i] == current_vm()) {
-			// 実行中の VM の構造体を見つけて zombie にする(=スケジューリング対象から外れる)
-			// todo: メモリは解放しなくていい？
-			vms[i]->state = VM_ZOMBIE;
-			break;
-		}
-	}
+	// todo: リソースを解放する(コンソールとかメモリページとか)
 
-	// schedule();
-	// todo: 正しく終了させる
-	while(1){}
+	// 実行中の VM のstate を zombie にする(=スケジューリング対象から外れる)
+	current_vm()->state = VM_ZOMBIE;
+
+	// todo: exit_vm したあとは割込みが無効のままになり、正しく復帰できない
+	yield();
 }
 
 void set_cpu_sysregs(struct vm_struct *tsk) {
@@ -215,7 +210,7 @@ void scheduler(unsigned long cpuid) {
 				cpu_switch_to(&idle_vms[cpuid], vm);
 
 				// ここに戻ってきたら、今まで動いていた VM を停止させる
-				vm->state = VM_RUNNABLE;
+				vm->state = vm->state == VM_ZOMBIE ? VM_ZOMBIE : VM_RUNNABLE;
 				idle_vms[cpuid].state = VM_RUNNING;
 				current_cpu_core()->current_vm = &idle_vms[cpuid];
 				set_current_vm(&idle_vms[cpuid]);
