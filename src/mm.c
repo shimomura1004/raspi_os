@@ -200,7 +200,8 @@ unsigned long get_ipa(unsigned long va) {
 // ESR_EL2
 // https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/ESR-EL2--Exception-Syndrome-Register--EL2-?lang=en#fieldset_0-24_0
 int handle_mem_abort(unsigned long addr, unsigned long esr) {
-	struct pt_regs *regs = vm_pt_regs(current_vm());
+	struct vm_struct *vm = current_vm();
+	struct pt_regs *regs = vm_pt_regs(vm);
 	unsigned int dfsc = esr & ISS_ABORT_DFSC_MASK;
 
 	if (dfsc >> 2 == 0x1) {
@@ -216,11 +217,11 @@ int handle_mem_abort(unsigned long addr, unsigned long esr) {
 		// IPA -> PA の変換を登録
 		// todo: ページ境界に合わないアドレスがくることがあるので応急処置
 		addr = addr / PAGE_SIZE * PAGE_SIZE;
-		map_stage2_page(current_vm(), get_ipa(addr) & PAGE_MASK, page, MMU_STAGE2_PAGE_FLAGS);
+		map_stage2_page(vm, get_ipa(addr) & PAGE_MASK, page, MMU_STAGE2_PAGE_FLAGS);
 		// INFO("VTTBR0_EL2(VMID %d): IPA 0x%lx(0x%lx in full) -> PA 0x%lx (handle_mem_abort)",
 		// 	 current()->vmid, get_ipa(addr) & 0xffffffffffff, addr, page);
 
-		current_vm()->stat.pf_trap_count++;
+		vm->stat.pf_trap_count++;
 		return 0;
 	}
 	else if (dfsc >> 2 == 0x3) {
@@ -233,7 +234,7 @@ int handle_mem_abort(unsigned long addr, unsigned long esr) {
 		// VM からは直接 MMIO 領域に触れないように
 		// アクセス不可に設定してトラップできるようにしていると思われる
 
-		const struct board_ops *ops = current_vm()->board_ops;
+		const struct board_ops *ops = vm->board_ops;
 		// (今のところは)アクセスサイズは 4byte 固定なので SAS は不要
 		//int sas = (esr >> 22) & 0x03;	// Syndrome access size
 		int srt = (esr >> 16) & 0x1f;	// Syndrome register transfer
@@ -242,18 +243,18 @@ int handle_mem_abort(unsigned long addr, unsigned long esr) {
 			// mmio を read しようとして例外が発生
 			if (HAVE_FUNC(ops, mmio_read)) {
 				// todo: なぜ IPA に変換する必要がある？
-				regs->regs[srt] = ops->mmio_read(current_vm(), get_ipa(addr));
+				regs->regs[srt] = ops->mmio_read(vm, get_ipa(addr));
 			}
 		}
 		else {
 			// mmio を write しようとして例外が発生
 			if (HAVE_FUNC(ops, mmio_write)) {
-				ops->mmio_write(current_vm(), get_ipa(addr), regs->regs[srt]);
+				ops->mmio_write(vm, get_ipa(addr), regs->regs[srt]);
 			}
 		}
 
 		increment_current_pc(4);
-		current_vm()->stat.mmio_trap_count++;
+		vm->stat.mmio_trap_count++;
 		return 0;
 	}
 	return -1;

@@ -13,8 +13,9 @@ extern struct spinlock log_lock;
 #define _LOG_COMMON(level, fmt, ...) do { \
     acquire_lock(&log_lock); \
     unsigned long cpuid = get_cpuid(); \
-    if (current_vm()) { \
-        printf("<cpu:%d>[vmid:%d] %s: ", cpuid, current_vm()->vmid, level); \
+    struct vm_struct *vm = current_vm(); \
+    if (vm) { \
+        printf("<cpu:%d>[vmid:%d] %s: ", cpuid, vm->vmid, level); \
     } \
     else { \
         printf("<cpu:%d>[vmid:?] %s: ", cpuid, level); \
@@ -29,7 +30,8 @@ extern struct spinlock log_lock;
 // panic 後も割り込みが入ると普通に動いてしまうので割り込みを禁止する
 #define PANIC(fmt, ...) do { \
     _LOG_COMMON("PANIC", fmt, ##__VA_ARGS__); \
-    if (current_vm()) { \
+    struct vm_struct *vm = current_vm(); \
+    if (vm) { \
         exit_vm(); \
     } \
     else { \

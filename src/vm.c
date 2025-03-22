@@ -18,12 +18,13 @@ struct pt_regs * vm_pt_regs(struct vm_struct *vm) {
 
 static void prepare_vm(loader_func_t loader, void *arg) {
 	struct raw_binary_loader_args *loader_args = (struct raw_binary_loader_args *)arg;
+	struct vm_struct *vm = current_vm();
 	INFO("loading... %s, EL=%d", loader_args->filename, get_el());
 
 	// PSTATE の中身は SPSR レジスタに戻したうえで eret することで復元される
 	// ここで設定した regs->pstate は restore_sysregs で SPSR に戻される
 	// その後 kernel_exit で eret され実際のレジスタに復元される
-	struct pt_regs *regs = vm_pt_regs(current_vm());
+	struct pt_regs *regs = vm_pt_regs(vm);
 	regs->pstate = PSR_MODE_EL1h;	// EL を1、使用する SP を SP_EL1 にする
 	regs->pstate |= (0xf << 6);		// DAIF をすべて1にする、つまり全ての例外をマスクしている
 
@@ -31,7 +32,7 @@ static void prepare_vm(loader_func_t loader, void *arg) {
 		PANIC("failed to load");
 	}
 
-	set_cpu_sysregs(current_vm());
+	set_cpu_sysregs(vm);
 
 	INFO("entering el1...");
 }

@@ -53,12 +53,11 @@ void initiate_idle_vms() {
 }
 
 // 現在実行中の VM の vm_struct
-// todo: cpu コアが複数あるのに current が 1 つしかない！
-//       削除して、cpu_core_struct の current_vm に置き換える
 struct vm_struct *current_vm() {
 	return currents[get_cpuid()];
 }
-void set_current(struct vm_struct *vm) {
+
+void set_current_vm(struct vm_struct *vm) {
 	currents[get_cpuid()] = vm;
 }
 
@@ -166,12 +165,14 @@ void set_cpu_virtual_interrupt(struct vm_struct *tsk) {
 // 指定した VM に切り替える
 void switch_to(struct vm_struct * next)
 {
-	if (current_vm() == next) {
+	struct vm_struct *current = current_vm();
+
+	if (current == next) {
 		return;
 	}
 
-	struct vm_struct * prev = current_vm();
-	set_current(next);
+	struct vm_struct * prev = current;
+	set_current_vm(next);
 
 	// 他のコアで同時に実行してしまわないように VM の状態を切り替える
 	// todo: 排他が必要と思われる
@@ -186,12 +187,14 @@ void switch_to(struct vm_struct * next)
 // タイマが発火すると呼ばれ、VM 切り替えを行う
 void timer_tick()
 {
-	--current_vm()->counter;
+	struct vm_struct *vm = current_vm();
+
+	--vm->counter;
 	// まだ VM が十分な時間実行されていなかったら切り替えずに終了
-	if (current_vm()->counter > 0) {
+	if (vm->counter > 0) {
 		return;
 	}
-	current_vm()->counter = 0;
+	vm->counter = 0;
 
 	// 割込みハンドラは割込み無効状態で開始される
 	// _schedule 関数の処理中に割込みを使う部分があるので割込みを有効にする
@@ -221,37 +224,41 @@ void set_cpu_sysregs(struct vm_struct *tsk) {
 
 // ハイパーバイザでの処理を終えて VM に処理を戻すときに kernel_exit から呼ばれる
 void vm_entering_work() {
-	if (HAVE_FUNC(current_vm()->board_ops, entering_vm)) {
-		current_vm()->board_ops->entering_vm(current_vm());
+	struct vm_struct *vm = current_vm();
+
+	if (HAVE_FUNC(vm->board_ops, entering_vm)) {
+		vm->board_ops->entering_vm(vm);
 	}
 
 	// VM 処理に復帰するとき、コンソールがこの VM に紐づいていたら
 	// キューに入っていた値を全部出力する
-	if (is_uart_forwarded_vm(current_vm())) {
-		flush_vm_console(current_vm());
+	if (is_uart_forwarded_vm(vm)) {
+		flush_vm_console(vm);
 	}
 
 	// todo: entering_vm, flush, set_cpu_sysregs, set_cpu_virtual_interrupt の正しい呼び出し順がわからない
 	// 控えておいたレジスタの値を戻す
-	set_cpu_sysregs(current_vm());
+	set_cpu_sysregs(vm);
 
 	// 今実行を再開しようとしている VM に対し仮想割込みを設定する
 	//   ハイパーバイザ環境では VM に対し割込みを発生させる必要があるので
 	//   VM が実行開始するタイミングで仮想割込みを生成しないといけない
-	set_cpu_virtual_interrupt(current_vm());
+	set_cpu_virtual_interrupt(vm);
 }
 
 // VM での処理を抜けてハイパーバイザに処理に入るときに kernel_entry から呼ばれる
 void vm_leaving_work() {
-	// 今のレジスタの値を控える
-	save_sysregs(&current_vm()->cpu_sysregs);
+	struct vm_struct *vm = current_vm();
 
-	if (HAVE_FUNC(current_vm()->board_ops, leaving_vm)) {
-		current_vm()->board_ops->leaving_vm(current_vm());
+	// 今のレジスタの値を控える
+	save_sysregs(&vm->cpu_sysregs);
+
+	if (HAVE_FUNC(vm->board_ops, leaving_vm)) {
+		vm->board_ops->leaving_vm(vm);
 	}
 
-	if (is_uart_forwarded_vm(current_vm())) {
-		flush_vm_console(current_vm());
+	if (is_uart_forwarded_vm(vm)) {
+		flush_vm_console(vm);
 	}
 }
 
