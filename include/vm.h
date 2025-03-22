@@ -17,7 +17,9 @@
 typedef int (*loader_func_t)(void *, unsigned long *, unsigned long *);
 struct pt_regs *vm_pt_regs(struct vm_struct *);
 
+int create_idle_vm(unsigned long cpuid);
 int create_vm(loader_func_t, void *);
+
 void init_vm_console(struct vm_struct *);
 int is_uart_forwarded_vm(struct vm_struct *);
 void flush_vm_console(struct vm_struct *);
