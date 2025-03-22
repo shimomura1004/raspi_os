@@ -133,8 +133,10 @@ int create_idle_vm(unsigned long cpuid) {
 	// switch_from_kthread の中で kernel_exit が呼ばれる
 	// そのとき SP が指す先には退避したレジスタが格納されている必要がある
 	vm->cpu_context.sp = (unsigned long)childregs;
-	// 今動いている VM 数を増やし、その連番をそのまま PID とする
-	int vmid = current_number_of_vms++;
+	// IDLE VM は CPU ID をそのまま VMID にする
+	int vmid = cpuid;
+	// // 今動いている VM 数を増やし、その連番をそのまま PID とする
+	// int vmid = current_number_of_vms++;
 	// 新たに作った vm_struct 構造体のアドレスを vms 配列に入れておく
 	// これでそのうち今作った VM に処理が切り替わり、switch_from_kthread から実行開始される
 	vms[vmid] = vm;
