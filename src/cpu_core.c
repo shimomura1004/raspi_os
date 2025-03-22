@@ -16,3 +16,7 @@ void init_cpu_core_struct(unsigned long cpuid) {
 struct cpu_core_struct *current_cpu_core() {
 	return &cpu_cores[get_cpuid()];
 }
+
+struct cpu_core_struct *cpu_core(unsigned long cpuid) {
+	return &cpu_cores[cpuid];
+}
