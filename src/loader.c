@@ -11,7 +11,23 @@
 // todo: 初期化処理を呼んで初期化するようにする
 struct spinlock loader_lock = {0, 0, -1};
 
-int load_file_to_memory(struct vm_struct *tsk, const char *name, unsigned long va) {
+// 指定された EL2 のメモリ上のプログラムコードを VM のメモリにロードする
+// ハイパーバイザに埋め込まれた EL1 コードを VM にコピーするために使う
+void copy_code_to_memory(struct vm_struct *vm, unsigned long va, unsigned long from, unsigned long size) {
+    unsigned long current_va = va & PAGE_MASK;
+
+    while (size > 0) {
+        uint8_t *buf = (uint8_t *)allocate_vm_page(vm, current_va);
+        int readsize = MIN(PAGE_SIZE, size);
+        memcpy(buf, (void*)from, readsize);
+
+        size -= readsize;
+        from += readsize;
+        current_va += PAGE_SIZE;
+    }
+}
+
+int load_file_to_memory(struct vm_struct *vm, const char *name, unsigned long va) {
     // todo: ロックの単位が大きいのでもっと細分化する
     acquire_lock(&loader_lock);
 
@@ -32,7 +48,7 @@ int load_file_to_memory(struct vm_struct *tsk, const char *name, unsigned long v
     unsigned long current_va = va & PAGE_MASK;
 
     while (remain > 0) {
-        uint8_t *buf = (uint8_t *)allocate_vm_page(tsk, current_va);
+        uint8_t *buf = (uint8_t *)allocate_vm_page(vm, current_va);
         int readsize = MIN(PAGE_SIZE, remain);
         int actualsize = fat32_read(&file, buf, offset, readsize);
 
@@ -46,7 +62,7 @@ int load_file_to_memory(struct vm_struct *tsk, const char *name, unsigned long v
         current_va += PAGE_SIZE;
     }
 
-    tsk->name = name;
+    vm->name = name;
 
     release_lock(&loader_lock);
     return 0;
