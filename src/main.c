@@ -149,7 +149,7 @@ void hypervisor_main(unsigned long cpuid)
 	INFO("CPU%d runs IDLE process", cpuid);
 
 	// idle vm を実行している体にする
-	struct vm_struct *idle_vm = current_vm();
+	struct vm_struct *idle_vm = current_cpu_core()->current_vm;
 	idle_vm->state = VM_RUNNING;
 
 	// idle vm は scheduler 内で無限ループする
