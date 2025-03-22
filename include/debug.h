@@ -7,13 +7,14 @@
 #include "utils.h"
 #include "spinlock.h"
 #include "irq.h"
+#include "cpu_core.h"
 
 extern struct spinlock log_lock;
 
 #define _LOG_COMMON(level, fmt, ...) do { \
     acquire_lock(&log_lock); \
     unsigned long cpuid = get_cpuid(); \
-    struct vm_struct *vm = current_vm(); \
+    struct vm_struct *vm = current_cpu_core()->current_vm; \
     if (vm) { \
         printf("<cpu:%d>[vmid:%d] %s: ", cpuid, vm->vmid, level); \
     } \
@@ -30,7 +31,7 @@ extern struct spinlock log_lock;
 // panic 後も割り込みが入ると普通に動いてしまうので割り込みを禁止する
 #define PANIC(fmt, ...) do { \
     _LOG_COMMON("PANIC", fmt, ##__VA_ARGS__); \
-    struct vm_struct *vm = current_vm(); \
+    struct vm_struct *vm = current_cpu_core()->current_vm; \
     if (vm) { \
         exit_vm(); \
     } \
