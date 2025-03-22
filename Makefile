@@ -1,4 +1,4 @@
-.PHONY: all clean debug
+.PHONY: all clean debug summary
 
 ARMGNU ?= aarch64-linux-gnu
 
@@ -11,19 +11,22 @@ SRC_DIR = src
 
 SUBDIRS = ./example
 
-all : $(SUBDIRS) kernel8.img fs.img
+all: $(SUBDIRS) kernel8.img fs.img
 
-clean : $(SUBDIRS)
+clean: $(SUBDIRS)
 	rm -rf $(BUILD_DIR) *.img 
 
 $(SUBDIRS): FORCE
 	$(MAKE) -C $@ $(MAKECMDGOALS)
 FORCE:
 
-debug : kernel8.img
+debug: kernel8.img
 	gdb-multiarch -ex 'target remote :1234' \
 	-ex 'layout asm' \
 	-ex 'add-symbol-file build/kernel8.elf'
+
+summary:
+	./summary.sh > summary.txt
 
 fs.img: $(SUBDIRS)
 	dd if=/dev/zero of=fs.img bs=1M count=64
