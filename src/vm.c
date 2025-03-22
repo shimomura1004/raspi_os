@@ -23,7 +23,7 @@ static void idle_loop() {
 }
 
 static void prepare_idle_vm() {
-	struct vm_struct *vm = current_vm();
+	struct vm_struct *vm = current_cpu_core()->current_vm;
 
 	release_lock(&vm->lock);
 
@@ -42,7 +42,7 @@ static void prepare_idle_vm() {
 
 static void prepare_vm(loader_func_t loader, void *arg) {
 	struct raw_binary_loader_args *loader_args = (struct raw_binary_loader_args *)arg;
-	struct vm_struct *vm = current_vm();
+	struct vm_struct *vm = current_cpu_core()->current_vm;
 	INFO("loading... %s, EL=%d", loader_args->filename, get_el());
 
 	// VM の切り替え前に必ずロックしているので、まずそれを解除する
@@ -86,7 +86,7 @@ static void prepare_initial_sysregs(void) {
 }
 
 void increment_current_pc(int ilen) {
-	struct pt_regs *regs = vm_pt_regs(current_vm());
+	struct pt_regs *regs = vm_pt_regs(current_cpu_core()->current_vm);
 	regs->pc += ilen;
 }
 
@@ -113,7 +113,7 @@ int create_idle_vm(unsigned long cpuid) {
 	// vm->cpu_context.x21 = (unsigned long)arg;
 	vm->flags = 0;
 
-	vm->priority = current_vm()->priority;
+	vm->priority = current_cpu_core()->current_vm->priority;
 	vm->state = VM_RUNNABLE;
 	vm->counter = vm->priority;
 	vm->name = "IDLE";
@@ -168,7 +168,7 @@ int create_vm(loader_func_t loader, void *arg) {
 	vm->cpu_context.x21 = (unsigned long)arg;
 	vm->flags = 0;
 
-	vm->priority = current_vm()->priority;
+	vm->priority = current_cpu_core()->current_vm->priority;
 	vm->state = VM_RUNNABLE;
 	vm->counter = vm->priority;
 	vm->name = "VM";

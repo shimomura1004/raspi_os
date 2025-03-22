@@ -33,7 +33,8 @@ struct vm_struct *vms[NUMBER_OF_VMS];
 
 // 各 CPU コアで実行中の VM
 // todo: CPU 構造体に入れたい
-struct vm_struct *currents[NUMBER_OF_CPU_CORES];
+// todo: もう不要になっているはず
+// struct vm_struct *currents[NUMBER_OF_CPU_CORES];
 
 // 現在実行中の VM の数(idle_vms があるので初期値は NUMBER_OF_CPU_CORES)
 int current_number_of_vms = NUMBER_OF_CPU_CORES;
@@ -53,14 +54,14 @@ int current_number_of_vms = NUMBER_OF_CPU_CORES;
 // 	}
 // }
 
-// 現在実行中の VM の vm_struct
-struct vm_struct *current_vm() {
-	return currents[get_cpuid()];
-}
+// // 現在実行中の VM の vm_struct
+// struct vm_struct *current_vm() {
+// 	return currents[get_cpuid()];
+// }
 
-void set_current_vm(struct vm_struct *vm) {
-	currents[get_cpuid()] = vm;
-}
+// void set_current_vm(struct vm_struct *vm) {
+// 	currents[get_cpuid()] = vm;
+// }
 
 void set_cpu_virtual_interrupt(struct vm_struct *tsk) {
 	// もし current の VM に対して irq が発生していたら、仮想割込みを設定する
@@ -91,7 +92,7 @@ void exit_vm(){
 	// todo: リソースを解放する(コンソールとかメモリページとか)
 
 	// 実行中の VM のstate を zombie にする(=スケジューリング対象から外れる)
-	current_vm()->state = VM_ZOMBIE;
+	current_cpu_core()->current_vm->state = VM_ZOMBIE;
 
 	// todo: exit_vm したあとは割込みが無効のままになり、正しく復帰できない
 	yield();
@@ -104,7 +105,7 @@ void set_cpu_sysregs(struct vm_struct *tsk) {
 
 // ハイパーバイザでの処理を終えて VM に処理を戻すときに kernel_exit から呼ばれる
 void vm_entering_work() {
-	struct vm_struct *vm = current_vm();
+	struct vm_struct *vm = current_cpu_core()->current_vm;
 
 	if (HAVE_FUNC(vm->board_ops, entering_vm)) {
 		vm->board_ops->entering_vm(vm);
@@ -128,7 +129,7 @@ void vm_entering_work() {
 
 // VM での処理を抜けてハイパーバイザに処理に入るときに kernel_entry から呼ばれる
 void vm_leaving_work() {
-	struct vm_struct *vm = current_vm();
+	struct vm_struct *vm = current_cpu_core()->current_vm;
 
 	// 今のレジスタの値を控える
 	save_sysregs(&vm->cpu_sysregs);
@@ -151,7 +152,7 @@ const char *vm_state_str[] = {
 // todo: cpu 構造体に vm 情報を入れたら不要になるはず
 int find_cpu_which_runs(struct vm_struct *vm) {
 	for (int i = 0; i < NUMBER_OF_CPU_CORES; i++) {
-		if (currents[i] == vm) {
+		if (cpu_core(i)->current_vm == vm) {
 			return i;
 		}
 	}
@@ -214,7 +215,6 @@ void scheduler(unsigned long cpuid) {
 				// idle_vms[cpuid].state = VM_RUNNABLE;
 				vms[cpuid]->state = VM_RUNNABLE;
 				current_cpu_core()->current_vm = vm;
-				set_current_vm(vm);
 
 				// しばらく vm を実行する
 				// cpu_switch_to(&idle_vms[cpuid], vm);
@@ -227,7 +227,6 @@ void scheduler(unsigned long cpuid) {
 				// current_cpu_core()->current_vm = &idle_vms[cpuid];
 				current_cpu_core()->current_vm = vms[cpuid];
 				// set_current_vm(&idle_vms[cpuid]);
-				set_current_vm(vms[cpuid]);
 			}
 
 			release_lock(&vm->lock);
@@ -241,7 +240,8 @@ void scheduler(unsigned long cpuid) {
 
 // CPU 時間を手放し VM を切り替える
 void yield() {
-	struct vm_struct *vm = current_vm();
+	struct cpu_core_struct *cpu_core = current_cpu_core();
+	struct vm_struct *vm = cpu_core->current_vm;
 
 	// ロックを取ってから idle_vm に切り替える
 	acquire_lock(&vm->lock);
