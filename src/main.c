@@ -99,7 +99,7 @@ static void initialize_hypervisor() {
 // はじめに idle vm を4つ用意していたが、vmid 0 以外はまだ開始していないので、pc が 0 のままだった
 // そのため再度 pc 0 から実行開始してしまい、おかしくなっていた
 // 最初にコア数分の idle vm を用意するのはいいが、while ループに入るまでは zombie にしておくのがよさそう
-static void load_guest_oss() {
+static void prepare_guest_vms() {
 	if (create_vm(raw_binary_loader, &echo_bin_args) < 0) {
 		printf("error while starting VM #1");
 	}
@@ -122,7 +122,6 @@ static void load_guest_oss() {
 }
 
 // hypervisor としてのスタート地点
-// todo: マルチコアで実行し、複数コアで文字出力するとクラッシュする
 void hypervisor_main(unsigned long cpuid)
 {
 	// 実行中の CPU コアを初期化
@@ -134,7 +133,7 @@ void hypervisor_main(unsigned long cpuid)
 		initialize_hypervisor();
 		INFO("raspvisor initialized");
 
-		load_guest_oss();
+		prepare_guest_vms();
 		INFO("guest VMs are prepared");
 
 		initialized_flag = 1;
@@ -142,12 +141,6 @@ void hypervisor_main(unsigned long cpuid)
 
 	// 全コアの割込みを有効化する
 	enable_irq();
-
-// todo: この書き込みによってコア1で割込みが発生しているのは確認済み
-//       しかし irq フラグが設定されないせいで mbox のハンドラが呼ばれていない
-if (cpuid == 0) {
-//put32(MBOX_CORE1_SET_0, 0x1);
-}
 
 	INFO("CPU%d runs IDLE process", cpuid);
 
