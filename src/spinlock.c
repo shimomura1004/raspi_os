@@ -50,8 +50,8 @@ void init_lock(struct spinlock *lock, char *name) {
 }
 
 void acquire_lock(struct spinlock *lock) {
-    // todo: ロック中は割込みを禁止しておかないとデッドロックする可能性がある
-push_disable_irq();
+    // ロック中は割込みを禁止しておかないとデッドロックする可能性がある
+    push_disable_irq();
 
     unsigned long cpuid = get_cpuid();
     if (holding(lock)) {
@@ -70,5 +70,5 @@ void release_lock(struct spinlock *lock) {
     lock->cpuid = -1;
     _spinlock_release(&lock->locked);
 
-pop_disable_irq();
+    pop_disable_irq();
 }

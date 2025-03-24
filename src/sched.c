@@ -278,7 +278,6 @@ int find_cpu_which_runs(struct vm_struct *vm) {
 	return -1;
 }
 
-// todo: VM に割り当てられた CPU ID も表示したい
 void show_vm_list() {
     printf("  %4s %3s %12s %8s %7s %9s %7s %7s %7s %7s %7s\n",
 		   "vmid", "cpu", "name", "state", "pages", "saved-pc", "wfx", "hvc", "sysregs", "pf", "mmio");

@@ -92,20 +92,12 @@ static void handle_irq_subcore(unsigned long cpuid) {
 		MBOX_CORE0_RD_CLR_0, MBOX_CORE1_RD_CLR_0, MBOX_CORE2_RD_CLR_0, MBOX_CORE3_RD_CLR_0
 	};
 
+	// mailbox が割込みを発生させると basic_irq のビットが立つはずだが、そうなっていない
+	// よって mailbox のソースを直接確認する
 	unsigned long source = get32(mbox_sources[cpuid]);
 
 	if (source & IRQ_SOURCE_MBOX_0_BIT) {
-		// INFO("source: 0x%lx", source);
-
-		// todo: main で1回だけ mailbox に書くとずっと割込み発生する
-		//       ここでクリアすれば止まる
-		//       ということは、mailbox の割込みはうまく発生しているが、
-		//       割込みハンドラ内で割込みのフラグがうまく読めていない
-		//       期待値は basic_irq の mailbox のビットが立つことだが、そうなってない
-		// -> source を読めば判断はできる
-		// source の各ビットを独立して使用可能
 		put32(mbox_rd_clrs[cpuid], 0x1);
-
 		handle_mailbox_irq(cpuid);
 	}
 }
