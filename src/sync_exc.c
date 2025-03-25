@@ -71,7 +71,8 @@ static const char *sync_error_reasons[] = {
 };
 
 static void handle_trap_wfx() {
-	schedule();
+	// schedule();
+	yield();
 	increment_current_pc(4);
 }
 

@@ -144,8 +144,16 @@ void hypervisor_main(unsigned long cpuid)
 
 	INFO("CPU%d runs IDLE process", cpuid);
 
+	// todo: ここで idle_vm(=scheduler) に切り替えればいい？
+	struct vm_struct *idle_vm = current_vm();
+	idle_vm->state = VM_RUNNING;
+	scheduler();
+
+	PANIC("NO ONE COMES HERE!");
+
 	// ここまできたら、実行中のコア用の idle vm を runnable にする
-	current_vm()->state = VM_RUNNABLE;
+	// current_vm()->state = VM_RUNNABLE;
+
 
 
 	// 初期化を終えると IDLE プロセス(= IDLE VM)になる
