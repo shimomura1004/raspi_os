@@ -28,6 +28,7 @@
 #include "debug.h"
 #include "delays.h"
 #include "sd.h"
+#include "spinlock.h"
 #include "utils.h"
 
 // SD カードにアクセスするための規格を SDHCI と呼ぶ
@@ -140,6 +141,10 @@
 
 unsigned long sd_scr[2], sd_ocr, sd_rca, sd_err, sd_hv;
 
+// SD カードにアクセスするときのロック
+// たとえば EMMC_INTERRUPT などのフラグはグローバルなので、それを触る処理はスレッドセーフではない
+struct spinlock sd_lock;
+
 /**
  * Wait for data or command ready
  */
@@ -248,6 +253,8 @@ int sd_cmd(unsigned int code, unsigned int arg)
  * returns 0 on error.
  */
 int sd_readblock(unsigned int lba, unsigned char *buffer, unsigned int num) {
+    acquire_lock(&sd_lock);
+
     int r, c = 0, d;
     if (num < 1) {
         num = 1;
@@ -255,6 +262,7 @@ int sd_readblock(unsigned int lba, unsigned char *buffer, unsigned int num) {
     // INFO("sd_readblock lba %x num %x", lba, num);
     if (sd_status(SR_DAT_INHIBIT)) {
         sd_err = SD_TIMEOUT;
+        release_lock(&sd_lock);
         return 0;
     }
     unsigned int *buf = (unsigned int *)buffer;
@@ -262,12 +270,14 @@ int sd_readblock(unsigned int lba, unsigned char *buffer, unsigned int num) {
         if (num > 1 && (sd_scr[0] & SCR_SUPP_SET_BLKCNT)) {
             sd_cmd(CMD_SET_BLOCKCNT, num);
             if (sd_err) {
+                release_lock(&sd_lock);
                 return 0;
             }
         }
         put32(EMMC_BLKSIZECNT, (num << 16) | 512);
         sd_cmd(num == 1 ? CMD_READ_SINGLE : CMD_READ_MULTI, lba);
         if (sd_err) {
+            release_lock(&sd_lock);
             return 0;
         }
     } else {
@@ -277,12 +287,14 @@ int sd_readblock(unsigned int lba, unsigned char *buffer, unsigned int num) {
         if (!(sd_scr[0] & SCR_SUPP_CCS)) {
             sd_cmd(CMD_READ_SINGLE, (lba + c) * 512);
             if (sd_err) {
+                release_lock(&sd_lock);
                 return 0;
             }
         }
         if ((r = sd_int(INT_READ_RDY))) {
             WARN("ERROR: Timeout waiting for ready to read");
             sd_err = r;
+            release_lock(&sd_lock);
             return 0;
         }
         for (d = 0; d < 128; d++) {
@@ -295,6 +307,9 @@ int sd_readblock(unsigned int lba, unsigned char *buffer, unsigned int num) {
         (sd_scr[0] & SCR_SUPP_CCS)) {
         sd_cmd(CMD_STOP_TRANS, 0);
     }
+
+    release_lock(&sd_lock);
+
     return sd_err != SD_OK || c != num ? 0 : num * 512;
 }
 
@@ -381,6 +396,9 @@ int sd_clk(unsigned int f) {
  */
 int sd_init() {
     long r, cnt, ccs = 0;
+
+    init_lock(&sd_lock, "sd_lock");
+
     // GPIO_CD
     r = get32(GPFSEL4);
     r &= ~(7 << (7 * 3));
