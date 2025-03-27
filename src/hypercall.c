@@ -1,3 +1,4 @@
+#include "mm.h"
 #include "hypercall.h"
 #include "hypercall_type.h"
 #include "debug.h"
@@ -26,6 +27,11 @@ void hypercall(unsigned long hvc_nr, unsigned long a0, unsigned long a1, unsigne
 		INFO("HVC #%d: 0x%lx(%ld), 0x%lx(%ld), 0x%lx(%ld), 0x%lx(%ld)", hvc_nr, a0, a0, a1, a1, a2, a2, a3, a3);
 		break;
     }
+
+	case HYPERCALL_TYPE_INFO_STR: {
+		INFO("HVC #%d: %s", hvc_nr, (const char *)(get_pa_2nd(a0)));
+		break;
+	}
 
 	case HYPERCALL_TYPE_CREATE_VM: {
 		// todo: ポインタで渡されてもそのままアクセスすることはできない
