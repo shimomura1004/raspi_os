@@ -62,6 +62,7 @@ void set_vm_page_notaccessable(struct vm_struct *vm, unsigned long va);
 int handle_mem_abort(unsigned long addr, unsigned long esr);
 
 unsigned long get_ipa(unsigned long va);
+unsigned long get_pa_2nd(unsigned long va);
 extern unsigned long pg_dir;
 
 #endif
