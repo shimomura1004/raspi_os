@@ -144,28 +144,12 @@ void hypervisor_main(unsigned long cpuid)
 
 	INFO("CPU%d runs IDLE process", cpuid);
 
-	// todo: ここで idle_vm(=scheduler) に切り替えればいい？
+	// idle vm を実行している体にする
 	struct vm_struct *idle_vm = current_vm();
 	idle_vm->state = VM_RUNNING;
+
+	// idle vm は scheduler 内で無限ループする
 	scheduler();
 
 	PANIC("NO ONE COMES HERE!");
-
-	// ここまできたら、実行中のコア用の idle vm を runnable にする
-	// current_vm()->state = VM_RUNNABLE;
-
-
-
-	// 初期化を終えると IDLE プロセス(= IDLE VM)になる
-	// すべての VM が CPU を放棄した時に返ってくる場所
-	// このループがなくてもタイマ割込み起因で VM 切り替えは起こる
-	while (1) {
-		// todo: schedule を呼ぶ前に手動で割込みを禁止にしないといけないのは危ない
-		disable_irq();
-		// このプロセスでは特にやることがないので CPU を明け渡す
-		// todo: schedule を自分で呼ばなければ、マルチコアで動作してもクラッシュしない
-		// todo: vm 数が少ないと idle のまま動かないコアがでてくる
-		// schedule();
-		enable_irq();
-	}
 }

@@ -6,6 +6,7 @@
 #include "board.h"
 #include "vm.h"
 #include "cpu_core.h"
+#include "spinlock.h"
 
 static struct vm_struct init_vm = {
 	.cpu_context = {0},
@@ -61,87 +62,6 @@ void set_current_vm(struct vm_struct *vm) {
 	currents[get_cpuid()] = vm;
 }
 
-// // VM 切換え
-// // 複数の CPU が同時に呼び出すのでスレッドセーフにしないといけない
-// // todo: 複数 CPU で動かす場合は、停止時と異なる CPU で VM が動くかもしれない
-// static void _schedule(void)
-// {
-// 	int next, c;
-// 	struct vm_struct *vm;
-// 	unsigned long cpuid = get_cpuid();
-
-// 	while (1) {
-// 		c = -1;
-// 		next = 0;
-// 		// VM の最大数は決め打ちで NUMBER_OF_VMS 個
-// 		// 先頭から順番に状態を見ていく
-// 		// todo: 積極的に idle vm を選ぶ理由がないので外す
-// 		// for (int i = 0; i < NUMBER_OF_VMS; i++){
-// 		for (int i = NUMBER_OF_CPU_CORES; i < NUMBER_OF_VMS; i++) {
-// 			vm = vms[i];
-
-// 			// idle_vm のための特別対応、他の vCPU が idle_vm を実行してはいけない
-// 			if (vm->vmid < NUMBER_OF_CPU_CORES && vm->vmid != cpuid) {
-// 				continue;
-// 			}
-
-// 			acquire_lock(&vm->lock);
-
-// 			// RUNNING/RUNNABLE 状態で、かつ一番カウンタが大きいものを探す
-// 			// if (vm && vm->state != VM_ZOMBIE && vm->counter >= c) {
-// 			if (vm && vm->state == VM_RUNNABLE && vm->counter >= c) {
-// 				c = vm->counter;
-// 				next = i;
-// 			}
-
-// 			release_lock(&vm->lock);
-// 		}
-// 		// まだ実行時間(counter)が残っているものがあったらそれを実行する
-// 		if (c) {
-// 			break;
-// 		}
-
-// 		// すべての VM が実行時間を使い切っていたら、全 VM に実行時間を補充する
-// 		for (int i = 0; i < NUMBER_OF_VMS; i++) {
-// 			vm = vms[i];
-
-// 			acquire_lock(&vm->lock);
-
-// 			if (vm) {
-// 				// 何回もループした場合にカウンタの値が大きくなりすぎないように
-// 				// 今のカウンタの値を半分にして、プライオリティを足したもので更新
-// 				vm->counter = (vm->counter >> 1) + vm->priority;
-// 			}
-
-// 			release_lock(&vm->lock);
-// 		}
-// 		// VM_RUNNING 状態のものが見つかるまでずっとループする
-// 		// 割込みを有効にしておかないと誰も VM の状態を変更できず無限ループになってしまうので
-// 		// timer_tick で割込みを有効にしておく必要がある
-// 		// ただし、割込みは許可されるが preemption(タスク(VM)切り替え)は許可されていないことに注意
-// 	}
-
-// 	// 切り替え先 VM に switch_to する
-// // INFO("switch: %d->%d", current()->vmid, next);
-// 	switch_to(vms[next]);
-
-// 	// todo: xv6 と同じように、タスク間で直接切り替えるのではなく、一度 idle_vm を経由するようにする
-// 	//       各 vm から cpu ごとの idle_vm に戻るための関数 yield を用意する
-// }
-
-// // 自主的に CPU 時間を手放し VM を切り替える
-// // todo: schedule を呼ぶ前に手動で IRQ を無効化する必要があり危険
-// //       現状 schedule を呼ぶのは、main, handle_trap_wfx, exit_vm のみ
-// //       main は手動で無効化している
-// //       handle_trap_wfx は割込から呼ばれるので、割込みは無効化されている
-// //       exit_vm は PANIC マクロから呼ばれる、割込みが無効かどうかわからず危ないのでは
-// void schedule(void)
-// {
-// 	// 自主的に CPU を手放した場合はカウンタを 0 にする
-// 	current_vm()->counter = 0;
-// 	_schedule();
-// }
-
 void set_cpu_virtual_interrupt(struct vm_struct *tsk) {
 	// もし current の VM に対して irq が発生していたら、仮想割込みを設定する
 	if (HAVE_FUNC(tsk->board_ops, is_irq_asserted) && tsk->board_ops->is_irq_asserted(tsk)) {
@@ -162,47 +82,7 @@ void set_cpu_virtual_interrupt(struct vm_struct *tsk) {
 	// todo: vserror は？
 }
 
-// // 指定した VM に切り替える
-// void switch_to(struct vm_struct * next)
-// {
-// 	struct vm_struct *current = current_vm();
-
-// 	if (current == next) {
-// 		return;
-// 	}
-
-// 	struct vm_struct * prev = current;
-// 	set_current_vm(next);
-
-// 	// 他のコアで同時に実行してしまわないように VM の状態を切り替える
-// 	// todo: 排他が必要と思われる
-// 	prev->state = VM_RUNNABLE;
-// 	next->state = VM_RUNNING;
-
-// 	// レジスタを控えて実際に VM を切り替える
-// 	// 戻ってくるときは別の VM になっている
-// 	cpu_switch_to(prev, next);
-// }
-
-// // タイマが発火すると呼ばれ、VM 切り替えを行う
-// void timer_tick()
-// {
-// 	struct vm_struct *vm = current_vm();
-
-// 	--vm->counter;
-// 	// まだ VM が十分な時間実行されていなかったら切り替えずに終了
-// 	if (vm->counter > 0) {
-// 		return;
-// 	}
-// 	vm->counter = 0;
-
-// 	// 割込みハンドラは割込み無効状態で開始される
-// 	// _schedule 関数の処理中に割込みを使う部分があるので割込みを有効にする
-// 	// todo: なぜ無効のままでよくなった？
-// 	//enable_irq();
-// 	_schedule();
-// 	//disable_irq();
-// }
+// タイマが発火すると呼ばれ、VM 切り替えを行う
 void timer_tick() {
 	yield();
 }
@@ -308,13 +188,7 @@ void show_vm_list() {
 
 // 各コア専用に用意された idle vm で実行され、タイマ割込みが発生するとここに帰ってくる
 // 切り替える前に必ず VM のロックを取り、切り替え終わったらすぐにロックを解放する
-
-// タイマ発火すると呼び出されるのが timer_tick
-// timer_tick は _schedule を呼び出して別 vm に切り替えるようになっているが
-// これを必ず scheduler(idle vm)への切り替えに変更すればいい
-
-// todo: 仮想マシンのロードと切り替えのタイミングがあってない？
-//       ロード中にクラッシュしている？idle_vm の場所？でロードしようとしている？
+// todo: 割込みを無効にしないといけないタイミングがありそう
 void scheduler() {
 	struct vm_struct *vm;
 	unsigned long cpuid = get_cpuid();
@@ -352,7 +226,6 @@ void scheduler() {
 }
 
 // CPU 時間を手放し VM を切り替える
-// タイマ発火時もたぶんこれを呼び出すだけでいい
 void yield() {
 	struct vm_struct *vm = current_vm();
 
@@ -360,7 +233,10 @@ void yield() {
 	// ロックを取ってから idle_vm に切り替える
 	acquire_lock(&vm->lock);
 
+	// 割込みの有効・無効状態は CPU の状態ではなくこのスレッドの状態なので、退避・復帰させる必要がある
+	int interrupt_enable = current_cpu_core()->interrupt_enable;
 	cpu_switch_to(vm, &idle_vms[get_cpuid()]);
+	current_cpu_core()->interrupt_enable = interrupt_enable;
 
 	// また戻ってきたらロックを解放する
 	release_lock(&vm->lock);
