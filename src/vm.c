@@ -19,6 +19,7 @@ struct pt_regs * vm_pt_regs(struct vm_struct *vm) {
 // idle vm 用のなにもしないコード
 static void idle_loop() {
 	while (1) {
+		// todo: CPU を無駄に使わないようにしたい
 		// asm volatile("wfi");
 	}
 }
