@@ -25,10 +25,10 @@ _start:
 	cbz	x0, el3_entry		// Hang for all non-primary CPU
 
 // コア 2,3 は無限ループさせて止める
-cmp x0, #2
-b.eq sleep
-cmp x0, #3
-b.eq sleep
+//cmp x0, #2
+//b.eq sleep
+//cmp x0, #3
+//b.eq sleep
 
 	// コア1は initialized_flag がセットされるのを待って実行
 	ldr x0, =initialized_flag
