@@ -12,8 +12,7 @@ static struct vm_struct init_vm = {
 	.cpu_context = {0},
 	.state       = 0,
 	.counter     = 0,
-	// todo: priority を大きくしていけば複数の CPU コアで実行されるようになる
-	.priority    = 5,
+	.priority    = 1,
 	.vmid        = 0,
 	.flags       = 0,
 	.name        = "",
@@ -28,7 +27,7 @@ static struct vm_struct init_vm = {
 
 static struct vm_struct idle_vms[NUMBER_OF_CPU_CORES];
 // idle vm や動的に作られた vm などへの参照を保持する配列
-// todo: 直接触らせない
+// todo: 直接触らせないようにする
 struct vm_struct *vms[NUMBER_OF_VMS];
 
 // 各 CPU コアで実行中の VM
