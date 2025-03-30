@@ -189,9 +189,8 @@ void show_vm_list() {
 // 各コア専用に用意された idle vm で実行され、タイマ割込みが発生するとここに帰ってくる
 // 切り替える前に必ず VM のロックを取り、切り替え終わったらすぐにロックを解放する
 // todo: 割込みを無効にしないといけないタイミングがありそう
-void scheduler() {
+void scheduler(unsigned long cpuid) {
 	struct vm_struct *vm;
-	unsigned long cpuid = get_cpuid();
 
 	// todo: 割込みをどうするか考える、ただしタスクスイッチは禁止しないといけない
 	while (1) {

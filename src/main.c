@@ -153,7 +153,7 @@ void hypervisor_main(unsigned long cpuid)
 	idle_vm->state = VM_RUNNING;
 
 	// idle vm は scheduler 内で無限ループする
-	scheduler();
+	scheduler(cpuid);
 
 	PANIC("NO ONE COMES HERE!");
 }
