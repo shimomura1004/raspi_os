@@ -204,6 +204,7 @@ void scheduler(unsigned long cpuid) {
 			if (vm && vm->state == VM_RUNNABLE) {
 				// 準備をして、この VM を復帰させる
 				vm->state = VM_RUNNING;
+				idle_vms[cpuid].state = VM_RUNNABLE;
 
 				// しばらく vm を実行する
 				set_current_vm(vm);
@@ -211,6 +212,7 @@ void scheduler(unsigned long cpuid) {
 
 				// ここに戻ってきたら、今まで動いていた VM を停止させる
 				vm->state = VM_RUNNABLE;
+				idle_vms[cpuid].state = VM_RUNNING;
 				set_current_vm(&idle_vms[cpuid]);
 			}
 
