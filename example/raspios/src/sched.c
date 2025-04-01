@@ -1,7 +1,6 @@
 #include "sched.h"
 #include "irq.h"
 #include "printf.h"
-#include "fork.h"
 #include "utils.h"
 #include "mm.h"
 
@@ -46,7 +45,7 @@ void _schedule(void)
 			}
 		}
 	}
-	switch_to(task[next], next);
+	switch_to(task[next]);
 	preempt_enable();
 }
 
@@ -57,18 +56,20 @@ void schedule(void)
 }
 
 
-void switch_to(struct task_struct * next, int index) 
+void switch_to(struct task_struct * next) 
 {
 	if (current == next) 
 		return;
 	struct task_struct * prev = current;
 	current = next;
+	set_pgd(next->mm.pgd);
 	cpu_switch_to(prev, next);
 }
 
 void schedule_tail(void) {
 	preempt_enable();
 }
+
 
 void timer_tick()
 {
@@ -89,9 +90,6 @@ void exit_process(){
 			task[i]->state = TASK_ZOMBIE;
 			break;
 		}
-	}
-	if (current->stack) {
-		free_page(current->stack);
 	}
 	preempt_enable();
 	schedule();
