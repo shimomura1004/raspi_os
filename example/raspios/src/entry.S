@@ -106,31 +106,31 @@ vectors:
 	ventry	error_invalid_el0_32			// Error 32-bit EL0
 
 sync_invalid_el1t:
-	handle_invalid_entry 1,  SYNC_INVALID_EL1t
+	handle_invalid_entry 1, SYNC_INVALID_EL1t
 
 irq_invalid_el1t:
-	handle_invalid_entry  1, IRQ_INVALID_EL1t
+	handle_invalid_entry 1, IRQ_INVALID_EL1t
 
 fiq_invalid_el1t:
-	handle_invalid_entry  1, FIQ_INVALID_EL1t
+	handle_invalid_entry 1, FIQ_INVALID_EL1t
 
 error_invalid_el1t:
-	handle_invalid_entry  1, ERROR_INVALID_EL1t
+	handle_invalid_entry 1, ERROR_INVALID_EL1t
 
 sync_invalid_el1h:
 	handle_invalid_entry 1, SYNC_INVALID_EL1h
 
 fiq_invalid_el1h:
-	handle_invalid_entry  1, FIQ_INVALID_EL1h
+	handle_invalid_entry 1, FIQ_INVALID_EL1h
 
 error_invalid_el1h:
-	handle_invalid_entry  1, ERROR_INVALID_EL1h
+	handle_invalid_entry 1, ERROR_INVALID_EL1h
 
 fiq_invalid_el0_64:
-	handle_invalid_entry  0, FIQ_INVALID_EL0_64
+	handle_invalid_entry 0, FIQ_INVALID_EL0_64
 
 error_invalid_el0_64:
-	handle_invalid_entry  0, ERROR_INVALID_EL0_64
+	handle_invalid_entry 0, ERROR_INVALID_EL0_64
 
 sync_invalid_el0_32:
 	handle_invalid_entry  0, SYNC_INVALID_EL0_32
@@ -143,6 +143,7 @@ fiq_invalid_el0_32:
 
 error_invalid_el0_32:
 	handle_invalid_entry  0, ERROR_INVALID_EL0_32
+
 
 el1_irq:
 	kernel_entry 1 
@@ -160,6 +161,8 @@ el0_sync:
 	lsr	x24, x25, #ESR_ELx_EC_SHIFT		// exception class
 	cmp	x24, #ESR_ELx_EC_SVC64			// SVC in 64-bit state
 	b.eq	el0_svc
+	cmp	x24, #ESR_ELx_EC_DABT_LOW		// data abort in EL0
+	b.eq	el0_da
 	handle_invalid_entry 0, SYNC_ERROR
 
 sc_nr	.req	x25					// number of system calls
@@ -184,6 +187,18 @@ ret_from_syscall:
 	str	x0, [sp, #S_X0]				// returned x0
 	kernel_exit 0
 
+el0_da:
+	bl	enable_irq
+	mrs	x0, far_el1
+	mrs	x1, esr_el1			
+	bl	do_mem_abort
+	cmp x0, 0
+	b.eq 1f
+	handle_invalid_entry 0, DATA_ABORT_ERROR
+1:
+	bl disable_irq				
+	kernel_exit 0
+
 .globl ret_from_fork
 ret_from_fork:
 	bl	schedule_tail
@@ -193,6 +208,7 @@ ret_from_fork:
 ret_to_user:
 	bl disable_irq				
 	kernel_exit 0 
+
 
 .globl err_hang
 err_hang: b err_hang
