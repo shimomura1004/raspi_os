@@ -59,10 +59,9 @@ struct raw_binary_loader_args test_bin_args = {
 };
 
 // 各 CPU コアで必要な初期化処理
-// todo: 名前がかぶっているのでどちらかを変えたい(initialize_cpu_core/init_cpu_core)
 static void initialize_cpu_core(unsigned long cpuid) {
 	// CPU コア構造体の初期化
-	init_cpu_core(cpuid);
+	init_cpu_core_struct(cpuid);
 
 	// VBAR_EL2 レジスタに割込みベクタのアドレスを設定する
 	// 各 CPU コアで呼び出す必要がある
@@ -95,10 +94,6 @@ static void initialize_hypervisor() {
 	}
 }
 
-// todo: ゲスト SP がマップされてない → トラップしてマップされるべきところが、cpu0 じゃないから動いてない？
-// はじめに idle vm を4つ用意していたが、vmid 0 以外はまだ開始していないので、pc が 0 のままだった
-// そのため再度 pc 0 から実行開始してしまい、おかしくなっていた
-// 最初にコア数分の idle vm を用意するのはいいが、while ループに入るまでは zombie にしておくのがよさそう
 static void prepare_guest_vms() {
 	if (create_vm(raw_binary_loader, &echo_bin_args) < 0) {
 		printf("error while starting VM #1");
