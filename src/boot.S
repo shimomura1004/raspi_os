@@ -3,6 +3,9 @@
 #include "mm.h"
 #include "peripherals/base.h"
 
+// todo: secure monitor の機能を実装する
+// https://trustedfirmware-a.readthedocs.io/en/latest/plat/rpi3.html
+
 .section ".text.boot"
 
 // 初期化が終わったことを表すメモリ
