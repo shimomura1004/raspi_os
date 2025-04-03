@@ -10,6 +10,8 @@ void kernel_main(void)
 	printf("Exception level: %d \r\n", el);
 
 	while (1) {
-		uart_send(uart_recv());
+		char c = uart_recv();
+		c = c == '\r' ? '\n' : c;
+		uart_send(c);
 	}
 }
