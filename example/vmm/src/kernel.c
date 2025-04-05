@@ -44,7 +44,7 @@ void execute_command(char *buf) {
 
 	if (EQUAL(command, "new")) {
 		printf("create a new vm: %s\n", arg);
-		vm_args.filename = arg;
+		for (int i=0; (vm_args.filename[i] = arg[i]); i++);
 		new_vm();
 	}
 	else if (EQUAL(command, "kill")) {

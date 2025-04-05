@@ -168,10 +168,13 @@ int create_vm_with_loader(loader_func_t loader, void *arg) {
 		return -1;
 	}
 
+	// ローダの引数をコピー
+	vm->loader_args = *(struct loader_args *)arg;
+
 	// switch_from_kthread 内で x19 のアドレスにジャンプする
 	vm->cpu_context.x19 = (unsigned long)load_vm_text_from_file;
 	vm->cpu_context.x20 = (unsigned long)loader;
-	vm->cpu_context.x21 = (unsigned long)arg;
+	vm->cpu_context.x21 = (unsigned long)&vm->loader_args;
 	vm->name = "VM";
 
 	// 今動いている VM 数を増やし、その連番をそのまま PID とする

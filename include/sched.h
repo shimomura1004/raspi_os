@@ -6,6 +6,7 @@
 #ifndef __ASSEMBLER__
 
 #include "spinlock.h"
+#include "loader.h"
 
 #define THREAD_SIZE     4096
 #define NUMBER_OF_VMS   64
@@ -144,13 +145,17 @@ struct vm_console {
 };
 
 struct vm_struct {
+    // cpu_context はアセンブラで位置指定でアクセスされるので、構造体の先頭に置く
+    // THREAD_CPU_CONTEXT がアセンブラでのオフセット
     struct cpu_context cpu_context;	            // CPU 状態
     long state;                                 // VM の状態(VM_RUNNING, VM_ZOMBIE)
+
     // todo: 今のスケジューラでは使っていない
     long counter;                               // VM が使える残りの CPU 時間を保持
                                                 // tick ごとに 1 減り、0 になると他の VM に切り替わる
     // todo: 今のスケジューラでは使っていない
     long priority;                              // VM が CPU にスケジュールされるときにこの値が counter にコピーされる
+
     long vmid;                                  // VMID
     unsigned long flags;
     const char *name;
@@ -161,6 +166,7 @@ struct vm_struct {
     struct vm_stat stat;
     struct vm_console console;
     struct spinlock lock;
+    struct loader_args loader_args;	            // ローダの引数
 };
 
 void sched_init(void);
