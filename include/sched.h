@@ -144,14 +144,14 @@ struct vm_console {
 };
 
 struct vm_struct {
-    struct cpu_context cpu_context;	// CPU 状態
-    long state;                     // VM の状態(VM_RUNNING, VM_ZOMBIE)
+    struct cpu_context cpu_context;	            // CPU 状態
+    long state;                                 // VM の状態(VM_RUNNING, VM_ZOMBIE)
     // todo: 今のスケジューラでは使っていない
-    long counter;                   // VM が使える残りの CPU 時間を保持
-                                    // tick ごとに 1 減り、0 になると他の VM に切り替わる
+    long counter;                               // VM が使える残りの CPU 時間を保持
+                                                // tick ごとに 1 減り、0 になると他の VM に切り替わる
     // todo: 今のスケジューラでは使っていない
-    long priority;                  // VM が CPU にスケジュールされるときにこの値が counter にコピーされる
-    long vmid;                      // VMID
+    long priority;                              // VM が CPU にスケジュールされるときにこの値が counter にコピーされる
+    long vmid;                                  // VMID
     unsigned long flags;
     const char *name;
     const struct board_ops *board_ops;
