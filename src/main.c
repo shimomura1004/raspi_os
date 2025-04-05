@@ -27,51 +27,51 @@ struct spinlock log_lock;
 // この情報は、あとから VM にコンテキストスイッチしたときに参照される
 // そのときまで解放されないようにグローバル変数としておく
 // img には entrypoint などの情報がないので自分で入れる必要がある
-static struct raw_binary_loader_args echo_bin_args = {
+static struct loader_args echo_bin_args = {
 	.loader_addr = 0x0,
 	.entry_point = 0x0,
 	.sp = 0x100000,
 	.filename = "ECHO.BIN",
 };
-struct raw_binary_loader_args mini_os_bin_args = {
+struct loader_args mini_os_bin_args = {
 	.loader_addr = 0x0,
 	.entry_point = 0x0,
 	.sp = 0x100000,
 	.filename = "MINI-OS.BIN",
 };
-struct raw_binary_loader_args mini_os_elf_args = {
+struct loader_args mini_os_elf_args = {
 	.loader_addr = 0x0,
 	.entry_point = 0x0,
 	.sp = 0xffff000000100000,
 	.filename = "MINI-OS.ELF",
 };
-struct raw_binary_loader_args echo_elf_args = {
+struct loader_args echo_elf_args = {
 	.loader_addr = 0x0,
 	.entry_point = 0x0,
 	.sp = 0x100000,
 	.filename = "ECHO.ELF",
 };
-struct raw_binary_loader_args test_bin_args = {
+struct loader_args test_bin_args = {
 	.loader_addr = 0x0,
 	.entry_point = 0x0,
 	.sp = 0x100000,
 	.filename = "TEST2.BIN",
 };
 
-struct raw_binary_loader_args raspios_bin_args = {
+struct loader_args raspios_bin_args = {
 	.loader_addr = 0x0,
 	.entry_point = 0x0,
 	.sp = 0x100000,
 	.filename = "RASPIOS.BIN",
 };
-struct raw_binary_loader_args raspios_elf_args = {
+struct loader_args raspios_elf_args = {
 	.loader_addr = 0x0,
 	.entry_point = 0x0,
 	.sp = 0xffff000000100000,
 	.filename = "RASPIOS.ELF",
 };
 
-struct raw_binary_loader_args vmm_elf_args = {
+struct loader_args vmm_elf_args = {
 	.loader_addr = 0x0,
 	.entry_point = 0x0,
 	.sp = 0xffff000000100000,
