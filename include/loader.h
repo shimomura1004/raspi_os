@@ -1,12 +1,13 @@
 #ifndef _LOADER_H
 #define _LOADER_H
 
+#define MAX_FILE_PATH 256
 
 struct loader_args {
     unsigned long loader_addr;
     unsigned long entry_point;
     unsigned long sp;
-    const char *filename;
+    char filename[MAX_FILE_PATH];
 };
 
 int elf_binary_loader(void *, unsigned long *, unsigned long *);
