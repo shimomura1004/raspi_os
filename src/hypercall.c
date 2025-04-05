@@ -40,10 +40,10 @@ void hypercall(unsigned long hvc_nr, unsigned long a0, unsigned long a1, unsigne
 		static char filename[128];
 
 		// todo: 何個も起動すると再利用されてしまう
-		static struct raw_binary_loader_args args;
+		static struct loader_args args;
 
 		// ゲストのメモリに依存しないようハイパーバイザ側にコピー
-		args = *(struct raw_binary_loader_args *)get_pa_2nd(a0);
+		args = *(struct loader_args *)get_pa_2nd(a0);
 
 		// 文字列ポインタはネストしてアドレス変換が必要、変換しつつ static 変数上にコピーする
 		memcpy(&filename, (const char *)get_pa_2nd((unsigned long)args.filename), 128);
