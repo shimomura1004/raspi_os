@@ -49,6 +49,9 @@ void execute_command(char *buf) {
 	}
 	else if (EQUAL(command, "kill")) {
 	}
+	else if (EQUAL(command, "list")) {
+
+	}
 	else if (EQUAL(command, "shutdown")) {
 	}
 	else {
@@ -66,21 +69,38 @@ void kernel_main(void)
 
 	while (1) {
 		count = 0;
+		buf[count] = 0;
 		printf("> ");
 
-		while (count < BUFFER_LENGTH) {
+		while (1) {
 			buf[count] = uart_recv();
 
 			if (buf[count] == '\n' || buf[count] == '\r') {
 				printf("\n");
 
+				if (count == 0) {
+					break;
+				}
+
 				buf[count] = 0;
 				execute_command(buf);
-				break;
+				break;;
+			}
+			else if (buf[count] == 127) {
+				if (count > 0) {
+					buf[count--] = 0;
+					printf("\b\033[K");
+				}
+				continue;
 			}
 
 			uart_send(buf[count]);
 			count++;
+
+			if (count >= BUFFER_LENGTH) {
+				printf("\nToo long!\n");
+				break;
+			}
 		}
 	}
 }
