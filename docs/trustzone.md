@@ -13,3 +13,10 @@
   - そのとき secure world が動いていたら、secure monitor が一時的に normal world に切り替えて割り込みを処理する
 
 ## Core exception vectors
+- secure monitor の割込みベクタは VBAR_EL3(vector base address register) によって指定される
+- 今の CPU が Secure か Non-secure かは SCR(secure configuration register) レジスタの NS ビットにより判定できる
+  - Secure monitor 実行中以外のときは、NS ビットは以下を表す
+    - 0b0: PE is in Secure state.
+    - 0b1: PE is in Non-secure state.
+
+## Native and foreign interrupts
