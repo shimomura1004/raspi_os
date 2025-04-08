@@ -40,3 +40,15 @@
   - ![SMC entry to secure world](smc_flow.png)
 
 ## Deliver non-secure interrupts to normal world
+- secure world で動作しているときに foregin interrupt がきたら、 secure world は
+  1. trusted thread のコンテキストを保存する
+  2. すべての割込みをマスクする
+  3. etnry stack に戻る
+  4. normal world に遷移することを表す値とともに smc を呼び出す
+- smc が発行されて secure monitor にコードが戻ってきたら、secure world は normal world のコンテキストを復帰させる
+- 割込み処理が終わったら、normal wolrd のプログラムは smc を呼び出して secure monitor 経由で tz に戻る
+- ![Foreign interrupt received in secure world and forwarded to normal world](foregin_interrupt.png)
+
+## Deliver secure interrupts to secure world
+- secure な割込みを処理する流れは、CPU が secure/non-secure の状態で異なる
+- normal world 実行中に、secure な割込みを secure world に届ける場合
