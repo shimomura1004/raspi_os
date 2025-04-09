@@ -52,3 +52,19 @@
 ## Deliver secure interrupts to secure world
 - secure な割込みを処理する流れは、CPU が secure/non-secure の状態で異なる
 - normal world 実行中に、secure な割込みを secure world に届ける場合
+  - セキュアモニタが normal world のコンテキストを保存し、secure world のコンテキストを復帰させる
+  - eret で OP-TEE に復帰する
+  - OP-TEE が割込みを処理する
+  - OP-TEE が SMC を実行して Secure monitor にスイッチ、normal world に戻る
+
+## Trusted thread scheduling
+- OP-TEE のサービスは SMC 命令で実行される
+- OP-TEE が作る trusted thread は、completion ステータスとともに normal world に戻ると削除される
+- trusted thread は通常どおり割込み(native interrupt)が発生すればそちらに時間を譲る
+- 割込み(foreign interrupt)が発生すると normal world に遷移して割込みを処理することになる
+- trusted thread は OP-TEE 経由で normal world が提供するサービスを叩くこともある
+  - ファイルアクセスや REE current time など
+
+- trusted thread が foreign interrupt で割り込まれて休止した場合、trusted thread は normal world から応答が返ってくるまで再開しない
+- OP-TEE はスレッドのスケジューリング機能を持たない
+
