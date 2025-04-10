@@ -68,3 +68,17 @@
 - trusted thread が foreign interrupt で割り込まれて休止した場合、trusted thread は normal world から応答が返ってくるまで再開しない
 - OP-TEE はスレッドのスケジューリング機能を持たない
 
+- OP-TEE を呼び出す Linux のドライバは、呼び出した Linux 側のスレッドに対して1つの trusted thread を割り当てる
+  - Linux 側のスレッドはもちろん Linux のスケジューラによって制御されるので、trusted thread も間接的に Linux のスケジューラによって制御される
+
+- TEE では固定数の trusted thread を持つ(CFG_NUM_THREADS)
+- SMP なシステムの場合は、Normal world の OS がプロセスのスケジューリングをサポートするのであれば、複数の trusted thread を同時に動かせる
+
+## Core handlers for native interrupts
+- 具体的な API の紹介などであり、省略
+
+## Notifications
+- notification = normal world にイベントを伝えるための仕組み
+  - Synchronous: OPTEE_RPC_CMD_NOTIFICATION を使って実現
+  - Asynchronous: non-secure な割込みと、そのハンドラで fast call することで実現
+
