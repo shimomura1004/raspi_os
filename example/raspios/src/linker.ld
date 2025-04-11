@@ -1,3 +1,4 @@
+ENTRY("_start")
 SECTIONS
 {
 	. = 0xffff000000000000;
