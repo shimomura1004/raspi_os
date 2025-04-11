@@ -94,6 +94,8 @@ static void initialize_hypervisor() {
 	}
 }
 
+// todo: このへんは dom0 相当のゲストで実装すべき
+// todo: loader の実体は hv 側に持ち、Hypercall による API をもたせる
 static void prepare_guest_vms() {
 	if (create_vm(raw_binary_loader, &echo_bin_args) < 0) {
 		printf("error while starting VM #1");

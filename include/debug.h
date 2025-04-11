@@ -18,7 +18,7 @@ extern struct spinlock log_lock;
         printf("<cpu:%d>[vmid:%d] %s: ", cpuid, vm->vmid, level); \
     } \
     else { \
-        printf("<cpu:%d>[vmid:?] %s: ", cpuid, level); \
+        printf("<cpu:%d> %s: ", cpuid, level); \
     } \
     printf(fmt "\n", ##__VA_ARGS__); \
     release_lock(&log_lock); \

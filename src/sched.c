@@ -185,6 +185,14 @@ void show_vm_list() {
 // todo: 割込みを無効にしないといけないタイミングがありそう
 // todo: vm の数が減って idle のままになる cpu コアが出ると割込みがマスクされてしまう
 //       タイマ割込みが発生したあとはずっと割込み無効になっている
+//  -> 今の実装だと idle_vm がスケジューラそのものになっている
+//     cpu_switch_to から戻ってきたあと実行する vm が見つからないと、どの vm も実行されていない状態になる
+//     つまり release_lock されないので割込みが禁止されたままになる
+// todo: wfi ループする idle_vm を作って、優先度最低でそこに遷移させるようにする
+//
+// idle vm は必要、hypervisor 自体のコンテキストも必要
+// 今は idle vm が el2 hypervisor と一緒になってしまっている
+// hypervisor 実行中に割込みは処理してもいいが、コンテキストスイッチはしてはいけない
 void scheduler(unsigned long cpuid) {
 	struct vm_struct *vm;
 
