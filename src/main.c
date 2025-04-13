@@ -61,7 +61,7 @@ struct raw_binary_loader_args test_bin_args = {
 // 各 CPU コアで必要な初期化処理
 static void initialize_cpu_core(unsigned long cpuid) {
 	// CPU コア構造体の初期化
-	init_cpu_core_struct(cpuid);
+	// init_cpu_core_struct(cpuid);
 
 	// VBAR_EL2 レジスタに割込みベクタのアドレスを設定する
 	// 各 CPU コアで呼び出す必要がある
@@ -127,6 +127,7 @@ void hypervisor_main(unsigned long cpuid)
 {
 	// 実行中の CPU コアを初期化
 	initialize_cpu_core(cpuid);
+	create_idle_vm(cpuid);
 
 	// CPU 0 がハイパーバイザの初期化を実施
 	if (cpuid == 0) {
