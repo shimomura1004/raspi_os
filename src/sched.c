@@ -8,24 +8,25 @@
 #include "cpu_core.h"
 #include "spinlock.h"
 
-static struct vm_struct init_vm = {
-	.cpu_context = {0},
-	.state       = 0,
-	.counter     = 0,
-	.priority    = 1,
-	.vmid        = 0,
-	.flags       = 0,
-	.name        = "",
-	.board_ops   = 0,
-	.board_data  = 0,
-	.mm          = {0},
-	.cpu_sysregs = {0},
-	.stat        = {0},
-	.console     = {0},
-	.lock        = {0, 0, -1},
-};
+// static struct vm_struct init_vm = {
+// 	.cpu_context = {0},
+// 	.state       = 0,
+// 	.counter     = 0,
+// 	.priority    = 1,
+// 	.vmid        = 0,
+// 	.flags       = 0,
+// 	.name        = "",
+// 	.board_ops   = 0,
+// 	.board_data  = 0,
+// 	.mm          = {0},
+// 	.cpu_sysregs = {0},
+// 	.stat        = {0},
+// 	.console     = {0},
+// 	.lock        = {0, 0, -1},
+// };
 
-static struct vm_struct idle_vms[NUMBER_OF_CPU_CORES];
+// static struct vm_struct idle_vms[NUMBER_OF_CPU_CORES];
+
 // idle vm や動的に作られた vm などへの参照を保持する配列
 // todo: 直接触らせないようにする
 struct vm_struct *vms[NUMBER_OF_VMS];
@@ -37,20 +38,20 @@ struct vm_struct *currents[NUMBER_OF_CPU_CORES];
 // 現在実行中の VM の数(idle_vms があるので初期値は NUMBER_OF_CPU_CORES)
 int current_number_of_vms = NUMBER_OF_CPU_CORES;
 
-void initiate_idle_vms() {
-	for (int i = 0; i < NUMBER_OF_CPU_CORES; i++) {
-		currents[i] = &idle_vms[i];
-		memcpy(&idle_vms[i], &init_vm, sizeof(struct vm_struct));
+// void initiate_idle_vms() {
+// 	for (int i = 0; i < NUMBER_OF_CPU_CORES; i++) {
+// 		currents[i] = &idle_vms[i];
+// 		memcpy(&idle_vms[i], &init_vm, sizeof(struct vm_struct));
 
-		vms[i] = &idle_vms[i];
-		vms[i]->name = "IDLE";
-		vms[i]->vmid = i;
-		vms[i]->state = VM_ZOMBIE;
+// 		vms[i] = &idle_vms[i];
+// 		vms[i]->name = "IDLE";
+// 		vms[i]->vmid = i;
+// 		vms[i]->state = VM_ZOMBIE;
 
-		// IDLE VM 用の ホスト用のコンソールの初期化
-		init_vm_console(vms[i]);
-	}
-}
+// 		// IDLE VM 用の ホスト用のコンソールの初期化
+// 		init_vm_console(vms[i]);
+// 	}
+// }
 
 // 現在実行中の VM の vm_struct
 struct vm_struct *current_vm() {
@@ -210,18 +211,23 @@ void scheduler(unsigned long cpuid) {
 			if (vm && vm->state == VM_RUNNABLE) {
 				// 準備をして、この VM を復帰させる
 				vm->state = VM_RUNNING;
-				idle_vms[cpuid].state = VM_RUNNABLE;
+				// idle_vms[cpuid].state = VM_RUNNABLE;
+				vms[cpuid]->state = VM_RUNNABLE;
 				current_cpu_core()->current_vm = vm;
 				set_current_vm(vm);
 
 				// しばらく vm を実行する
-				cpu_switch_to(&idle_vms[cpuid], vm);
+				// cpu_switch_to(&idle_vms[cpuid], vm);
+				cpu_switch_to(vms[cpuid], vm);
 
 				// ここに戻ってきたら、今まで動いていた VM を停止させる
 				vm->state = vm->state == VM_ZOMBIE ? VM_ZOMBIE : VM_RUNNABLE;
-				idle_vms[cpuid].state = VM_RUNNING;
-				current_cpu_core()->current_vm = &idle_vms[cpuid];
-				set_current_vm(&idle_vms[cpuid]);
+				// idle_vms[cpuid].state = VM_RUNNING;
+				vms[cpuid]->state = VM_RUNNING;
+				// current_cpu_core()->current_vm = &idle_vms[cpuid];
+				current_cpu_core()->current_vm = vms[cpuid];
+				// set_current_vm(&idle_vms[cpuid]);
+				set_current_vm(vms[cpuid]);
 			}
 
 			release_lock(&vm->lock);
@@ -242,7 +248,8 @@ void yield() {
 
 	// 割込みの有効・無効状態は CPU の状態ではなくこのスレッドの状態なので、退避・復帰させる必要がある
 	int interrupt_enable = current_cpu_core()->interrupt_enable;
-	cpu_switch_to(vm, &idle_vms[get_cpuid()]);
+	// cpu_switch_to(vm, &idle_vms[get_cpuid()]);
+	cpu_switch_to(vm, vms[get_cpuid()]);
 	current_cpu_core()->interrupt_enable = interrupt_enable;
 
 	// また戻ってきたらロックを解放する
