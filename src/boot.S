@@ -46,6 +46,7 @@ sleep:
 	b sleep
 
 // EL3 の実質的なスタート
+// 起動直後は EL3 になっているので、必要な設定を行ったあと EL2 に切り替える
 el3_entry:
 	// sysregs.h にて定義されている
 	// #define SCTLR_VALUE_MMU_DISABLED
@@ -56,7 +57,6 @@ el3_entry:
 	// 命令キャッシュ・データキャッシュも無効化される
 	ldr	x0, =SCTLR_VALUE_MMU_DISABLED
 
-	// 起動直後は EL3 になっているので、EL2 に切り替える
 	// EL2 用に設定を登録
 	msr	sctlr_el2, x0
 
