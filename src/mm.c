@@ -200,7 +200,7 @@ unsigned long get_ipa(unsigned long va) {
 // ESR_EL2
 // https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/ESR-EL2--Exception-Syndrome-Register--EL2-?lang=en#fieldset_0-24_0
 int handle_mem_abort(unsigned long addr, unsigned long esr) {
-	struct vm_struct *vm = current_vm();
+	struct vm_struct *vm = current_cpu_core()->current_vm;
 	struct pt_regs *regs = vm_pt_regs(vm);
 	unsigned int dfsc = esr & ISS_ABORT_DFSC_MASK;
 
