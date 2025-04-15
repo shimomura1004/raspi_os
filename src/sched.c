@@ -182,6 +182,21 @@ void show_vm_list() {
     }
 }
 
+// EL2 から EL1 に遷移し、VM を復帰させる
+static void schedule(struct vm_struct *vm) {
+	struct cpu_core_struct *cpu_core = current_cpu_core();
+
+	vm->state = VM_RUNNING;
+	cpu_core->current_vm = vm;
+
+	// しばらく vm を実行する
+	cpu_switch_to(&cpu_core->scheduler_context, vm);
+
+	// ここに戻ってきたら、今まで動いていた VM を停止させる
+	vm->state = vm->state == VM_ZOMBIE ? VM_ZOMBIE : VM_RUNNABLE;
+	cpu_core->current_vm = NULL;
+}
+
 // 各コア専用に用意された idle vm で実行され、タイマ割込みが発生するとここに帰ってくる
 // 切り替える前に必ず VM のロックを取り、切り替え終わったらすぐにロックを解放する
 // todo: 割込みを無効にしないといけないタイミングがありそう
@@ -197,9 +212,15 @@ void show_vm_list() {
 // hypervisor 実行中に割込みは処理してもいいが、コンテキストスイッチはしてはいけない
 void scheduler(unsigned long cpuid) {
 	struct vm_struct *vm;
+	int found;
+
+	// この CPU コアの割込みを有効化
+	enable_irq();
 
 	// todo: 割込みをどうするか考える、ただしタスクスイッチは禁止しないといけない
 	while (1) {
+		found = 0;
+
 		// 単純なラウンドロビンで VM に CPU 時間を割り当てる
 		// 先頭の VM は idle vm なので飛ばす
 		// todo: idle_vm は vms に入れなくてもいいのではないか？
@@ -210,27 +231,40 @@ void scheduler(unsigned long cpuid) {
 
 			// RUNNABLE 状態の VM を探す
 			if (vm && vm->state == VM_RUNNABLE) {
-				// 準備をして、この VM を復帰させる
-				vm->state = VM_RUNNING;
-				// idle_vms[cpuid].state = VM_RUNNABLE;
-				vms[cpuid]->state = VM_RUNNABLE;
-				current_cpu_core()->current_vm = vm;
+				found = 1;
+				schedule(vm);
+				// // 準備をして、この VM を復帰させる
+				// vm->state = VM_RUNNING;
+				// // idle_vms[cpuid].state = VM_RUNNABLE;
+				// vms[cpuid]->state = VM_RUNNABLE;
+				// current_cpu_core()->current_vm = vm;
+				// set_current_vm(vm);
 
-				// しばらく vm を実行する
-				// cpu_switch_to(&idle_vms[cpuid], vm);
-				cpu_switch_to(vms[cpuid], vm);
+				// // しばらく vm を実行する
+				// // cpu_switch_to(&idle_vms[cpuid], vm);
+				// cpu_switch_to(vms[cpuid], vm);
 
-				// ここに戻ってきたら、今まで動いていた VM を停止させる
-				vm->state = vm->state == VM_ZOMBIE ? VM_ZOMBIE : VM_RUNNABLE;
-				// idle_vms[cpuid].state = VM_RUNNING;
-				vms[cpuid]->state = VM_RUNNING;
-				// current_cpu_core()->current_vm = &idle_vms[cpuid];
-				current_cpu_core()->current_vm = vms[cpuid];
-				// set_current_vm(&idle_vms[cpuid]);
+				// // ここに戻ってきたら、今まで動いていた VM を停止させる
+				// vm->state = vm->state == VM_ZOMBIE ? VM_ZOMBIE : VM_RUNNABLE;
+				// // idle_vms[cpuid].state = VM_RUNNING;
+				// vms[cpuid]->state = VM_RUNNING;
+				// // current_cpu_core()->current_vm = &idle_vms[cpuid];
+				// current_cpu_core()->current_vm = vms[cpuid];
+				// // set_current_vm(&idle_vms[cpuid]);
+				// set_current_vm(vms[cpuid]);
 			}
 
 			release_lock(&vm->lock);
 		}
+
+		// 全 VM を走査しても実行できる VM がひとつも見つからなかったら IDLE VM を実行
+		if (!found) {
+			vm = vms[cpuid];
+			acquire_lock(&vm->lock);
+			schedule(vm);
+			release_lock(&vm->lock);
+		}
+
 		// todo: これは？今の実装でも関係あるか？
 		// 割込みを有効にしておかないと誰も VM の状態を変更できず無限ループになってしまうので
 		// timer_tick で割込みを有効にしておく必要がある
@@ -249,7 +283,11 @@ void yield() {
 	// 割込みの有効・無効状態は CPU の状態ではなくこのスレッドの状態なので、退避・復帰させる必要がある
 	int interrupt_enable = current_cpu_core()->interrupt_enable;
 	// cpu_switch_to(vm, &idle_vms[get_cpuid()]);
-	cpu_switch_to(vm, vms[get_cpuid()]);
+	// cpu_switch_to(vm, vms[get_cpuid()]);
+
+	// スケジューラに復帰
+	cpu_switch_to(vm, &cpu_core->scheduler_context);
+
 	current_cpu_core()->interrupt_enable = interrupt_enable;
 
 	// また戻ってきたらロックを解放する

@@ -18,7 +18,7 @@ struct pt_regs * vm_pt_regs(struct vm_struct *vm) {
 
 static void idle_loop() {
 	while (1) {
-		asm volatile("wfi");
+		// asm volatile("wfi");
 	}
 }
 

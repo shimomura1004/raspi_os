@@ -50,9 +50,9 @@ cpu_switch_to:
 	stp	x23, x24, [x8], #16
 	stp	x25, x26, [x8], #16
 	stp	x27, x28, [x8], #16
-	stp	x29, x9, [x8], #16      // fp <= x29, sp <= x9(=sp)
+	stp	x29, x9, [x8], #16      // cpu_context.fp <= x29, cpu_context.sp <= x9(=sp)
 	// x30 はリンクレジスタであり、戻り先アドレスが入っている、これを pc に入れる 
-	str	x30, [x8]               // pc <= x30
+	str	x30, [x8]               // cpu_context.pc <= x30
 	// 切り替え先の vm_struct 構造体のアドレス(x1)にオフセットを足したものを x8 に入れる
 	// つまり切り替え先の VM の cpu_context のアドレスが x8 に入る
 	add	x8, x1, x10
