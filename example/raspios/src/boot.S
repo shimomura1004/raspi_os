@@ -28,11 +28,8 @@ el2_entry:
 	ldr	x0, =HCR_VALUE
 	msr	hcr_el2, x0
 
-	ldr	x0, =SCR_VALUE
-	msr	scr_el3, x0
-
 	ldr	x0, =SPSR_VALUE
-	msr	spsr_el3, x0
+	msr	spsr_el2, x0
 
 	adr	x0, el1_entry
 	msr	elr_el2, x0
@@ -69,10 +66,10 @@ el1_entry:
 
 	mov	x0, #SCTLR_MMU_ENABLED
 
-    //dsb ish
-    //isb
+    dsb ish
+    isb
 	msr	sctlr_el1, x0
-    //isb
+    isb
 
 	br 	x2
 
