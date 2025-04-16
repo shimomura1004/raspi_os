@@ -10,7 +10,10 @@
 #include "mini_uart.h"
 #include "sys.h"
 #include "user.h"
+#include "spinlock.h"
+#include "debug.h"
 
+struct spinlock log_lock;
 
 void kernel_process(){
 	printf("Kernel process started. EL %d\r\n", get_el());
@@ -32,6 +35,10 @@ void kernel_main()
 	timer_init();
 	enable_interrupt_controller();
 	enable_irq();
+
+	init_lock(&log_lock, "log_lock");
+
+	INFO("Initialization complete");
 
 	int res = copy_process(PF_KTHREAD, (unsigned long)&kernel_process, 0);
 	if (res < 0) {
