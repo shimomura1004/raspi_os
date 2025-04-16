@@ -13,26 +13,36 @@
 _start:
 	mrs	x0, mpidr_el1
 	and	x0, x0,#0xFF		// Check processor id
-	cbz	x0, el2_entry		// Hang for all non-primary CPU
+	cbz	x0, el3_entry		// Hang for all non-primary CPU
 	b	proc_hang
 
 proc_hang: 
 	b proc_hang
 
-el2_entry:
+el3_entry:
 	bl get_el
 	cmp	x0, #1
 	b.eq el1_entry
 
-	// EL2 から起動した場合は最低限の設定だけして EL1 に切り替える
+	// EL3 から起動した場合は最低限の設定だけして EL1 に切り替える
+	ldr	x0, =SCTLR_VALUE_MMU_DISABLED
+	msr	sctlr_el2, x0
+
 	ldr	x0, =HCR_VALUE
 	msr	hcr_el2, x0
 
+	ldr	x0, =SCR_VALUE
+	msr	scr_el3, x0
+
+	// SPSR の M ビットを EL1h(0b101) に設定することで EL1 に直接遷移させる
+	//   #define SPSR_MASK_ALL	(7 << 6)
+	//   #define SPSR_EL1h		(5 << 0)
+	//   #define SPSR_VALUE		(SPSR_MASK_ALL | SPSR_EL1h)
 	ldr	x0, =SPSR_VALUE
-	msr	spsr_el2, x0
+	msr	spsr_el3, x0
 
 	adr	x0, el1_entry
-	msr	elr_el2, x0
+	msr	elr_el3, x0
 
 	eret
 
@@ -62,6 +72,7 @@ el1_entry:
 	ldr	x0, =(MAIR_VALUE)
 	msr	mair_el1, x0
 
+	// todo: objcopy はコード中のジャンプ先を修正しないため、kernel_main のアドレスがずれる
 	ldr	x2, =kernel_main
 
 	mov	x0, #SCTLR_MMU_ENABLED
