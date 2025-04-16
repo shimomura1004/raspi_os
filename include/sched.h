@@ -18,10 +18,6 @@ enum VM_STATE {
 
 struct board_ops;
 
-// struct vm_struct *current_vm();
-// void set_current_vm(struct vm_struct *vm);
-// void initiate_idle_vms();
-
 extern struct vm_struct *vms[NUMBER_OF_VMS];
 extern int current_number_of_vms;
 
