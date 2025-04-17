@@ -16,34 +16,16 @@ struct pt_regs * vm_pt_regs(struct vm_struct *vm) {
 	return (struct pt_regs *)p;
 }
 
+// idle vm 用のなにもしないコード
 static void idle_loop() {
 	while (1) {
 		// asm volatile("wfi");
 	}
 }
 
-static void prepare_idle_vm() {
+// VM の初期状態を設定する共通処理
+static struct vm_struct *prepare_vm() {
 	struct vm_struct *vm = current_cpu_core()->current_vm;
-
-	release_lock(&vm->lock);
-
-	struct pt_regs *regs = vm_pt_regs(vm);
-	regs->pstate = PSR_MODE_EL1h;	// EL を1、使用する SP を SP_EL1 にする
-	regs->pstate |= (0xf << 6);		// DAIF をすべて1にする、つまり全ての例外をマスクしている
-
-	set_cpu_sysregs(vm);
-
-	INFO("%s enters el1...", vm->name);
-
-	copy_code_to_memory(vm, 0, (unsigned long)idle_loop, PAGE_SIZE);
-	regs->pc = 0x0;
-	regs->sp = 0x100000;
-}
-
-static void prepare_vm(loader_func_t loader, void *arg) {
-	struct raw_binary_loader_args *loader_args = (struct raw_binary_loader_args *)arg;
-	struct vm_struct *vm = current_cpu_core()->current_vm;
-	INFO("loading... %s, EL=%d", loader_args->filename, get_el());
 
 	// VM の切り替え前に必ずロックしているので、まずそれを解除する
 	release_lock(&vm->lock);
@@ -55,13 +37,35 @@ static void prepare_vm(loader_func_t loader, void *arg) {
 	regs->pstate = PSR_MODE_EL1h;	// EL を1、使用する SP を SP_EL1 にする
 	regs->pstate |= (0xf << 6);		// DAIF をすべて1にする、つまり全ての例外をマスクしている
 
+	set_cpu_sysregs(vm);
+
+	return vm;
+}
+
+// 指定したアドレスに格納されたテキストコードを VM 領域のアドレス 0 にコピーする
+static void load_vm_text_from_memory(unsigned long text) {
+	struct vm_struct *vm = prepare_vm();
+	struct pt_regs *regs = vm_pt_regs(vm);
+
+	// コードをロードして PC/SP を設定
+	copy_code_to_memory(vm, 0, text, PAGE_SIZE);
+	regs->pc = 0x0;
+	regs->sp = 0x100000;
+
+	INFO("%s enters EL1...", vm->name);
+}
+
+// 指定されたローダを使い、ファイルからテキストコードをロードする
+static void load_vm_text_from_file(loader_func_t loader, void *arg) {
+	struct vm_struct *vm = prepare_vm();
+	struct pt_regs *regs = vm_pt_regs(vm);
+
+	// コードをロードして PC/SP を設定
 	if (loader(arg, &regs->pc, &regs->sp) < 0) {
 		PANIC("failed to load");
 	}
 
-	set_cpu_sysregs(vm);
-
-	INFO("%s enters el1...", vm->name);
+	INFO("%s enters EL1...", vm->name);
 }
 
 static struct cpu_sysregs initial_sysregs;
@@ -107,8 +111,9 @@ int create_idle_vm(unsigned long cpuid) {
 	}
 
 	// switch_from_kthread 内で x19 のアドレスにジャンプする
-	vm->cpu_context.x19 = (unsigned long)prepare_idle_vm;
-	// vm->cpu_context.x19 = (unsigned long)prepare_vm;
+	vm->cpu_context.x19 = (unsigned long)load_vm_text_from_memory;
+	vm->cpu_context.x20 = (unsigned long)idle_loop;
+	// vm->cpu_context.x19 = (unsigned long)load_vm_text_from_file;
 	// vm->cpu_context.x20 = (unsigned long)loader;
 	// vm->cpu_context.x21 = (unsigned long)arg;
 	vm->flags = 0;
@@ -163,7 +168,7 @@ int create_vm(loader_func_t loader, void *arg) {
 	}
 
 	// switch_from_kthread 内で x19 のアドレスにジャンプする
-	vm->cpu_context.x19 = (unsigned long)prepare_vm;
+	vm->cpu_context.x19 = (unsigned long)load_vm_text_from_file;
 	vm->cpu_context.x20 = (unsigned long)loader;
 	vm->cpu_context.x21 = (unsigned long)arg;
 	vm->flags = 0;
