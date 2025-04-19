@@ -5,6 +5,8 @@
 
 .section ".text.boot"
 
+.extern initialized
+
 // todo: 動作確認のため、ハイパーバイザ有無に関わらず同一ソースで起動できるようにしたい
 //   qemu を -M raspi3b で起動すると EL2 から起動されるため、ネイティブとゲストのソースに差がでてしまう
 //   起動後に EL を見て処理を切り替えれば暫定対応できる
@@ -13,11 +15,23 @@
 _start:
 	mrs	x0, mpidr_el1
 	and	x0, x0,#0xFF		// Check processor id
-	cbz	x0, el3_entry		// Hang for all non-primary CPU
-	b	proc_hang
+
+	cmp x0, #0
+	b.eq el3_entry		// Primary CPU
+	cmp x0, #1
+	b.eq loop		// Secondary CPU
 
 proc_hang: 
+	wfi
 	b proc_hang
+
+loop:
+	// todo: initialized が 0xffff000000005908 に配置されているためアクセスできない
+	ldr x0, =initialized
+	ldr x1, [x0]
+	cbz x1, loop
+	dsb ish
+	b el3_entry
 
 el3_entry:
 	bl get_el
@@ -47,6 +61,12 @@ el3_entry:
 	eret
 
 el1_entry:
+	mrs	x0, mpidr_el1
+	and	x0, x0, #0xFF
+	cbz x0, page_table_setup
+	b after_page_table_setup
+
+page_table_setup:
 	ldr	x0, =SCTLR_VALUE_MMU_DISABLED
 	msr	sctlr_el1, x0
 
@@ -57,8 +77,13 @@ el1_entry:
 
 	bl 	__create_page_tables
 
-	mov	x0, #VA_START
-	add	sp, x0, #LOW_MEMORY
+after_page_table_setup:
+	mov x1, #LOW_MEMORY
+	bl get_cpuid
+	add x0, x0, #1
+	mul x0, x1, x0
+	mov x1, #VA_START
+	add sp, x0, x1
 
 	adrp	x0, pg_dir
 	msr	ttbr1_el1, x0
