@@ -74,6 +74,7 @@ static void initialize_cpu_core(unsigned long cpuid) {
 // 全コア共通で一度だけ実施する初期化処理
 static void initialize_hypervisor() {
 	// initiate_idle_vms();
+	mm_init();
 	uart_init();
 	init_printf(NULL, putc);
 

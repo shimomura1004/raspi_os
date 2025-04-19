@@ -49,6 +49,8 @@
 
 #include "sched.h"
 
+void mm_init();
+
 unsigned long get_free_page();
 void free_page(void *p);
 void map_stage2_page(struct vm_struct *vm, unsigned long ipa,

@@ -4,9 +4,15 @@
 #include "debug.h"
 #include "board.h"
 #include "vm.h"
+#include "spinlock.h"
 
 // ページの使用状況を表す領域
 static unsigned short mem_map [ PAGING_PAGES ] = {0,};
+static struct spinlock mm_lock;
+
+void mm_init() {
+	init_lock(&mm_lock, "mm_lock");
+}
 
 // ハイパーバイザで使うためのページを確保し、その仮想アドレスを返す
 // RPi OS では "カーネルのアドレス空間" はないのでマッピングの追加は行わない
@@ -45,6 +51,8 @@ void set_vm_page_notaccessable(struct vm_struct *vm, unsigned long va) {
 // 未使用のページを探してその場所(DRAM 内のオフセット)を返す
 unsigned long get_free_page()
 {
+	acquire_lock(&mm_lock);
+
 	for (int i = 0; i < PAGING_PAGES; i++){
 		if (mem_map[i] == 0){
 			// 未使用領域を見つけたらフラグを立てる
@@ -53,11 +61,15 @@ unsigned long get_free_page()
 			// RPi OS はリニアマッピングなので VA_START を足せば仮想アドレスになる
 			// そのアドレスを使ってページの内容をゼロクリアする
 			memzero((void *)(page + VA_START), PAGE_SIZE);
+
+			release_lock(&mm_lock);
 			return page;
 		}
 	}
 
+	release_lock(&mm_lock);
 	PANIC("no free pages");
+
 	return 0;
 }
 
