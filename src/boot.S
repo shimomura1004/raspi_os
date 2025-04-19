@@ -124,8 +124,6 @@ page_table_setup:
 	bl 	__create_page_tables
 
 after_page_table_setup:
-	// VA_START を足すことでカーネルの仮想アドレスにしている
-	mov	x0, #VA_START
 	// #define PAGE_SHIFT	 	12
 	// #define TABLE_SHIFT 		9
 	// #define SECTION_SHIFT	(PAGE_SHIFT + TABLE_SHIFT)
@@ -142,6 +140,7 @@ after_page_table_setup:
 	bl get_cpuid
 	add x0, x0, #1
 	mul x0, x1, x0
+	// 最後に VA_START を足すことでカーネルの仮想アドレスにしている
 	add sp, x0, #VA_START
 
 	// TTBR(translate table base register)は複数ある: TTBR{0,1}_el{0,1} + TTBR0_el{2,3}
