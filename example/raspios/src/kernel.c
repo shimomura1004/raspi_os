@@ -13,9 +13,6 @@
 #include "spinlock.h"
 #include "debug.h"
 
-// todo: コア0以外はページテーブルを設定するを待ってから動き出さないとダメ
-// todo: しかしここでデータを定義すると仮想アドレス上に確保されるため、起動初期には触れない
-//       アセンブラ側で定義してやる必要あり
 volatile unsigned long initialized = 0;
 struct spinlock log_lock;
 
@@ -45,10 +42,8 @@ void kernel_main()
 		init_lock(&log_lock, "log_lock");
 		INFO("Initialization complete");
 		initialized = 1;
-	} else {
-		INFO("!!!");
 	}
-
+	
 	INFO("CPU %d started", cpuid);
 
 	int res = copy_process(PF_KTHREAD, (unsigned long)&kernel_process, 0);

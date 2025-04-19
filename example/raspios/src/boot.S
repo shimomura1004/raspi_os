@@ -8,8 +8,8 @@
 .extern initialized
 
 // todo: 動作確認のため、ハイパーバイザ有無に関わらず同一ソースで起動できるようにしたい
-//   qemu を -M raspi3b で起動すると EL2 から起動されるため、ネイティブとゲストのソースに差がでてしまう
-//   起動後に EL を見て処理を切り替えれば暫定対応できる
+// qemu を -M raspi3b で起動すると EL2 から起動されるため、ネイティブとゲストのソースに差がでてしまう
+// 起動後に EL を見て処理を切り替えれば暫定対応できる
 
 .globl _start
 _start:
@@ -26,8 +26,10 @@ proc_hang:
 	b proc_hang
 
 loop:
-	// todo: initialized が 0xffff000000005908 に配置されているためアクセスできない
+	// この OS はリンカスクリプトによって 0xffff_0000_0000_0000 に配置される
+	// initialized も高位アドレスに配置されているため、そのまま ldr x1, [x0] はエラーになる
 	ldr x0, =initialized
+	and x0, x0, #0x00000000ffffffff
 	ldr x1, [x0]
 	cbz x1, loop
 	dsb ish
