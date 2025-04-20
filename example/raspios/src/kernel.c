@@ -43,16 +43,18 @@ void kernel_main()
 		INFO("Initialization complete");
 		initialized = 1;
 	}
-	
+
 	INFO("CPU %d started", cpuid);
 
-	int res = copy_process(PF_KTHREAD, (unsigned long)&kernel_process, 0);
-	if (res < 0) {
-		printf("error while starting kernel process");
-		return;
-	}
+	if (cpuid == 0) {
+		int res = copy_process(PF_KTHREAD, (unsigned long)&kernel_process, 0);
+		if (res < 0) {
+			printf("error while starting kernel process");
+			return;
+		}
 
-	while (1){
-		schedule();
-	}	
+		while (1){
+			schedule();
+		}	
+	}
 }
