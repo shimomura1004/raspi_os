@@ -94,9 +94,9 @@ void increment_current_pc(int ilen) {
 	regs->pc += ilen;
 }
 
-// todo: create_vm/create_idle_vm で処理を共通化する
-// 指定された CPU コア用の IDLE VM を作る
-int create_idle_vm(unsigned long cpuid) {
+// 空の VM 構造体を作成
+// あとでこの VM に CPU 時間が割当たるとロードなどが行われる
+static struct vm_struct *create_vm() {
 	struct vm_struct *vm;
 
 	// 新たなページを確保
@@ -107,22 +107,13 @@ int create_idle_vm(unsigned long cpuid) {
 	struct pt_regs *childregs = vm_pt_regs(vm);
 
 	if (!vm) {
-		return -1;
+		return NULL;
 	}
 
-	// switch_from_kthread 内で x19 のアドレスにジャンプする
-	vm->cpu_context.x19 = (unsigned long)load_vm_text_from_memory;
-	vm->cpu_context.x20 = (unsigned long)idle_loop;
-	// vm->cpu_context.x19 = (unsigned long)load_vm_text_from_file;
-	// vm->cpu_context.x20 = (unsigned long)loader;
-	// vm->cpu_context.x21 = (unsigned long)arg;
 	vm->flags = 0;
-
 	vm->priority = current_cpu_core()->current_vm->priority;
 	vm->state = VM_RUNNABLE;
 	vm->counter = vm->priority;
-	vm->name = "IDLE";
-	// vm->name = "VM";
 
 	// このプロセス(vm)で再現するハードウェア(BCM2837)を初期化
 	vm->board_ops = &bcm2837_board_ops;
@@ -135,34 +126,42 @@ int create_idle_vm(unsigned long cpuid) {
 
 	// el1 で動くゲスト OS カーネルは、最初は switch_from_kthread 関数から動き出す
 	vm->cpu_context.pc = (unsigned long)switch_from_kthread;
+
 	// switch_from_kthread の中で kernel_exit が呼ばれる
 	// そのとき SP が指す先には退避したレジスタが格納されている必要がある
 	vm->cpu_context.sp = (unsigned long)childregs;
+
+	init_vm_console(vm);
+
+	return vm;
+}
+
+// 指定された CPU コア用の IDLE VM を作る
+int create_idle_vm(unsigned long cpuid) {
+	struct vm_struct *vm = create_vm();
+	if (!vm) {
+		return -1;
+	}
+
+	// switch_from_kthread 内で x19 のアドレスにジャンプする
+	vm->cpu_context.x19 = (unsigned long)load_vm_text_from_memory;
+	vm->cpu_context.x20 = (unsigned long)idle_loop;
+	vm->name = "IDLE";
+
 	// IDLE VM は CPU ID をそのまま VMID にする
 	int vmid = cpuid;
-	// // 今動いている VM 数を増やし、その連番をそのまま PID とする
-	// int vmid = current_number_of_vms++;
+
 	// 新たに作った vm_struct 構造体のアドレスを vms 配列に入れておく
 	// これでそのうち今作った VM に処理が切り替わり、switch_from_kthread から実行開始される
 	vms[vmid] = vm;
 	vm->vmid = vmid;
 
-	init_vm_console(vm);
-
 	return vmid;
 }
 
-// EL1 で動く VM を作る(この VM に CPU が割り当たるとロードなどが行われる)
-int create_vm(loader_func_t loader, void *arg) {
-	struct vm_struct *vm;
-
-	// 新たなページを確保
-	unsigned long page = allocate_page();
-	// ページの先頭に vm_struct を置く
-	vm = (struct vm_struct *) page;
-	// ページの末尾を pt_regs 用の領域とする
-	struct pt_regs *childregs = vm_pt_regs(vm);
-
+// 指定されたローダで VM を作る
+int create_vm_with_loader(loader_func_t loader, void *arg) {
+	struct vm_struct *vm = create_vm();
 	if (!vm) {
 		return -1;
 	}
@@ -171,35 +170,12 @@ int create_vm(loader_func_t loader, void *arg) {
 	vm->cpu_context.x19 = (unsigned long)load_vm_text_from_file;
 	vm->cpu_context.x20 = (unsigned long)loader;
 	vm->cpu_context.x21 = (unsigned long)arg;
-	vm->flags = 0;
-
-	vm->priority = current_cpu_core()->current_vm->priority;
-	vm->state = VM_RUNNABLE;
-	vm->counter = vm->priority;
 	vm->name = "VM";
 
-	// このプロセス(vm)で再現するハードウェア(BCM2837)を初期化
-	vm->board_ops = &bcm2837_board_ops;
-	if (HAVE_FUNC(vm->board_ops, initialize)) {
-		vm->board_ops->initialize(vm);
-	}
-
-	prepare_initial_sysregs();
-	memcpy(&vm->cpu_sysregs, &initial_sysregs, sizeof(struct cpu_sysregs));
-
-	// el1 で動くゲスト OS カーネルは、最初は switch_from_kthread 関数から動き出す
-	vm->cpu_context.pc = (unsigned long)switch_from_kthread;
-	// switch_from_kthread の中で kernel_exit が呼ばれる
-	// そのとき SP が指す先には退避したレジスタが格納されている必要がある
-	vm->cpu_context.sp = (unsigned long)childregs;
 	// 今動いている VM 数を増やし、その連番をそのまま PID とする
 	int vmid = current_number_of_vms++;
-	// 新たに作った vm_struct 構造体のアドレスを vms 配列に入れておく
-	// これでそのうち今作った VM に処理が切り替わり、switch_from_kthread から実行開始される
 	vms[vmid] = vm;
 	vm->vmid = vmid;
-
-	init_vm_console(vm);
 
 	return vmid;
 }
