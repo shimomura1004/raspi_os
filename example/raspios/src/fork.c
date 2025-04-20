@@ -27,7 +27,7 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 	}
 	p->flags = clone_flags;
 	p->priority = current->priority;
-	p->state = TASK_RUNNING;
+	p->state = TASK_RUNNABLE;
 	p->counter = p->priority;
 	p->preempt_count = 1; //disable preemtion until schedule_tail
 
@@ -46,6 +46,7 @@ int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 	struct pt_regs *regs = task_pt_regs(current);
 	regs->pstate = PSR_MODE_EL0t;
 	regs->pc = pc;
+	// スタックポインタはコードページのすぐあとのページを使うことになっているが、allocate されていない？
 	regs->sp = 2 *  PAGE_SIZE;  
 	unsigned long code_page = allocate_user_page(current, 0);
 	if (code_page == 0)	{

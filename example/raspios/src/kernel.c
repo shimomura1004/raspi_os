@@ -16,11 +16,16 @@
 volatile unsigned long initialized = 0;
 struct spinlock log_lock;
 
+// todo: マルチコアに対応していないかも
 void kernel_process(){
 	printf("Kernel process started. EL %d\r\n", get_el());
 	unsigned long begin = (unsigned long)&user_begin;
 	unsigned long end = (unsigned long)&user_end;
 	unsigned long process = (unsigned long)&user_process;
+	// ブートローダもしくは QEMU がカーネルの一部として
+	// ユーザ空間用のコード(user_process)をメモリにロードしている
+	// それをユーザ空間にコピーしている
+	// PC は user_process の先頭にセット
 	int err = move_to_user_mode(begin, end - begin, process - begin);
 	if (err < 0){
 		printf("Error while moving process to user mode\n\r");
@@ -55,6 +60,7 @@ void kernel_main()
 
 		while (1){
 			schedule();
+			printf("main loop\n");
 		}	
 	}
 	else {
