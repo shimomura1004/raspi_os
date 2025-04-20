@@ -57,4 +57,7 @@ void kernel_main()
 			schedule();
 		}	
 	}
+	else {
+		asm volatile("wfi");
+	}
 }
