@@ -18,12 +18,12 @@ _start:
 
 	cmp x0, #0
 	b.eq el3_entry		// Primary CPU
-	cmp x0, #1
-	b.eq loop		// Secondary CPU
+	//cmp x0, #1
+	//b.eq loop		// Secondary CPU
 
-proc_hang: 
-	wfi
-	b proc_hang
+//proc_hang: 
+	//wfi
+	//b proc_hang
 
 loop:
 	// この OS はリンカスクリプトによって 0xffff_0000_0000_0000 に配置される
