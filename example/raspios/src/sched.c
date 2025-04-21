@@ -10,7 +10,12 @@ struct task_struct *current = &(init_task);
 struct task_struct * task[NR_TASKS] = {&(init_task), };
 int nr_tasks = 1;
 
-struct spinlock lock = {0, "", -1};
+struct spinlock sched_lock = {0, "sched lock", -1};
+// fork で新しくプロセスを作ったあと、sched で acquire したロックを解放するための関数
+// 切り替わった直後に必ずロックを解放しないといけない
+void release_sched_lock() {
+	release_lock(&sched_lock);
+}
 
 void preempt_disable(void)
 {
@@ -55,7 +60,9 @@ void _schedule(void)
 		// 実際に切り替える
 		// switch_to を呼ぶと、切り替えに成功した場合は呼び出したプロセスのコンテキストには戻ってこず
 		// 切り替え先のプロセスのコンテキストでここに戻ってくる
+		acquire_lock(&sched_lock);
 		int switched = switch_to(task[next]);
+		release_lock(&sched_lock);
 
 		if (switched) {
 			break;
