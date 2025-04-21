@@ -207,6 +207,7 @@ ret_from_fork:
 	blr	x19
 ret_to_user:
 	bl disable_irq				
+	bl release_sched_lock
 	kernel_exit 0 
 
 
