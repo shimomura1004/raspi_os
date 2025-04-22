@@ -154,6 +154,7 @@ void map_stage2_page(struct vm_struct *vm, unsigned long ipa, unsigned long page
 	vm->mm.vm_pages_count++;
 }
 
+// 指定されたゲストの仮想アドレスをゲストの物理アドレスに変換する
 unsigned long get_ipa(unsigned long va) {
 	// メモリページの IPA を取得
 	unsigned long ipa = translate_el1(va);
@@ -161,6 +162,14 @@ unsigned long get_ipa(unsigned long va) {
 	// オフセット12ビット分を反映
 	ipa |= va & 0xFFF;
 	return ipa;
+}
+
+// 指定されたゲストの仮想アドレスを二段階アドレス変換しホストの物理アドレスに変換する
+unsigned long get_pa_2nd(unsigned long va) {
+	unsigned long pa = translate_el12(va);
+	pa &= 0xFFFFFFFFF000;
+	pa |= va & 0xFFF;
+	return pa;
 }
 
 // ESR_EL2.ISS encoding for an exception from a Data Abort

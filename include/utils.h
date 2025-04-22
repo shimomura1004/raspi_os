@@ -16,6 +16,7 @@ extern void put32(unsigned long, unsigned int);
 extern unsigned int get32(unsigned long);
 extern unsigned long get_el(void);
 extern unsigned long translate_el1(unsigned long);
+extern unsigned long translate_el12(unsigned long);
 extern unsigned long get_ttbr0_el1();
 extern unsigned long get_ttbr1_el1();
 extern unsigned long get_ttbr0_el2();

@@ -351,6 +351,14 @@ translate_el1:
 	mrs x0, par_el1
 	ret
 
+.globl translate_el12
+translate_el12:
+	// at s12e1r
+	// x0 のアドレスを二段階アドレス変換する
+	at s12e1r, x0
+	mrs x0, par_el1
+	ret
+
 .globl get_ttbr0_el1
 get_ttbr0_el1:
 	mrs x0, ttbr0_el1
