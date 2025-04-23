@@ -4,5 +4,8 @@
 _start:
   mov x8, 777
   hvc #0
+  ldr x8, hello_str
+  hvc #1
+  hvc #5
 1:
   b 1b
