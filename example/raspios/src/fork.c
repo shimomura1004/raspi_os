@@ -28,6 +28,7 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 	p->flags = clone_flags;
 	p->priority = current->priority;
 	p->state = TASK_RUNNABLE;
+	p->cpuid = -1;
 	p->counter = p->priority;
 	p->preempt_count = 1; //disable preemtion until schedule_tail
 

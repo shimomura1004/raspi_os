@@ -6,6 +6,7 @@
 #include "spinlock.h"
 
 static struct task_struct init_task = INIT_TASK;
+// todo: current がグローバル変数で、ひとつしかないので競合している
 struct task_struct *current = &(init_task);
 struct task_struct * task[NR_TASKS] = {&(init_task), };
 int nr_tasks = 1;
@@ -85,11 +86,16 @@ void schedule(void)
 // 切り替わった先のプロセスがこの関数が返す値は、自分が前回 switch_to を呼び出したときの結果
 int switch_to(struct task_struct * next) 
 {
-printf("switch from 0x%x to 0x%x\n", current, next);
+	int cpuid = get_cpuid();
+printf("%d: switch from 0x%x to 0x%x\n", cpuid, current, next);
 
 	// 切り替えが不要だった場合はなにもせず -1 を返す
-	if (current == next || next->state == TASK_RUNNING) {
-printf("no switch\n");
+	if (current == next) {
+		printf("same process\n");
+		return 0;
+	}
+	else if (next->state == TASK_RUNNING) {
+		printf("already running\n");
 		return 0;
 	}
 
@@ -100,13 +106,25 @@ printf("no switch\n");
 	// この prev は先ほどまでの current
 	// このプロセスのコンテキストにおいて、これまで実行していたプロセス自体を指す
 	prev->state = TASK_RUNNABLE;
+	next->state = cpuid;
+	prev->cpuid = -1;
 	cpu_switch_to(prev, next);
 	// cpu_switch_to したあとここに戻ってきた場合、
 	// この prev は少し前に sched を呼んで休止した自分自身のプロセスを指している
 	prev->state = TASK_RUNNING;
+	next->cpuid = -1;
+	prev->cpuid = cpuid;
 
-printf("now 0x%x\n", current);
-
+static char *str[] = {
+	"RUNNING",
+	"RUNNABLE",
+	"ZOMBIE"
+};
+printf("now 0x%x\n", prev);
+for(int i = 0; i < NR_TASKS; i++){
+	if (task[i] == 0) continue;
+	printf("0x%06x:%d:%s:%d\n", task[i], i, str[task[i]->state], task[i]->cpuid);
+}
 	// cpu_switch_to で別のプロセスに切り替わったあと、
 	// しばらくしてまたこのプロセスのコンテキストに戻ってきた場合は、
 	// 切り替えが成功していたとして 1 を返す

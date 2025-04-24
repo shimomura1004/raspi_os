@@ -44,7 +44,6 @@ void handle_irq(void)
 	unsigned int irq = get32(IRQ_PENDING_1);
 	switch (irq) {
 		case (SYSTEM_TIMER_IRQ_1):
-		printf("tick\n");
 			handle_timer_irq();
 			break;
 		default:
