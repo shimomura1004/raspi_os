@@ -101,29 +101,29 @@ static void initialize_hypervisor() {
 // todo: このへんは dom0 相当のゲストで実装すべき
 // todo: loader の実体は hv 側に持ち、Hypercall による API をもたせる
 static void prepare_guest_vms() {
-	if (create_vm_with_loader(raw_binary_loader, &echo_bin_args) < 0) {
-		printf("error while starting VM #1");
-	}
+	// if (create_vm_with_loader(raw_binary_loader, &echo_bin_args) < 0) {
+	// 	printf("error while starting VM #1");
+	// }
 
-	if (create_vm_with_loader(raw_binary_loader, &mini_os_bin_args) < 0) {
-		printf("error while starting VM #2");
-	}
+	// if (create_vm_with_loader(raw_binary_loader, &mini_os_bin_args) < 0) {
+	// 	printf("error while starting VM #2");
+	// }
 
-	if (create_vm_with_loader(elf_binary_loader, &mini_os_elf_args) < 0) {
-		printf("error while starting VM #3");
-	}
+	// if (create_vm_with_loader(elf_binary_loader, &mini_os_elf_args) < 0) {
+	// 	printf("error while starting VM #3");
+	// }
 
-	if (create_vm_with_loader(elf_binary_loader, &echo_elf_args) < 0) {
-		printf("error while starting VM #4");
-	}
+	// if (create_vm_with_loader(elf_binary_loader, &echo_elf_args) < 0) {
+	// 	printf("error while starting VM #4");
+	// }
 
 	if (create_vm_with_loader(raw_binary_loader, &test_bin_args) < 0) {
 		printf("error while starting VM #5");
 	}
 
-	if (create_vm_with_loader(elf_binary_loader, &echo_elf_args) < 0) {
-		printf("error while starting VM #6");
-	}
+	// if (create_vm_with_loader(elf_binary_loader, &echo_elf_args) < 0) {
+	// 	printf("error while starting VM #6");
+	// }
 }
 
 // hypervisor としてのスタート地点
