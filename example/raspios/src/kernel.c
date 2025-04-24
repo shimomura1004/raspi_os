@@ -46,7 +46,7 @@ void kernel_main()
 
 		init_lock(&log_lock, "log_lock");
 		INFO("Initialization complete");
-		initialized = 1;
+		// initialized = 1;
 	}
 
 	INFO("CPU %d started", cpuid);
@@ -57,13 +57,16 @@ void kernel_main()
 			printf("error while starting kernel process");
 			return;
 		}
-
-		while (1){
-			schedule();
-			printf("main loop\n");
-		}	
+		initialized = 1;
 	}
-	else {
+
+	if (cpuid >= 2) {
+		printf("CPU %d sleeps\n", cpuid);
 		asm volatile("wfi");
 	}
+
+	while (1){
+		schedule();
+		printf("main loop\n");
+	}	
 }
