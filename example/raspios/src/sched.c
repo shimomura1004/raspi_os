@@ -5,13 +5,17 @@
 #include "mm.h"
 #include "spinlock.h"
 
-static struct task_struct init_task = INIT_TASK;
-// todo: current がグローバル変数で、ひとつしかないので競合している
-struct task_struct *current = &(init_task);
-struct task_struct * task[NR_TASKS] = {&(init_task), };
-int nr_tasks = 1;
+static struct task_struct init_task0 = INIT_TASK;
+static struct task_struct init_task1 = INIT_TASK;
+static struct task_struct init_task2 = INIT_TASK;
+static struct task_struct init_task3 = INIT_TASK;
+
+struct task_struct *currents[NR_CPUS] = {&(init_task0), &(init_task1), &(init_task2), &(init_task3)};
+struct task_struct *task[NR_TASKS] = {&(init_task0), &(init_task1), &(init_task2), &(init_task3)};
+int nr_tasks = NR_CPUS;
 
 struct spinlock sched_lock = {0, "sched lock", -1};
+
 // fork で新しくプロセスを作ったあと、sched で acquire したロックを解放するための関数
 // 切り替わった直後に必ずロックを解放しないといけない
 void release_sched_lock() {
@@ -20,12 +24,12 @@ void release_sched_lock() {
 
 void preempt_disable(void)
 {
-	current->preempt_count++;
+	currents[get_cpuid()]->preempt_count++;
 }
 
 void preempt_enable(void)
 {
-	current->preempt_count--;
+	currents[get_cpuid()]->preempt_count--;
 }
 
 
@@ -35,12 +39,18 @@ void _schedule(void)
 	int next,c;
 	struct task_struct * p;
 
+	int cpuid = get_cpuid();
+
 	while (1) {
 		// ここではデータを操作しない、切り替え先を探すだけ
 		while (1) {
 			c = -1;
 			next = 0;
 			for (int i = 0; i < NR_TASKS; i++){
+				if (i < NR_CPUS && cpuid != i) {
+					continue;
+				}
+
 				p = task[i];
 				if (p && p->state != TASK_ZOMBIE && p->counter > c) {
 					c = p->counter;
@@ -51,6 +61,10 @@ void _schedule(void)
 				break;
 			}
 			for (int i = 0; i < NR_TASKS; i++) {
+				if (i < NR_CPUS && cpuid != i) {
+					continue;
+				}
+
 				p = task[i];
 				if (p) {
 					p->counter = (p->counter >> 1) + p->priority;
@@ -68,6 +82,8 @@ void _schedule(void)
 		if (switched) {
 			break;
 		}
+
+		task[next]->counter = 0;
 	}
 
 	preempt_enable();
@@ -75,7 +91,7 @@ void _schedule(void)
 
 void schedule(void)
 {
-	current->counter = 0;
+	currents[get_cpuid()]->counter = 0;
 	_schedule();
 }
 
@@ -87,10 +103,10 @@ void schedule(void)
 int switch_to(struct task_struct * next) 
 {
 	int cpuid = get_cpuid();
-printf("%d: switch from 0x%x to 0x%x\n", cpuid, current, next);
+printf("%d: switch from 0x%x to 0x%x\n", cpuid, currents[cpuid], next);
 
 	// 切り替えが不要だった場合はなにもせず -1 を返す
-	if (current == next) {
+	if (currents[cpuid] == next) {
 		printf("same process\n");
 		return 0;
 	}
@@ -99,20 +115,22 @@ printf("%d: switch from 0x%x to 0x%x\n", cpuid, current, next);
 		return 0;
 	}
 
-	struct task_struct * prev = current;
-	current = next;
+	struct task_struct * prev = currents[cpuid];
+	currents[cpuid] = next;
 	set_pgd(next->mm.pgd);
 
 	// この prev は先ほどまでの current
 	// このプロセスのコンテキストにおいて、これまで実行していたプロセス自体を指す
 	prev->state = TASK_RUNNABLE;
-	next->state = cpuid;
 	prev->cpuid = -1;
+	next->state = TASK_RUNNING;
+	next->cpuid = cpuid;
 	cpu_switch_to(prev, next);
 	// cpu_switch_to したあとここに戻ってきた場合、
 	// この prev は少し前に sched を呼んで休止した自分自身のプロセスを指している
-	prev->state = TASK_RUNNING;
+	next->state = TASK_RUNNABLE;
 	next->cpuid = -1;
+	prev->state = TASK_RUNNING;
 	prev->cpuid = cpuid;
 
 static char *str[] = {
@@ -138,20 +156,24 @@ void schedule_tail(void) {
 
 void timer_tick()
 {
-	--current->counter;
-	if (current->counter>0 || current->preempt_count >0) {
+	int cpuid = get_cpuid();
+
+	--currents[cpuid]->counter;
+	if (currents[cpuid]->counter>0 || currents[cpuid]->preempt_count >0) {
 		return;
 	}
-	current->counter=0;
+	currents[cpuid]->counter=0;
 	enable_irq();
 	_schedule();
 	disable_irq();
 }
 
 void exit_process(){
+	int cpuid = get_cpuid();
+
 	preempt_disable();
 	for (int i = 0; i < NR_TASKS; i++){
-		if (task[i] == current) {
+		if (task[i] == currents[cpuid]) {
 			task[i]->state = TASK_ZOMBIE;
 			break;
 		}

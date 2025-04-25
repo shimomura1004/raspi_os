@@ -20,13 +20,13 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 		p->cpu_context.x19 = fn;
 		p->cpu_context.x20 = arg;
 	} else {
-		struct pt_regs * cur_regs = task_pt_regs(current);
+		struct pt_regs * cur_regs = task_pt_regs(currents[get_cpuid()]);
 		*childregs = *cur_regs;
 		childregs->regs[0] = 0;
 		copy_virt_memory(p);
 	}
 	p->flags = clone_flags;
-	p->priority = current->priority;
+	p->priority = currents[get_cpuid()]->priority;
 	p->state = TASK_RUNNABLE;
 	p->cpuid = -1;
 	p->counter = p->priority;
@@ -44,17 +44,19 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 
 int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 {
-	struct pt_regs *regs = task_pt_regs(current);
+	int cpuid = get_cpuid();
+
+	struct pt_regs *regs = task_pt_regs(currents[get_cpuid()]);
 	regs->pstate = PSR_MODE_EL0t;
 	regs->pc = pc;
 	// スタックポインタはコードページのすぐあとのページを使うことになっているが、allocate されていない？
 	regs->sp = 2 *  PAGE_SIZE;  
-	unsigned long code_page = allocate_user_page(current, 0);
+	unsigned long code_page = allocate_user_page(currents[cpuid], 0);
 	if (code_page == 0)	{
 		return -1;
 	}
 	memcpy(code_page, start, size);
-	set_pgd(current->mm.pgd);
+	set_pgd(currents[cpuid]->mm.pgd);
 	return 0;
 }
 
