@@ -39,15 +39,16 @@ void kernel_main()
 	if (cpuid == 0) {
 		uart_init();
 		init_printf(NULL, putc);
-		irq_vector_init();
 		timer_init();
-		enable_interrupt_controller();
-		enable_irq();
 
 		init_lock(&log_lock, "log_lock");
 		INFO("Initialization complete");
 		// initialized = 1;
 	}
+
+	irq_vector_init();
+	enable_interrupt_controller();
+	enable_irq();
 
 	INFO("CPU %d started", cpuid);
 
