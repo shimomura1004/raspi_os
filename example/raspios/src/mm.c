@@ -85,7 +85,7 @@ void map_page(struct task_struct *task, unsigned long va, unsigned long page){
 }
 
 int copy_virt_memory(struct task_struct *dst) {
-	struct task_struct* src = current;
+	struct task_struct* src = currents[get_cpuid()];
 	for (int i = 0; i < src->mm.user_pages_count; i++) {
 		unsigned long kernel_va = allocate_user_page(dst, src->mm.user_pages[i].virt_addr);
 		if( kernel_va == 0) {
@@ -105,7 +105,7 @@ int do_mem_abort(unsigned long addr, unsigned long esr) {
 		if (page == 0) {
 			return -1;
 		}
-		map_page(current, addr & PAGE_MASK, page);
+		map_page(currents[get_cpuid()], addr & PAGE_MASK, page);
 		ind++;
 		if (ind > 2){
 			return -1;

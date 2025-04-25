@@ -61,7 +61,7 @@ void kernel_main()
 		initialized = 1;
 	}
 
-	if (cpuid >= 2) {
+	if (cpuid >= 3) {
 		printf("CPU %d sleeps\n", cpuid);
 		asm volatile("wfi");
 	}

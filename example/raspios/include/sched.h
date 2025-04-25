@@ -8,6 +8,7 @@
 #define THREAD_SIZE				4096
 
 #define NR_TASKS				64 
+#define NR_CPUS					4
 
 #define FIRST_TASK task[0]
 #define LAST_TASK task[NR_TASKS-1]
@@ -19,7 +20,7 @@
 #define PF_KTHREAD				0x00000002	
 
 
-extern struct task_struct *current;
+extern struct task_struct *currents[NR_CPUS];
 extern struct task_struct * task[NR_TASKS];
 extern int nr_tasks;
 
@@ -65,7 +66,6 @@ struct task_struct {
 	struct mm_struct mm;
 };
 
-extern void sched_init(void);
 extern void schedule(void);
 extern void timer_tick(void);
 extern void preempt_disable(void);
