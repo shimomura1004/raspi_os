@@ -1,7 +1,9 @@
-# Link
+# Hypervisor implementation for Raspberry Pi 3B
+
+## Link
 - [https://github.com/matsud224/raspvisor](https://github.com/matsud224/raspvisor)
 
-# Memo
+## Memo
 - RPi3 の DRAM(+デバイス) は、物理アドレスの 0 から 1GB にマップされている
     - 0x0000_0000_0000_0000 から 0x0000_0000_3fff_ffff
 - RPi OS のカーネルのアドレス空間では、上記の 1GB のページ全体がリニアにマップされている
@@ -29,7 +31,7 @@
 
 - qemu を `-kernel` オプション付きで実行すると EL2 で起動される
 
-# Debug
+## Debug
 - flat binary にデバッグ情報を残すこともできるようだが、objcopy がうまくデバッグ情報を認識してくれない
 - 以下のように gdb で kernel8.elf を追加で読み込むほうが楽
     - `(gdb) add-symbol-file build/kernel8.elf`
@@ -49,7 +51,7 @@
     - `i r SCTLR`
     - 0 ビット目が 1 なら MMU は有効
 
-# BCM2873
+## BCM2873
 - BCM2873 のメモリマップは以下のマニュアルに書かれている
     - BCM2837-ARM-Peripherals.-.Revised.-.V2-1.pdf
     - 1.2.3 ARM physical addresses
@@ -69,7 +71,7 @@
 - RPi3B では外部割込みはコア0に割り当てられている
     - https://github.com/s-matyukevich/raspberry-pi-os/blob/master/docs/lesson03/linux/interrupt_controllers.md
 
-## Mailbox 割込み
+### Mailbox 割込み
 - Mailbox の割込みを有効にするためには、interrupt control に値を書き込む
     - 0x4000_0050 Core0 Mailboxes Interrupt control
         - 7,6,5,4bit: fast interrupt(0: disabled, 1: enabled)
@@ -100,8 +102,8 @@
     - コア m からコア n に送信された値を読み取る
     - 書き込むとクリア
 
-# Memory Mapping
-## 二段階アドレス変換
+## Memory Mapping
+### 二段階アドレス変換
 - https://www.starlab.io/blog/deep-dive-mmu-virtualization-with-xen-on-arm
 ![alt text](docs/memory_mapping.png)
 - AArch64 のハイパーバイザ環境では、ゲスト OS のプロセスが扱う仮想アドレスは、ゲスト OS によって中間物理アドレス IPA に変換される
@@ -112,7 +114,7 @@
 - テーブルが別なので、ゲストの IPA とハイパーバイザの VA が同じアドレスを使っても問題ない
 - ゲスト OS の MMU が無効になっている場合は、VA=IPA となり、その場合でも Stage2 アドレス変換は実行される
 
-## TTBR0_EL1 と TTBR1_EL1 と VTTBR_EL2
+### TTBR0_EL1 と TTBR1_EL1 と VTTBR_EL2
 - TTBR0_EL1/TTBR1_EL1 はどちらも VA を PA もしくは IPA に変換するためのテーブルだが、担当するアドレスの範囲が異なる
     - TTBR0_EL1 は 0x0000_0000_0000_0000 から 0x0000_ffff_ffff_ffff まで
         - 通常はユーザプロセス用に使う
@@ -125,7 +127,7 @@
 - ゲストの起動直後はまだ MMU が MMU は無効なので、ゲストの VA=IPA となる
 - そのため PC が 0xffff000000000000 の場合、VTTBR_EL2 で IPA の 0xffff000000000000 を PA に変換できないといけない
 
-# Multicore
+## Multicore
 - aarch64 では、多くのレジスタは CPU コアごとに独立して存在している
 - armv8.1 以降の CPU では、いわゆる compare-and-swap 命令である casa/casal が使える
 - それ以前の CPU の場合は ldaxr/stlxr を使う
@@ -134,7 +136,7 @@
     - stxr w3, x2, [x0]: 実行するときに排他モニタがクリアされていると書き込みに失敗する
         - 失敗した場合はアドレス x0 の内容は更新されず、w3 に 1 がセットされる
 
-# CPU コア ID の仮想化
+## CPU コア ID の仮想化
 - CPU コアの ID も仮想化しないと、コア 0 があることを期待するゲスト OS がうまく動作しない
 - CPU コアの情報は MPIDR_EL1 に格納されている
 - このレジスタへの読み込みをトラップすることもできるが、EL2 への遷移が発生して効率が悪い
