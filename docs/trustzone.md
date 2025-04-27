@@ -1,6 +1,23 @@
-- [OP-TEE Documentation](https://optee.readthedocs.io/en/latest/architecture/index.html)
+# [The TrustZone hardware architecture](https://developer.arm.com/documentation/100935/0100/The-TrustZone-hardware-architecture-?lang=en)
+- Secure world 実行中は割込み禁止になる
+  - Trusted Apps をリエントラント対応にするとコードが複雑になるため
+- TTBR0/1_EL1 は Secure/Non-secure world 間でバンクされていないので、セキュアモニタが切り替えるときに手動で値を保存・復帰させる必要がある
+- キャッシュや TLB の中では、Secure/Non-secure なエントリが区別せずに入っているが、NS ビットがついているので、Non-secure から secure なキャッシュにはアクセスできない
+  - キャッシュミスとして処理される
+- ARMv8 の AArch32 は、ARMv7 と同じ振る舞いをする
+  - つまり secure 状態での処理はすべて el3 と同じ扱いになる
+  - ![TEE architecture of AArch32](tee_aarch32.png)
+- ARMv8 の AArch64 では、EL3 は Secure/Non-secure の切り替えだけを行う
+  - ![TEE architecure of AArch64](tee_aarch64.png)
+- secure world への割込みを適切に処理するために、一部の割込みを直接 EL3 の secure motnitor に渡すことができるようになっている
+  - ただあまり細かい分類はできず、FIQ/IRQ の区別しかできない
+  - より細かいフィルタリングが必要な場合は GIC の機能を使う必要あり
+  - ![Secure interrupt](secure_interrupt_1.png)
+  - ![Secure interrupt](secure_interrupt_2.png)
 
-# Core
+# [OP-TEE Documentation](https://optee.readthedocs.io/en/latest/architecture/index.html)
+
+## Core
 - Secure/Non-secure の切り替えは Secure monitor で行う
 - Normal world から Secure world へ切り替えるには、SMC 命令を実行する
 - SMC による動機例外は必ず Secure monitor でトラップされる
@@ -12,14 +29,14 @@
 - 同様に、normal world 用の割込みは normal world の割込みベクタで処理される
   - そのとき secure world が動いていたら、secure monitor が一時的に normal world に切り替えて割込みを処理する
 
-## Core exception vectors
+### Core exception vectors
 - secure monitor の割込みベクタは VBAR_EL3(vector base address register) によって指定される
 - 今の CPU が Secure か Non-secure かは SCR(secure configuration register) レジスタの NS ビットにより判定できる
   - Secure monitor 実行中以外のときは、NS ビットは以下を表す
     - 0b0: PE is in Secure state.
     - 0b1: PE is in Non-secure state.
 
-## Native and foreign interrupts
+### Native and foreign interrupts
 - OP-TEE から見て2種類の割込みがある
   - native interrupt: OP-TEE 自身が処理する割込み(S-EL1 向けの割込み)
   - foreign interrupt: それ以外の割込み (non-secure な割込みと、EL3 への割込み)
@@ -29,7 +46,7 @@
 - GIC v3
   - foreign interrupt: FIQ
 
-## Normal world involokes OP-TEE OS using SMC
+### Normal world involokes OP-TEE OS using SMC
 - secure monitor が normal world/secure world の切り替えを行う
 - SMC には fast と yielding の2種類がある
   - fast smc: irq/fiq をマスクしたまま、entry 用のスタックを使って OP-TEE を実行する
@@ -39,7 +56,7 @@
   - どちらの smc も、終了するときには irq/fiq をマスクして entry スタックで実行される
   - ![SMC entry to secure world](smc_flow.png)
 
-## Deliver non-secure interrupts to normal world
+### Deliver non-secure interrupts to normal world
 - secure world で動作しているときに foregin interrupt がきたら、 secure world は
   1. trusted thread のコンテキストを保存する
   2. すべての割込みをマスクする
@@ -49,7 +66,7 @@
 - 割込み処理が終わったら、normal wolrd のプログラムは smc を呼び出して secure monitor 経由で tz に戻る
 - ![Foreign interrupt received in secure world and forwarded to normal world](foregin_interrupt.png)
 
-## Deliver secure interrupts to secure world
+### Deliver secure interrupts to secure world
 - secure な割込みを処理する流れは、CPU が secure/non-secure の状態で異なる
 - normal world 実行中に、secure な割込みを secure world に届ける場合
   - セキュアモニタが normal world のコンテキストを保存し、secure world のコンテキストを復帰させる
@@ -57,7 +74,7 @@
   - OP-TEE が割込みを処理する
   - OP-TEE が SMC を実行して Secure monitor にスイッチ、normal world に戻る
 
-## Trusted thread scheduling
+### Trusted thread scheduling
 - OP-TEE のサービスは SMC 命令で実行される
 - OP-TEE が作る trusted thread は、completion ステータスとともに normal world に戻ると削除される
 - trusted thread は通常どおり割込み(native interrupt)が発生すればそちらに時間を譲る
@@ -74,11 +91,10 @@
 - TEE では固定数の trusted thread を持つ(CFG_NUM_THREADS)
 - SMP なシステムの場合は、Normal world の OS がプロセスのスケジューリングをサポートするのであれば、複数の trusted thread を同時に動かせる
 
-## Core handlers for native interrupts
+### Core handlers for native interrupts
 - 具体的な API の紹介などであり、省略
 
-## Notifications
+### Notifications
 - notification = normal world にイベントを伝えるための仕組み
   - Synchronous: OPTEE_RPC_CMD_NOTIFICATION を使って実現
   - Asynchronous: non-secure な割込みと、そのハンドラで fast call することで実現
-
