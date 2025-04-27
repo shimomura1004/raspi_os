@@ -7,6 +7,11 @@
 #include "cpu_core.h"
 
 // todo: sleeplock も実装したい
+//   sleeplock はスケジューラを使って実装する
+//   他プロセスとロックが重複したら、そのロックの ID を保持しつつプロセスを SLEEP させる
+//   他プロセスがロックを解放したら、そのロックの ID で待っているプロセス達を一斉に RUNNABLE にする
+//     1つのプロセスだけが sleeplock を取るために spinlock で守る必要あり
+//   最初にロックを取れたプロセス以外は再び SLEEP しないといけないので、sleeplock 内でループさせる
 
 extern void _spinlock_acquire(unsigned long *);
 extern void _spinlock_release(unsigned long *);
