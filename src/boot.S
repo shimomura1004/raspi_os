@@ -11,6 +11,7 @@
 // SCTLR_EL1: system control register: キャッシュや MMU が有効か無効か、など
 // HCR_EL2: hypervisor configuration register: ハイパーバイザ関連の機能
 // SCR_EL3: secure configuration register: secure monitor
+//          どの例外を EL3 でトラップするか指定する他、NS ビットの設定もできる
 // SPSR_EL3: saved program status register: condition flag とか
 //   condition flag: ゼロかどうか、オーバーフローしたか、…
 // ELR_EL3: exception link register: eret で戻る先のアドレス
@@ -61,11 +62,12 @@ el3_entry:
 	msr	hcr_el2, x0
 
 	// #define SCR_VALUE (SCR_RESERVED | SCR_RW | SCR_NS)
-	// RW は hcr_el2 と同じく 1 にしておかないと 32 ビットになる様子
-	// NS は non-secure bit で、1 にすると
+	// RW(register width) は hcr_el2 と同じく 1 にしておかないと 32 ビットになる様子
+	// NS(non-secure) は non-secure bit で、1 にすると
 	//   Indicates that Exception levels lower than EL3 are
 	//   in Non-secure state, so memory accesses
 	//   from those Exception levels cannot access Secure memory.
+	//   今回はそのまま Normal world に遷移したいので NS は 1 にする
 	ldr	x0, =SCR_VALUE
 	msr	scr_el3, x0
 

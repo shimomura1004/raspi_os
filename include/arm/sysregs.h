@@ -170,6 +170,9 @@
 // ***************************************
 
 // https://developer.arm.com/documentation/ddi0601/2024-09/AArch32-Registers/SCR--Secure-Configuration-Register
+// RW[10]: Register width(RW) control for lower exception levels
+//   0b0: Lower levels are all AArch32. This is the reset value.
+//   0b1: The next lower level is AArch64.
 // HCE[8]: hypervior call instruction enable
 //   0b0: UNDEFINED at Non-secure EL1. UNPREDICTABLE at EL2.
 //   0b1: HVC instructions are enabled at Non-secure EL1 and EL2.
