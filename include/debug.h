@@ -29,7 +29,7 @@ extern struct spinlock log_lock;
     unsigned long cpuid = get_cpuid(); \
     struct vcpu_struct *vm = current_cpu_core()->current_vcpu; \
     if (vm) { \
-        printf("<cpu:%d>[vmid:%d] %s: ", cpuid, vm->vmid, level); \
+        printf("<cpu:%d>[vmid:%d] %s: ", cpuid, vm->vm->vmid, level); \
     } \
     else { \
         printf("<cpu:%d> %s: ", cpuid, level); \

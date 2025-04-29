@@ -131,13 +131,13 @@ void map_stage2_page(struct vcpu_struct *vcpu, unsigned long ipa, unsigned long 
 	unsigned long lv1_table;
 
 	// stage2 変換用の VTTBR_EL2 に設定するテーブルを作る
-	if (!vcpu->mm.first_table) {
+	if (!vcpu->vm->mm.first_table) {
 		// ページテーブルがなかったら作る
-		vcpu->mm.first_table = get_free_page();
+		vcpu->vm->mm.first_table = get_free_page();
 		// 新しくページを確保したのでカウントアップする
-		vcpu->mm.kernel_pages_count++;
+		vcpu->vm->mm.kernel_pages_count++;
 	}
-	lv1_table = vcpu->mm.first_table;
+	lv1_table = vcpu->vm->mm.first_table;
 
 	// 新しくテーブルが追加されたかを示すフラグ
 	int new_table;
@@ -145,17 +145,17 @@ void map_stage2_page(struct vcpu_struct *vcpu, unsigned long ipa, unsigned long 
 	unsigned long lv2_table = map_stage2_table((unsigned long *)(lv1_table + VA_START), LV1_SHIFT, ipa, &new_table);
 	if (new_table) {
 		// もし新たにページが確保されていたらカウントアップする
-		vcpu->mm.kernel_pages_count++;
+		vcpu->vm->mm.kernel_pages_count++;
 	}
 	// Level 2 のテーブル(lv2_table)から対応するエントリ(lv3_table)を探す
 	unsigned long lv3_table = map_stage2_table((unsigned long *)(lv2_table + VA_START) , LV2_SHIFT, ipa, &new_table);
 	if (new_table) {
-		vcpu->mm.kernel_pages_count++;
+		vcpu->vm->mm.kernel_pages_count++;
 	}
 	// Level 3 のテーブル(lv3_table)の対応するエントリを探してページを登録
 	map_stage2_table_entry((unsigned long *)(lv3_table + VA_START), ipa, page, flags);
 	// ユーザ空間用のページ数をカウントアップする　
-	vcpu->mm.vm_pages_count++;
+	vcpu->vm->mm.vm_pages_count++;
 }
 
 // 指定されたゲストの仮想アドレスをゲストの物理アドレスに変換する
@@ -246,20 +246,20 @@ int handle_mem_abort(unsigned long addr, unsigned long esr) {
 		// INFO("VTTBR0_EL2(VMID %d): IPA 0x%lx(0x%lx in full) -> PA 0x%lx (handle_mem_abort)",
 		// 	 current_cpu_core()->current_vcpu->vmid, get_ipa(addr) & 0xffffffffffff, addr, page);
 
-		vcpu->stat.pf_trap_count++;
+		vcpu->vm->stat.pf_trap_count++;
 		return 0;
 	}
 	else if (dfsc >> 2 == 0x3) {
 		// ESR の[3:2]ビット目が 0b11 すなわち permission fault の場合
 
-		// 現状 vm 用のページテーブルエントリのフラグは
+		// 現状 vCPU 用のページテーブルエントリのフラグは
 		// MMU_STAGE2_PAGE_FLAGS と MMU_STAGE2_MMIO_FLAGS の2種類しかない
 		// 上記2つの違いは MM_STAGE2_AP_NONE と MM_STAGE2_DEVICE_MEMATTR
 		// AP_NONE なのでアクセス不可で、permission fault が発生する
 		// VM からは直接 MMIO 領域に触れないように
 		// アクセス不可に設定してトラップできるようにしていると思われる
 
-		const struct board_ops *ops = vcpu->board_ops;
+		const struct board_ops *ops = vcpu->vm->board_ops;
 		// (今のところは)アクセスサイズは 4byte 固定なので SAS は不要
 		//int sas = (esr >> 22) & 0x03;	// Syndrome access size
 		int srt = (esr >> 16) & 0x1f;	// Syndrome register transfer
@@ -279,7 +279,7 @@ int handle_mem_abort(unsigned long addr, unsigned long esr) {
 		}
 
 		increment_current_pc(4);
-		vcpu->stat.mmio_trap_count++;
+		vcpu->vm->stat.mmio_trap_count++;
 		return 0;
 	}
 	return -1;

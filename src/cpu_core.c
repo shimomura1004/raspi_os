@@ -3,7 +3,7 @@
 #include "sched.h"
 #include "utils.h"
 
-struct cpu_core_struct cpu_cores[NUMBER_OF_PCPU];
+struct cpu_core_struct cpu_cores[NUMBER_OF_PCPUS];
 
 void init_cpu_core_struct(unsigned long cpuid) {
     // todo: 今のところ使われていないため問題ないが、本来は idle_vm を設定する

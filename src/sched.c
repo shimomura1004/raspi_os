@@ -10,14 +10,19 @@
 
 // idle vcpu や動的に作られた vcpu などへの参照を保持する配列
 // todo: 直接触らせないようにする
-struct vcpu_struct *vcpus[NUMBER_OF_VMS];
+// todo: vCPU や VM が終了し、ID が再利用される場合は、単純に VM 数を数えるだけではダメ
 
-// 現在実行中の VM の数(idle_vms があるので初期値は NUMBER_OF_PCPU)
-int current_number_of_vms = NUMBER_OF_PCPU;
+// 現在実行中の vCPU の管理リストと保持数(idle_vms があるので初期値は NUMBER_OF_PCPUS)
+struct vcpu_struct *vcpus[NUMBER_OF_VCPUS];
+int current_number_of_vcpus = NUMBER_OF_PCPUS;
+
+// 現在実行中の VM の管理リストと保持数(idle_vms があるので初期値は 1)
+struct vm_struct2 *vms2[NUMBER_OF_VMS];
+int current_number_of_vms = 1;
 
 void set_cpu_virtual_interrupt(struct vcpu_struct *vcpu) {
 	// もし current の VM に対して irq が発生していたら、仮想割込みを設定する
-	if (HAVE_FUNC(vcpu->board_ops, is_irq_asserted) && vcpu->board_ops->is_irq_asserted(vcpu)) {
+	if (HAVE_FUNC(vcpu->vm->board_ops, is_irq_asserted) && vcpu->vm->board_ops->is_irq_asserted(vcpu)) {
 		assert_virq();
 	}
 	else {
@@ -25,7 +30,7 @@ void set_cpu_virtual_interrupt(struct vcpu_struct *vcpu) {
 	}
 
 	// fiq も同様
-	if (HAVE_FUNC(vcpu->board_ops, is_fiq_asserted) && vcpu->board_ops->is_fiq_asserted(vcpu)) {
+	if (HAVE_FUNC(vcpu->vm->board_ops, is_fiq_asserted) && vcpu->vm->board_ops->is_fiq_asserted(vcpu)) {
 		assert_vfiq();
 	}
 	else {
@@ -50,7 +55,7 @@ void exit_vm(){
 }
 
 void set_cpu_sysregs(struct vcpu_struct *vcpu) {
-	set_stage2_pgd(vcpu->mm.first_table, vcpu->vmid);
+	set_stage2_pgd(vcpu->vm->mm.first_table, vcpu->vm->vmid);
 	restore_sysregs(&vcpu->cpu_sysregs);
 }
 
@@ -58,8 +63,8 @@ void set_cpu_sysregs(struct vcpu_struct *vcpu) {
 void vm_entering_work() {
 	struct vcpu_struct *vcpu = current_cpu_core()->current_vcpu;
 
-	if (HAVE_FUNC(vcpu->board_ops, entering_vm)) {
-		vcpu->board_ops->entering_vm(vcpu);
+	if (HAVE_FUNC(vcpu->vm->board_ops, entering_vm)) {
+		vcpu->vm->board_ops->entering_vm(vcpu);
 	}
 
 	// VM 処理に復帰するとき、コンソールがこの VM に紐づいていたら
@@ -85,8 +90,8 @@ void vm_leaving_work() {
 	// 今のレジスタの値を控える
 	save_sysregs(&vcpu->cpu_sysregs);
 
-	if (HAVE_FUNC(vcpu->board_ops, leaving_vm)) {
-		vcpu->board_ops->leaving_vm(vcpu);
+	if (HAVE_FUNC(vcpu->vm->board_ops, leaving_vm)) {
+		vcpu->vm->board_ops->leaving_vm(vcpu);
 	}
 
 	if (is_uart_forwarded_vm(vcpu)) {
@@ -101,7 +106,7 @@ const char *vm_state_str[] = {
 };
 
 int find_cpu_which_runs(struct vcpu_struct *vcpu) {
-	for (int i = 0; i < NUMBER_OF_PCPU; i++) {
+	for (int i = 0; i < NUMBER_OF_PCPUS; i++) {
 		if (cpu_core(i)->current_vcpu == vcpu) {
 			return i;
 		}
@@ -112,23 +117,23 @@ int find_cpu_which_runs(struct vcpu_struct *vcpu) {
 void show_vm_list() {
     printf("  %4s %3s %12s %8s %7s %9s %7s %7s %7s %7s %7s\n",
 		   "vmid", "cpu", "name", "state", "pages", "saved-pc", "wfx", "hvc", "sysregs", "pf", "mmio");
-    for (int i = 0; i < current_number_of_vms; i++) {
+    for (int i = 0; i < current_number_of_vcpus; i++) {
         struct vcpu_struct *vcpu = vcpus[i];
 		int cpuid = find_cpu_which_runs(vcpu);
         printf("%c %4d   %c %12s %8s %7d %9x %7d %7d %7d %7d %7d\n",
                is_uart_forwarded_vm(vcpus[i]) ? '*' : ' ',
-			   vcpu->vmid,
+			   vcpu->vm->vmid,
 			   // CPUID は1桁のみ対応
 			   (cpuid < 0 || vcpu->state == VCPU_ZOMBIE? '-' : '0' + cpuid),
-			   vcpu->name ? vcpu->name : "",
+			   vcpu->vm->name ? vcpu->vm->name : "",
                vm_state_str[vcpu->state],
-			   vcpu->mm.vm_pages_count,
+			   vcpu->vm->mm.vm_pages_count,
 			   vcpu_pt_regs(vcpu)->pc,
-               vcpu->stat.wfx_trap_count,
-			   vcpu->stat.hvc_trap_count,
-               vcpu->stat.sysregs_trap_count,
-			   vcpu->stat.pf_trap_count,
-               vcpu->stat.mmio_trap_count);
+               vcpu->vm->stat.wfx_trap_count,
+			   vcpu->vm->stat.hvc_trap_count,
+               vcpu->vm->stat.sysregs_trap_count,
+			   vcpu->vm->stat.pf_trap_count,
+               vcpu->vm->stat.mmio_trap_count);
     }
 }
 
@@ -164,10 +169,10 @@ void scheduler(unsigned long cpuid) {
 
 		// 単純なラウンドロビンで vCPU に CPU 時間を割り当てる
 		// 先頭の vCPU は idle vCPU なので飛ばす
-		for (int i = NUMBER_OF_PCPU; i < NUMBER_OF_VMS; i++) {
+		for (int i = NUMBER_OF_PCPUS; i < NUMBER_OF_VCPUS; i++) {
 			vcpu = vcpus[i];
 
-			// そもそも VM がない場合はスキップ
+			// vCPU が無効な場合はスキップ
 			if (!vcpu) {
 				continue;
 			}

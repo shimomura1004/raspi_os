@@ -203,7 +203,7 @@ static void bcm2837_initialize(struct vcpu_struct *vcpu) {
     state->systimer.last_physical_count = get_physical_systimer_count();
 
     // todo: vcpu ではなく vm の設定
-    vcpu->board_data = state;
+    vcpu->vm->board_data = state;
 
     // todo: 二段階アドレス変換は VM で1つだけ必要で、vCPU ごとに設定する必要はない
     // stage2 のデバイスのメモリマッピング(MMIO ページの準備)
@@ -247,7 +247,7 @@ static void bcm2837_initialize(struct vcpu_struct *vcpu) {
 static unsigned long handle_aux_read(struct vcpu_struct *vcpu, unsigned long addr);
 #define BIT(v, n) ((v) & (1 << (n)))
 static unsigned long handle_intctrl_read(struct vcpu_struct *vcpu, unsigned long addr) {
-    struct bcm2837_state *state = (struct bcm2837_state *)vcpu->board_data;
+    struct bcm2837_state *state = (struct bcm2837_state *)vcpu->vm->board_data;
 
     switch (addr) {
     case IRQ_BASIC_PENDING: {
@@ -292,7 +292,7 @@ static unsigned long handle_intctrl_read(struct vcpu_struct *vcpu, unsigned long
 }
 
 static void handle_intctrl_write(struct vcpu_struct *vcpu, unsigned long addr, unsigned long val) {
-    struct bcm2837_state *state = (struct bcm2837_state *)vcpu->board_data;
+    struct bcm2837_state *state = (struct bcm2837_state *)vcpu->vm->board_data;
 
     // 書き込みができないレジスタもあるので handle_intctrl_read と一対一で対応しない
     switch (addr) {
@@ -323,7 +323,7 @@ static void handle_intctrl_write(struct vcpu_struct *vcpu, unsigned long addr, u
 #define LCR_DLAB 0x80
 
 static unsigned long handle_aux_read(struct vcpu_struct *vcpu, unsigned long addr) {
-    struct bcm2837_state *state = (struct bcm2837_state *)vcpu->board_data;
+    struct bcm2837_state *state = (struct bcm2837_state *)vcpu->vm->board_data;
 
     // todo: アドレスが AUX の範囲内で、無効なら return となっている
     //       アドレス範囲外 or 無効なら return が正しいのでは？
@@ -353,7 +353,7 @@ static unsigned long handle_aux_read(struct vcpu_struct *vcpu, unsigned long add
         }
         else {
             unsigned long data;
-            dequeue_fifo(vcpu->console.in_fifo, &data);
+            dequeue_fifo(vcpu->vm->console.in_fifo, &data);
             return data & 0xff;
         }
     case AUX_MU_IER_REG:
@@ -365,8 +365,8 @@ static unsigned long handle_aux_read(struct vcpu_struct *vcpu, unsigned long add
             return state->aux.aux_mu_ier;
         }
     case AUX_MU_IIR_REG: {
-        int tx_int = (state->aux.aux_mu_ier & 0x2) && is_empty_fifo(vcpu->console.out_fifo);
-        int rx_int = (state->aux.aux_mu_ier & 0x1) && !is_empty_fifo(vcpu->console.in_fifo);
+        int tx_int = (state->aux.aux_mu_ier & 0x2) && is_empty_fifo(vcpu->vm->console.out_fifo);
+        int rx_int = (state->aux.aux_mu_ier & 0x1) && !is_empty_fifo(vcpu->vm->console.in_fifo);
         int int_id = (tx_int << 0) | (rx_int << 1);
         if (int_id == 0x3) {
             // 仕様上 tx/rx の両方の割込みありで返すことはないので tx だけ割込みありとする
@@ -380,10 +380,10 @@ static unsigned long handle_aux_read(struct vcpu_struct *vcpu, unsigned long add
     case AUX_MU_MCR_REG:
         return state->aux.aux_mu_mcr;
     case AUX_MU_LSR_REG: {
-        int dready = !is_empty_fifo(vcpu->console.in_fifo);
+        int dready = !is_empty_fifo(vcpu->vm->console.in_fifo);
         int rx_overrun = state->aux.mu_rx_overrun;
-        int tx_empty = !is_full_fifo(vcpu->console.out_fifo);
-        int tx_idle = is_empty_fifo(vcpu->console.out_fifo);
+        int tx_empty = !is_full_fifo(vcpu->vm->console.out_fifo);
+        int tx_idle = is_empty_fifo(vcpu->vm->console.out_fifo);
         // overrun は LSR レジスタを読み込むとクリアされる仕様
         state->aux.mu_rx_overrun = 0;
         // レジスタの値を生成して返す
@@ -397,16 +397,16 @@ static unsigned long handle_aux_read(struct vcpu_struct *vcpu, unsigned long add
         return state->aux.aux_mu_cntl;
     case AUX_MU_STAT_REG: {
         #define MIN(a, b) ((a) < (b) ? (a) : (b))
-        int sym_avail = !is_empty_fifo(vcpu->console.in_fifo);
-        int space_avail = !is_full_fifo(vcpu->console.out_fifo);
-        int rx_idle = is_empty_fifo(vcpu->console.in_fifo);
-        int tx_idle = is_empty_fifo(vcpu->console.out_fifo);
+        int sym_avail = !is_empty_fifo(vcpu->vm->console.in_fifo);
+        int space_avail = !is_full_fifo(vcpu->vm->console.out_fifo);
+        int rx_idle = is_empty_fifo(vcpu->vm->console.in_fifo);
+        int tx_idle = is_empty_fifo(vcpu->vm->console.out_fifo);
         int rx_overrun = state->aux.mu_rx_overrun;
         int tx_full = !space_avail;
-        int tx_empty = is_empty_fifo(vcpu->console.out_fifo);
+        int tx_empty = is_empty_fifo(vcpu->vm->console.out_fifo);
         int tx_done = rx_idle & tx_empty;
-        int rx_fill_level = MIN(used_of_fifo(vcpu->console.in_fifo), 8);
-        int tx_fill_level = MIN(used_of_fifo(vcpu->console.out_fifo), 8);
+        int rx_fill_level = MIN(used_of_fifo(vcpu->vm->console.in_fifo), 8);
+        int tx_fill_level = MIN(used_of_fifo(vcpu->vm->console.out_fifo), 8);
         return (sym_avail << 0) | (space_avail << 1) | (rx_idle << 2) | (tx_idle << 3) |
                (rx_overrun << 4) | (tx_full << 5) | (tx_empty << 8) | (tx_done << 9) |
                (rx_fill_level << 16) | (tx_fill_level << 24);
@@ -419,9 +419,9 @@ static unsigned long handle_aux_read(struct vcpu_struct *vcpu, unsigned long add
 }
 
 static void handle_aux_write(struct vcpu_struct *vcpu, unsigned long addr, unsigned long val) {
-    // vm->board_data に書き込んでも本物の UART のレジスタには反映されていない
+    // vcpu->vm->board_data に書き込んでも本物の UART のレジスタには反映されていない
     // 本物の UART 自体は常に有効になっていて、ハイパーバイザが board_data を見て処理している
-    struct bcm2837_state *state = (struct bcm2837_state *)vcpu->board_data;
+    struct bcm2837_state *state = (struct bcm2837_state *)vcpu->vm->board_data;
 
     // // todo: aux が disable になると、ここにひっかかって enable にすることができないのでは？
     // if ((state->aux.aux_enables & 0x1) == 0 && ADDR_IN_AUX(addr)) {
@@ -455,7 +455,7 @@ static void handle_aux_write(struct vcpu_struct *vcpu, unsigned long addr, unsig
             state->aux.aux_mu_baud = (state->aux.aux_mu_baud & 0xff00) | (val & 0xff);
         }
         else {
-            enqueue_fifo(vcpu->console.out_fifo, val & 0xff);
+            enqueue_fifo(vcpu->vm->console.out_fifo, val & 0xff);
         }
         break;
     case AUX_MU_IER_REG:
@@ -469,10 +469,10 @@ static void handle_aux_write(struct vcpu_struct *vcpu, unsigned long addr, unsig
         break;
     case AUX_MU_IIR_REG:
         if (val & 0x2) {
-            clear_fifo(vcpu->console.in_fifo);
+            clear_fifo(vcpu->vm->console.in_fifo);
         }
         if (val & 0x4) {
-            clear_fifo(vcpu->console.out_fifo);
+            clear_fifo(vcpu->vm->console.out_fifo);
         }
         break;
     case AUX_MU_LCR_REG:
@@ -500,7 +500,7 @@ static void handle_aux_write(struct vcpu_struct *vcpu, unsigned long addr, unsig
 
 // VM からタイマカウントを読み取る(VM が実際に実行された時間だけを返す)
 static unsigned long handle_systimer_read(struct vcpu_struct *vcpu, unsigned long addr) {
-    struct bcm2837_state *state = (struct bcm2837_state *)vcpu->board_data;
+    struct bcm2837_state *state = (struct bcm2837_state *)vcpu->vm->board_data;
 
     switch (addr) {
     case TIMER_CS:
@@ -523,7 +523,7 @@ static unsigned long handle_systimer_read(struct vcpu_struct *vcpu, unsigned lon
 }
 
 static void handle_systimer_write(struct vcpu_struct *vcpu, unsigned long addr, unsigned long val) {
-    struct bcm2837_state *state = (struct bcm2837_state *)vcpu->board_data;
+    struct bcm2837_state *state = (struct bcm2837_state *)vcpu->vm->board_data;
     // タイマカウンタは64ビット、比較は下位32ビットで行われる
     //   Each channel has an output compare register, which is compared against
     //   the 32 least significant bits of the free running counter values.
@@ -604,8 +604,8 @@ static int check_and_update_expiration(uint32_t *expire, uint64_t lapse) {
 }
 
 // ハイパーバイザでの処理を終えて VM に処理を戻すときに呼ばれる
-void bcm2837_entering_vm(struct vcpu_struct *vcpu) {
-    struct bcm2837_state *state = (struct bcm2837_state *)vcpu->board_data;
+static void bcm2837_entering_vm(struct vcpu_struct *vcpu) {
+    struct bcm2837_state *state = (struct bcm2837_state *)vcpu->vm->board_data;
 
     // update systimer's offset
     unsigned long current_physical_count = get_physical_systimer_count();
@@ -653,8 +653,8 @@ void bcm2837_entering_vm(struct vcpu_struct *vcpu) {
 }
 
 // VM での処理を抜けてハイパーバイザに処理に入るときに呼ばれる
-void bcm2837_leaving_vm(struct vcpu_struct *vcpu) {
-    struct bcm2837_state *state = (struct bcm2837_state *)vcpu->board_data;
+static void bcm2837_leaving_vm(struct vcpu_struct *vcpu) {
+    struct bcm2837_state *state = (struct bcm2837_state *)vcpu->vm->board_data;
     // VM が実行されていた最後のカウンタ値を保存しておく
     state->systimer.last_physical_count = get_physical_systimer_count();
 }
@@ -664,7 +664,7 @@ static int bcm2837_is_irq_asserted(struct vcpu_struct *vcpu) {
 }
 
 static int bcm2837_is_fiq_asserted(struct vcpu_struct *vcpu) {
-    struct bcm2837_state *state = (struct bcm2837_state *)vcpu->board_data;
+    struct bcm2837_state *state = (struct bcm2837_state *)vcpu->vm->board_data;
 
     // FIQ が有効でない場合は常に 0 を返す
     if ((state->intctrl.fiq_control & 0x80) == 0) {

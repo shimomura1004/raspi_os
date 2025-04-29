@@ -189,7 +189,7 @@ void handle_sync_exception(unsigned long esr, unsigned long elr, unsigned long f
 	switch (eclass)
 	{
 	case ESR_EL2_EC_TRAP_WFX:
-		current_cpu_core()->current_vcpu->stat.wfx_trap_count++;
+		current_cpu_core()->current_vcpu->vm->stat.wfx_trap_count++;
 		// ゲスト VM が WFI/WFE を実行したら VM を切り替える
 		handle_trap_wfx();
 		break;
@@ -197,7 +197,7 @@ void handle_sync_exception(unsigned long esr, unsigned long elr, unsigned long f
 		WARN("TRAP_FP_REG is not implemented.");
 		break;
 	case ESR_EL2_EC_TRAP_SYSTEM:
-		current_cpu_core()->current_vcpu->stat.sysregs_trap_count++;
+		current_cpu_core()->current_vcpu->vm->stat.sysregs_trap_count++;
 		handle_trap_system(esr);
 		break;
 	case ESR_EL2_EC_TRAP_SVE:
@@ -222,6 +222,6 @@ void handle_sync_exception(unsigned long esr, unsigned long elr, unsigned long f
 
 // EL1 からのハイパーコールの処理
 void handle_sync_exception_hvc64(unsigned long hvc_nr, unsigned long a0, unsigned long a1, unsigned long a2, unsigned long a3) {
-	current_cpu_core()->current_vcpu->stat.hvc_trap_count++;
+	current_cpu_core()->current_vcpu->vm->stat.hvc_trap_count++;
 	hypercall(hvc_nr, a0, a1, a2, a3);
 }

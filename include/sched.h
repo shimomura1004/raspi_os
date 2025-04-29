@@ -8,8 +8,9 @@
 #include "spinlock.h"
 #include "loader.h"
 
-#define THREAD_SIZE     4096
-#define NUMBER_OF_VMS   64
+#define THREAD_SIZE         4096
+#define NUMBER_OF_VCPUS     64
+#define NUMBER_OF_VMS       64
 
 enum VCPU_STATE {
     VCPU_RUNNING = 0,
@@ -19,7 +20,10 @@ enum VCPU_STATE {
 
 struct board_ops;
 
-extern struct vcpu_struct *vcpus[NUMBER_OF_VMS];
+extern struct vcpu_struct *vcpus[NUMBER_OF_VCPUS];
+extern int current_number_of_vcpus;
+
+extern struct vm_struct2 *vms2[NUMBER_OF_VMS];
 extern int current_number_of_vms;
 
 // 汎用レジスタ
@@ -150,16 +154,7 @@ struct vm_console {
     struct fifo *out_fifo;
 };
 
-// todo: これを vcpu_struct にして CPU の管理をする構造体にする
-//       vcpu から vm_struct2 への参照を追加して vcpu をまたがる vm データを共有する
-//       lock は vcpu_struct 用と vm_struct2 用の2つが必要
-struct vcpu_struct {
-    // cpu_context はアセンブラで位置指定でアクセスされるので、構造体の先頭に置く
-    // THREAD_CPU_CONTEXT がアセンブラでのオフセット
-    struct cpu_context cpu_context;	    // CPU 状態(汎用レジスタ)
-    struct cpu_sysregs cpu_sysregs;     // CPU 状態(システムレジスタ)
-    long state;                         // VM の状態(VCPU_RUNNING, VCPU_ZOMBIE)
-
+struct vm_struct2 {
     long vmid;                          // VMID
     const char *name;                   // VM の表示名
     const struct board_ops *board_ops;  // ボード固有の処理
@@ -169,6 +164,21 @@ struct vcpu_struct {
     struct vm_console console;          // この VM のコンソール
     struct spinlock lock;               // この VM の構造体の情報を変更するときに取るロック
     struct loader_args loader_args;	    // この VM をロードするローダの引数
+};
+
+// todo: これを vcpu_struct にして CPU の管理をする構造体にする
+//       vcpu から vm_struct2 への参照を追加して vcpu をまたがる vm データを共有する
+//       lock は vcpu_struct 用と vm_struct2 用の2つが必要
+struct vcpu_struct {
+    // cpu_context はアセンブラで位置指定でアクセスされるので、構造体の先頭に置く
+    // THREAD_CPU_CONTEXT がアセンブラでのオフセット
+    struct cpu_context cpu_context;	    // CPU 状態(汎用レジスタ)
+    struct cpu_sysregs cpu_sysregs;     // CPU 状態(システムレジスタ)
+    long state;                         // VM の状態(VCPU_RUNNING, VCPU_ZOMBIE)
+    unsigned long vcpu_id;              // VM の ID
+    struct spinlock lock;               // この VM の構造体の情報を変更するときに取るロック
+
+    struct vm_struct2 *vm;              // この vCPU が実行している VM
     
     // todo: 今のスケジューラでは使っていない
     // unsigned long flags;

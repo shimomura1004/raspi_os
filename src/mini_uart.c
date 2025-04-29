@@ -48,7 +48,7 @@ char uart_recv(void) {
 static int uart_forwarded_vm = 0;
 
 int is_uart_forwarded_vm(struct vcpu_struct *vcpu) {
-    return vcpu->vmid == uart_forwarded_vm;
+    return vcpu->vm->vmid == uart_forwarded_vm;
 }
 
 void uart_send_string(char *str) {
@@ -95,7 +95,7 @@ enqueue_char:
         vcpu = vcpus[uart_forwarded_vm];
         // もし VM が終了してしまっていたら無視する
         if (vcpu->state == VCPU_RUNNING ||  vcpu->state == VCPU_RUNNABLE) {
-            enqueue_fifo(vcpu->console.in_fifo, received);
+            enqueue_fifo(vcpu->vm->console.in_fifo, received);
         }
     }
 }

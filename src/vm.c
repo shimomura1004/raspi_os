@@ -25,11 +25,11 @@ static void idle_loop() {
 	}
 }
 
-// VM の初期状態を設定する共通処理
+// vCPU の初期状態を設定する共通処理
 static struct vcpu_struct *prepare_vcpu() {
 	struct vcpu_struct *vcpu = current_cpu_core()->current_vcpu;
 
-	// VM の切り替え前に必ずロックしているので、まずそれを解除する
+	// vCPU の切り替え前に必ずロックしているので、まずそれを解除する
 	release_lock(&vcpu->lock);
 
 	// PSTATE の中身は SPSR レジスタに戻したうえで eret することで復元される
@@ -54,7 +54,7 @@ static void load_vm_text_from_memory(unsigned long text) {
 	regs->pc = 0x0;
 	regs->sp = 0x100000;
 
-	INFO("%s enters EL1...", vcpu->name);
+	INFO("%s enters EL1...", vcpu->vm->name);
 }
 
 // 指定されたローダを使い、ファイルからテキストコードをロードする
@@ -67,7 +67,7 @@ static void load_vm_text_from_file(loader_func_t loader, void *arg) {
 		PANIC("failed to load");
 	}
 
-	INFO("%s enters EL1...", vcpu->name);
+	INFO("%s enters EL1...", vcpu->vm->name);
 }
 
 static struct cpu_sysregs initial_sysregs;
@@ -91,9 +91,9 @@ static void prepare_initial_sysregs(void) {
 	is_first_call = 0;
 }
 
-static void init_vm_console(struct vcpu_struct *vcpu) {
-	vcpu->console.in_fifo = create_fifo();
-	vcpu->console.out_fifo = create_fifo();
+static void init_vm_console(struct vm_struct2 *vm) {
+	vm->console.in_fifo = create_fifo();
+	vm->console.out_fifo = create_fifo();
 }
 
 void increment_current_pc(int ilen) {
@@ -128,10 +128,10 @@ static struct vcpu_struct *create_vcpu() {
 	vcpu->state = VCPU_RUNNABLE;
 
 	// todo: vcpu ではなく vm への設定なので別の場所に移す
-	// このプロセス(vm)で再現するハードウェア(BCM2837)を初期化
-	vcpu->board_ops = &bcm2837_board_ops;
-	if (HAVE_FUNC(vcpu->board_ops, initialize)) {
-		vcpu->board_ops->initialize(vcpu);
+	// このプロセス(vCPU)で再現するハードウェア(BCM2837)を初期化
+	vcpu->vm->board_ops = &bcm2837_board_ops;
+	if (HAVE_FUNC(vcpu->vm->board_ops, initialize)) {
+		vcpu->vm->board_ops->initialize(vcpu);
 	}
 
 	prepare_initial_sysregs();
@@ -167,7 +167,7 @@ int create_idle_vm(unsigned long cpuid) {
 	// switch_from_kthread 内で x19 のアドレスにジャンプする
 	vcpu->cpu_context.x19 = (unsigned long)load_vm_text_from_memory;
 	vcpu->cpu_context.x20 = (unsigned long)idle_loop;
-	vcpu->name = "IDLE";
+	vcpu->vm->name = "IDLE";
 
 	// IDLE VM は CPU ID をそのまま VMID にする
 	int vmid = cpuid;
@@ -175,7 +175,7 @@ int create_idle_vm(unsigned long cpuid) {
 	// 新たに作った vm_struct 構造体のアドレスを vcpus 配列に入れておく
 	// これでそのうち今作った VM に処理が切り替わり、switch_from_kthread から実行開始される
 	vcpus[vmid] = vcpu;
-	vcpu->vmid = vmid;
+	vcpu->vm->vmid = vmid;
 
 	return vmid;
 }
@@ -194,13 +194,13 @@ int create_vm_with_loader(loader_func_t loader, void *arg) {
 	//       vcpu->vm が指す先は別途1回だけ page_alloc しておく必要がある
 
 	// ローダの引数をコピー
-	vcpu->loader_args = *(struct loader_args *)arg;
+	vcpu->vm->loader_args = *(struct loader_args *)arg;
 
 	// switch_from_kthread 内で x19 のアドレスにジャンプする
 	vcpu->cpu_context.x19 = (unsigned long)load_vm_text_from_file;
 	vcpu->cpu_context.x20 = (unsigned long)loader;
-	vcpu->cpu_context.x21 = (unsigned long)&vcpu->loader_args;
-	vcpu->name = "VM";
+	vcpu->cpu_context.x21 = (unsigned long)&vcpu->vm->loader_args;
+	vcpu->vm->name = "VM";
 
 	// todo:
 	// ここで vcpus にエントリを追加している
@@ -213,15 +213,15 @@ int create_vm_with_loader(loader_func_t loader, void *arg) {
 
 	// todo: 修正必要(VM 数 != VCPU 数)
 	// 今動いている VM 数を増やし、その連番をそのまま PID とする
-	int vmid = current_number_of_vms++;
+	int vmid = current_number_of_vcpus++;
 	vcpus[vmid] = vcpu;
-	vcpu->vmid = vmid;
+	vcpu->vm->vmid = vmid;
 
 	return vmid;
 }
 
 void flush_vm_console(struct vcpu_struct *vcpu) {
-	struct fifo *outfifo = vcpu->console.out_fifo;
+	struct fifo *outfifo = vcpu->vm->console.out_fifo;
 	unsigned long val;
 	while (dequeue_fifo(outfifo, &val) == 0) {
 		printf("%c", val);
