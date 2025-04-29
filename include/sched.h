@@ -169,7 +169,6 @@ struct vm_struct {
     struct loader_args loader_args;	            // ローダの引数
 };
 
-void sched_init(void);
 void timer_tick(void);
 void set_cpu_virtual_interrupt(struct vm_struct *);
 void set_cpu_sysregs(struct vm_struct *);

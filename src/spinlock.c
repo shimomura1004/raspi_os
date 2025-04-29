@@ -1,10 +1,9 @@
 #include "spinlock.h"
 #include "sched.h"
+#include "cpu_core.h"
 #include "utils.h"
 #include "debug.h"
-#include "spinlock.h"
 #include "irq.h"
-#include "cpu_core.h"
 
 // todo: sleeplock も実装したい
 //   sleeplock はスケジューラを使って実装する
