@@ -63,7 +63,6 @@ struct task_struct {
 	struct mm_struct mm;
 };
 
-extern void sched_init(void);
 extern void schedule(void);
 extern void timer_tick(void);
 extern void preempt_disable(void);
