@@ -22,7 +22,8 @@ struct board_ops;
 extern struct vm_struct *vms[NUMBER_OF_VMS];
 extern int current_number_of_vms;
 
-// 控えないといけないレジスタ値を保存する
+// 汎用レジスタ
+// ソフトで控えないといけないレジスタ値を保存する
 // vm が切り替わるときは必ず cpu_switch_to 関数が呼ばれるため
 // ARM ABI により x0-x18 の値は呼び出し側で控えられる
 // それ以外のものだけを保存する
@@ -42,9 +43,11 @@ struct cpu_context {
     unsigned long pc;
 };
 
+// CPU のシステムレジスタ
+// アセンブラでオフセット指定でアクセスするので順番を入れ替えてはいけない
 struct cpu_sysregs {
     // EL0/1 でアクセスしてもトラップされないレジスタ
-    // 切り替え時にレジスタが退避・復帰される
+    // 切り替え時にソフトでレジスタを退避・復帰する必要がある
     unsigned long sctlr_el1;
     unsigned long ttbr0_el1;
     unsigned long ttbr1_el1;
@@ -125,12 +128,14 @@ struct cpu_sysregs {
     unsigned long cntv_tval_el0;
 };
 
+// 仮想マシンごとの Stage2 変換テーブル
 struct mm_struct {
     unsigned long first_table;      // VM の Stage2 変換テーブル
-    int vm_pages_count;           // 今使っている VM 用ページの数
+    int vm_pages_count;             // 今使っている VM 用ページの数
     int kernel_pages_count;         // 今使っているカーネル用ページの数
 };
 
+// 仮想マシンごとの VM の統計情報(デバッグ用)
 struct vm_stat {
     long wfx_trap_count;            // VM が wfi/wfe を実行した回数
     long hvc_trap_count;            // VM がハイパーコールを実行した回数
@@ -139,34 +144,37 @@ struct vm_stat {
     long mmio_trap_count;           // VM が mmio 領域にアクセスした回数
 };
 
+// 仮想マシンごとのコンソール
 struct vm_console {
     struct fifo *in_fifo;
     struct fifo *out_fifo;
 };
 
+// todo: これを vcpu_struct にして CPU の管理をする構造体にする
+//       vcpu から vm_struct2 への参照を追加して vcpu をまたがる vm データを共有する
+//       lock は vcpu_struct 用と vm_struct2 用の2つが必要
 struct vm_struct {
     // cpu_context はアセンブラで位置指定でアクセスされるので、構造体の先頭に置く
     // THREAD_CPU_CONTEXT がアセンブラでのオフセット
-    struct cpu_context cpu_context;	            // CPU 状態
-    long state;                                 // VM の状態(VM_RUNNING, VM_ZOMBIE)
+    struct cpu_context cpu_context;	    // CPU 状態(汎用レジスタ)
+    struct cpu_sysregs cpu_sysregs;     // CPU 状態(システムレジスタ)
+    long state;                         // VM の状態(VM_RUNNING, VM_ZOMBIE)
 
+    long vmid;                          // VMID
+    const char *name;                   // VM の表示名
+    const struct board_ops *board_ops;  // ボード固有の処理
+    void *board_data;                   // ボード固有のデータ
+    struct mm_struct mm;                // この VM の二段階アドレス変換テーブル
+    struct vm_stat stat;                // この VM の統計データ
+    struct vm_console console;          // この VM のコンソール
+    struct spinlock lock;               // この VM の構造体の情報を変更するときに取るロック
+    struct loader_args loader_args;	    // この VM をロードするローダの引数
+    
     // todo: 今のスケジューラでは使っていない
-    long counter;                               // VM が使える残りの CPU 時間を保持
-                                                // tick ごとに 1 減り、0 になると他の VM に切り替わる
-    // todo: 今のスケジューラでは使っていない
-    long priority;                              // VM が CPU にスケジュールされるときにこの値が counter にコピーされる
-
-    long vmid;                                  // VMID
-    unsigned long flags;
-    const char *name;
-    const struct board_ops *board_ops;
-    void *board_data;
-    struct mm_struct mm;
-    struct cpu_sysregs cpu_sysregs;
-    struct vm_stat stat;
-    struct vm_console console;
-    struct spinlock lock;
-    struct loader_args loader_args;	            // ローダの引数
+    // unsigned long flags;
+    // long counter;                    // VM が使える残りの CPU 時間を保持
+                                        // tick ごとに 1 減り、0 になると他の VM に切り替わる
+    // long priority;                   // VM が CPU にスケジュールされるときにこの値が counter にコピーされる
 };
 
 void timer_tick(void);
