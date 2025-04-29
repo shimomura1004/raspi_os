@@ -58,6 +58,19 @@ struct raw_binary_loader_args test_bin_args = {
 	.filename = "TEST2.BIN",
 };
 
+struct raw_binary_loader_args raspios_bin_args = {
+	.loader_addr = 0x0,
+	.entry_point = 0x0,
+	.sp = 0x100000,
+	.filename = "RASPIOS.BIN",
+};
+struct raw_binary_loader_args raspios_elf_args = {
+	.loader_addr = 0x0,
+	.entry_point = 0x0,
+	.sp = 0xffff000000100000,
+	.filename = "RASPIOS.ELF",
+};
+
 // 各 CPU コアで必要な初期化処理
 static void initialize_cpu_core(unsigned long cpuid) {
 	// CPU コア構造体の初期化
@@ -117,11 +130,19 @@ static void prepare_guest_vms() {
 	// 	printf("error while starting VM #4");
 	// }
 
-	if (create_vm_with_loader(raw_binary_loader, &test_bin_args) < 0) {
-		printf("error while starting VM #5");
-	}
+	// if (create_vm_with_loader(raw_binary_loader, &test_bin_args) < 0) {
+	// 	printf("error while starting VM #5");
+	// }
 
 	// if (create_vm_with_loader(elf_binary_loader, &echo_elf_args) < 0) {
+	// 	printf("error while starting VM #6");
+	// }
+
+	if (create_vm_with_loader(raw_binary_loader, &raspios_bin_args) < 0) {
+		printf("error while starting VM #6");
+	}
+
+	// if (create_vm_with_loader(elf_binary_loader, &raspios_elf_args) < 0) {
 	// 	printf("error while starting VM #6");
 	// }
 }

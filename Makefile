@@ -36,6 +36,8 @@ fs.img: $(SUBDIRS)
 	-mcopy -i fs.img ./example/mini-os/mini-os.bin ::MINI-OS.BIN
 	-mcopy -i fs.img ./example/echo/build/kernel8.elf ::ECHO.ELF
 	-mcopy -i fs.img ./example/mini-os/build/kernel8.elf ::MINI-OS.ELF
+	-mcopy -i fs.img ./example/raspios/kernel8.img ::RASPIOS.BIN
+	-mcopy -i fs.img ./example/raspios/build/kernel8.elf ::RASPIOS.ELF
 
 $(BUILD_DIR)/%_c.o: $(SRC_DIR)/%.c
 	mkdir -p $(@D)
