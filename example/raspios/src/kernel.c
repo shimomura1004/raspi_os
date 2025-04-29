@@ -45,6 +45,7 @@ void kernel_main()
 		timer_init();
 
 		init_lock(&log_lock, "log_lock");
+		init_sched();
 		INFO("Initialization complete");
 		// initialized = 1;
 	}

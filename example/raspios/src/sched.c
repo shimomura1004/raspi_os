@@ -5,6 +5,8 @@
 #include "mm.h"
 #include "spinlock.h"
 
+struct cpu_core_struct cpus[NR_CPUS];
+
 static struct task_struct init_task0 = INIT_TASK;
 static struct task_struct init_task1 = INIT_TASK;
 static struct task_struct init_task2 = INIT_TASK;
@@ -15,6 +17,13 @@ struct task_struct *task[NR_TASKS] = {&(init_task0), &(init_task1), &(init_task2
 int nr_tasks = NR_CPUS;
 
 struct spinlock sched_lock = {0, "sched lock", -1};
+
+void init_sched() {
+	for (int i=0; i < NR_CPUS; i++) {
+		cpus[i].number_of_off = 0;
+		cpus[i].interrupt_enable = 1;
+	}
+}
 
 // fork で新しくプロセスを作ったあと、sched で acquire したロックを解放するための関数
 // 切り替わった直後に必ずロックを解放しないといけない

@@ -20,6 +20,15 @@
 #define PF_KTHREAD				0x00000002	
 
 
+struct cpu_core_struct {
+	int number_of_off;
+	int interrupt_enable;
+};
+
+extern struct cpu_core_struct cpus[NR_CPUS];
+
+void init_sched();
+
 extern struct task_struct *currents[NR_CPUS];
 extern struct task_struct * task[NR_TASKS];
 extern int nr_tasks;
