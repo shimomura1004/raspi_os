@@ -29,7 +29,7 @@ unsigned long allocate_page() {
 
 // VM で使うためのページを確保してマッピングし、ハイパーバイザ上の仮想アドレスを返す
 // つまり、ハイパーバイザ上でこのアドレスに書き込むことで、確保したメモリにアクセスできるということ
-unsigned long allocate_vm_page(struct vm_struct *vm, unsigned long ipa) {
+unsigned long allocate_vm_page(struct vcpu_struct *vm, unsigned long ipa) {
 	// 未使用ページを探す、page は仮想アドレスではなくオフセット
 	unsigned long page = get_free_page();
 	if (page == 0) {
@@ -44,7 +44,7 @@ unsigned long allocate_vm_page(struct vm_struct *vm, unsigned long ipa) {
 	return page + VA_START;
 }
 
-void set_vm_page_notaccessable(struct vm_struct *vm, unsigned long va) {
+void set_vm_page_notaccessable(struct vcpu_struct *vm, unsigned long va) {
 	map_stage2_page(vm, va, 0, MMU_STAGE2_MMIO_FLAGS);
 // if (current_cpu_core()->current_vm->vmid != 0)INFO("VA 0x%lx -> IPA 0x%lx -> PA 0x%lx (set_vm_page_notaccessable)", va, get_ipa(va), 0);
 }
@@ -126,7 +126,7 @@ unsigned long map_stage2_table(unsigned long *table, unsigned long shift, unsign
 //       引数を vm に変えればいい
 // vm のアドレス空間(VTTBR_EL2)のアドレス ipa に、指定されたページ page を割り当てる
 // ハイパーバイザが管理するメモリマッピングは、IPA->PA のみ
-void map_stage2_page(struct vm_struct *vm, unsigned long ipa, unsigned long page, unsigned long flags) {
+void map_stage2_page(struct vcpu_struct *vm, unsigned long ipa, unsigned long page, unsigned long flags) {
 	// 最上位のページテーブル
 	unsigned long lv1_table;
 
@@ -225,7 +225,7 @@ unsigned long get_pa_2nd(unsigned long va) {
 // ESR_EL2
 // https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/ESR-EL2--Exception-Syndrome-Register--EL2-?lang=en#fieldset_0-24_0
 int handle_mem_abort(unsigned long addr, unsigned long esr) {
-	struct vm_struct *vm = current_cpu_core()->current_vm;
+	struct vcpu_struct *vm = current_cpu_core()->current_vm;
 	struct pt_regs *regs = vm_pt_regs(vm);
 	unsigned int dfsc = esr & ISS_ABORT_DFSC_MASK;
 

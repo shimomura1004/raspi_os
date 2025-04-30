@@ -47,7 +47,7 @@ char uart_recv(void) {
 // UART から入力されたデータを送り込む先の VM の番号(0 のときはホスト)
 static int uart_forwarded_vm = 0;
 
-int is_uart_forwarded_vm(struct vm_struct *tsk) {
+int is_uart_forwarded_vm(struct vcpu_struct *tsk) {
     return tsk->vmid == uart_forwarded_vm;
 }
 
@@ -63,7 +63,7 @@ void handle_uart_irq(void) {
     static int is_escaped = 0;
 
     char received = get32(AUX_MU_IO_REG) & 0xff;
-    struct vm_struct *tsk;
+    struct vcpu_struct *tsk;
 
     if (is_escaped) {
         is_escaped = 0;

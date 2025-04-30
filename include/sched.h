@@ -19,7 +19,7 @@ enum VM_STATE {
 
 struct board_ops;
 
-extern struct vm_struct *vms[NUMBER_OF_VMS];
+extern struct vcpu_struct *vms[NUMBER_OF_VMS];
 extern int current_number_of_vms;
 
 // 汎用レジスタ
@@ -153,7 +153,7 @@ struct vm_console {
 // todo: これを vcpu_struct にして CPU の管理をする構造体にする
 //       vcpu から vm_struct2 への参照を追加して vcpu をまたがる vm データを共有する
 //       lock は vcpu_struct 用と vm_struct2 用の2つが必要
-struct vm_struct {
+struct vcpu_struct {
     // cpu_context はアセンブラで位置指定でアクセスされるので、構造体の先頭に置く
     // THREAD_CPU_CONTEXT がアセンブラでのオフセット
     struct cpu_context cpu_context;	    // CPU 状態(汎用レジスタ)
@@ -178,10 +178,10 @@ struct vm_struct {
 };
 
 void timer_tick(void);
-void set_cpu_virtual_interrupt(struct vm_struct *);
-void set_cpu_sysregs(struct vm_struct *);
-void switch_to(struct vm_struct*);
-void cpu_switch_to(struct vm_struct* prev, struct vm_struct* next);
+void set_cpu_virtual_interrupt(struct vcpu_struct *);
+void set_cpu_sysregs(struct vcpu_struct *);
+void switch_to(struct vcpu_struct*);
+void cpu_switch_to(struct vcpu_struct* prev, struct vcpu_struct* next);
 void exit_vm(void);
 void show_vm_list(void);
 

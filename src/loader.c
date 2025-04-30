@@ -14,7 +14,7 @@ struct spinlock loader_lock = {0, "loader", -1};
 
 // 指定された EL2 のメモリ上のプログラムコードを VM のメモリにロードする
 // ハイパーバイザに埋め込まれた EL1 コードを VM にコピーするために使う
-void copy_code_to_memory(struct vm_struct *vm, unsigned long va, unsigned long from, unsigned long size) {
+void copy_code_to_memory(struct vcpu_struct *vm, unsigned long va, unsigned long from, unsigned long size) {
     unsigned long current_va = va & PAGE_MASK;
 
     while (size > 0) {
@@ -28,7 +28,7 @@ void copy_code_to_memory(struct vm_struct *vm, unsigned long va, unsigned long f
     }
 }
 
-int load_file_to_memory(struct vm_struct *vm, const char *name, unsigned long va) {
+int load_file_to_memory(struct vcpu_struct *vm, const char *name, unsigned long va) {
     // todo: ロックの単位が大きいのでもっと細分化する
     acquire_lock(&loader_lock);
 
@@ -72,7 +72,7 @@ int load_file_to_memory(struct vm_struct *vm, const char *name, unsigned long va
 // todo: 丸ごと elf.c に移す？
 int elf_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
     struct loader_args *loader_args = (struct loader_args *)args;
-    struct vm_struct *vm = current_cpu_core()->current_vm;
+    struct vcpu_struct *vm = current_cpu_core()->current_vm;
 
     INFO("Loading requested file(%s)", loader_args->filename);
 
@@ -173,7 +173,7 @@ int elf_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
 
 int raw_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
     struct loader_args *loader_args = (struct loader_args *)args;
-    struct vm_struct *vm = current_cpu_core()->current_vm;
+    struct vcpu_struct *vm = current_cpu_core()->current_vm;
 
     if (load_file_to_memory(vm, loader_args->filename, loader_args->loader_addr) < 0) {
         return -1;

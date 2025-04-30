@@ -11,7 +11,7 @@
 #include "loader.h"
 
 // 各スレッド用の領域の末尾に置かれた vm_struct へのポインタを返す
-struct pt_regs * vm_pt_regs(struct vm_struct *vm) {
+struct pt_regs * vm_pt_regs(struct vcpu_struct *vm) {
 	unsigned long p = (unsigned long)vm + THREAD_SIZE - sizeof(struct pt_regs);
 	return (struct pt_regs *)p;
 }
@@ -26,8 +26,8 @@ static void idle_loop() {
 }
 
 // VM の初期状態を設定する共通処理
-static struct vm_struct *prepare_vm() {
-	struct vm_struct *vm = current_cpu_core()->current_vm;
+static struct vcpu_struct *prepare_vm() {
+	struct vcpu_struct *vm = current_cpu_core()->current_vm;
 
 	// VM の切り替え前に必ずロックしているので、まずそれを解除する
 	release_lock(&vm->lock);
@@ -46,7 +46,7 @@ static struct vm_struct *prepare_vm() {
 
 // 指定したアドレスに格納されたテキストコードを VM 領域のアドレス 0 にコピーする
 static void load_vm_text_from_memory(unsigned long text) {
-	struct vm_struct *vm = prepare_vm();
+	struct vcpu_struct *vm = prepare_vm();
 	struct pt_regs *regs = vm_pt_regs(vm);
 
 	// コードをロードして PC/SP を設定
@@ -59,7 +59,7 @@ static void load_vm_text_from_memory(unsigned long text) {
 
 // 指定されたローダを使い、ファイルからテキストコードをロードする
 static void load_vm_text_from_file(loader_func_t loader, void *arg) {
-	struct vm_struct *vm = prepare_vm();
+	struct vcpu_struct *vm = prepare_vm();
 	struct pt_regs *regs = vm_pt_regs(vm);
 
 	// コードをロードして PC/SP を設定(pc,sp は出力引数)
@@ -91,7 +91,7 @@ static void prepare_initial_sysregs(void) {
 	is_first_call = 0;
 }
 
-static void init_vm_console(struct vm_struct *vm) {
+static void init_vm_console(struct vcpu_struct *vm) {
 	vm->console.in_fifo = create_fifo();
 	vm->console.out_fifo = create_fifo();
 }
@@ -103,8 +103,8 @@ void increment_current_pc(int ilen) {
 
 // 空の VM 構造体を作成
 // あとでこの VM に CPU 時間が割当たるとロードなどが行われる
-static struct vm_struct *create_vm() {
-	struct vm_struct *vm;
+static struct vcpu_struct *create_vm() {
+	struct vcpu_struct *vm;
 
 	// 新たなページを確保
 	// このページはハイパーバイザが使う管理用(ゲストから復帰してきたときのスタック領域を含む)
@@ -113,7 +113,7 @@ static struct vm_struct *create_vm() {
 	// todo: 明示的な初期化処理としたほうがよい
 	unsigned long page = allocate_page();
 	// ページの先頭に vm_struct を置く(ゲストの管理用データ置き場)
-	vm = (struct vm_struct *) page;
+	vm = (struct vcpu_struct *) page;
 	// ページの末尾を pt_regs 用の領域とする(ゲストのレジスタ保存用)
 	struct pt_regs *childregs = vm_pt_regs(vm);
 
@@ -159,7 +159,7 @@ static struct vm_struct *create_vm() {
 // todo: create_vm_with_loader と同様の修正を加える
 // 指定された CPU コア用の IDLE VM を作る
 int create_idle_vm(unsigned long cpuid) {
-	struct vm_struct *vm = create_vm();
+	struct vcpu_struct *vm = create_vm();
 	if (!vm) {
 		return -1;
 	}
@@ -183,7 +183,7 @@ int create_idle_vm(unsigned long cpuid) {
 // 指定されたローダで VM を作る
 int create_vm_with_loader(loader_func_t loader, void *arg) {
 	// todo: ここでループして vcpu を複数作るようにする
-	struct vm_struct *vm = create_vm();
+	struct vcpu_struct *vm = create_vm();
 	if (!vm) {
 		return -1;
 	}
@@ -220,7 +220,7 @@ int create_vm_with_loader(loader_func_t loader, void *arg) {
 	return vmid;
 }
 
-void flush_vm_console(struct vm_struct *tsk) {
+void flush_vm_console(struct vcpu_struct *tsk) {
 	struct fifo *outfifo = tsk->console.out_fifo;
 	unsigned long val;
 	while (dequeue_fifo(outfifo, &val) == 0) {
