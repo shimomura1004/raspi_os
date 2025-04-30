@@ -44,7 +44,7 @@ void exit_vm(){
 	// todo: リソースを解放する(コンソールとかメモリページとか)
 
 	// 実行中の VM のstate を zombie にする(=スケジューリング対象から外れる)
-	current_cpu_core()->current_vm->state = VM_ZOMBIE;
+	current_cpu_core()->current_vcpu->state = VM_ZOMBIE;
 
 	yield();
 }
@@ -56,7 +56,7 @@ void set_cpu_sysregs(struct vcpu_struct *tsk) {
 
 // ハイパーバイザでの処理を終えて VM に処理を戻すときに kernel_exit から呼ばれる
 void vm_entering_work() {
-	struct vcpu_struct *vm = current_cpu_core()->current_vm;
+	struct vcpu_struct *vm = current_cpu_core()->current_vcpu;
 
 	if (HAVE_FUNC(vm->board_ops, entering_vm)) {
 		vm->board_ops->entering_vm(vm);
@@ -80,7 +80,7 @@ void vm_entering_work() {
 
 // VM での処理を抜けてハイパーバイザに処理に入るときに kernel_entry から呼ばれる
 void vm_leaving_work() {
-	struct vcpu_struct *vm = current_cpu_core()->current_vm;
+	struct vcpu_struct *vm = current_cpu_core()->current_vcpu;
 
 	// 今のレジスタの値を控える
 	save_sysregs(&vm->cpu_sysregs);
@@ -102,7 +102,7 @@ const char *vm_state_str[] = {
 
 int find_cpu_which_runs(struct vcpu_struct *vm) {
 	for (int i = 0; i < NUMBER_OF_CPU_CORES; i++) {
-		if (cpu_core(i)->current_vm == vm) {
+		if (cpu_core(i)->current_vcpu == vm) {
 			return i;
 		}
 	}
@@ -137,14 +137,14 @@ static void schedule(struct vcpu_struct *vm) {
 	struct cpu_core_struct *cpu_core = current_cpu_core();
 
 	vm->state = VM_RUNNING;
-	cpu_core->current_vm = vm;
+	cpu_core->current_vcpu = vm;
 
 	// しばらく vm を実行する
 	cpu_switch_to(&cpu_core->scheduler_context, vm);
 
 	// ここに戻ってきたら、今まで動いていた VM を停止させる
 	vm->state = vm->state == VM_ZOMBIE ? VM_ZOMBIE : VM_RUNNABLE;
-	cpu_core->current_vm = NULL;
+	cpu_core->current_vcpu = NULL;
 }
 
 // 各コア専用に用意された idle vm で実行され、タイマ割込みが発生するとここに帰ってくる
@@ -196,7 +196,7 @@ void scheduler(unsigned long cpuid) {
 // CPU 時間を手放し VM を切り替える
 void yield() {
 	struct cpu_core_struct *cpu_core = current_cpu_core();
-	struct vcpu_struct *vm = cpu_core->current_vm;
+	struct vcpu_struct *vm = cpu_core->current_vcpu;
 
 	// ロックを取ってから idle_vm に切り替える
 	acquire_lock(&vm->lock);

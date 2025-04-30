@@ -5,7 +5,7 @@
 #include "debug.h"
 
 void hypercall(unsigned long hvc_nr, unsigned long a0, unsigned long a1, unsigned long a2, unsigned long a3) {
-    struct pt_regs *regs = vm_pt_regs(current_cpu_core()->current_vm);
+    struct pt_regs *regs = vm_pt_regs(current_cpu_core()->current_vcpu);
 
     switch (hvc_nr) {
 	case HYPERCALL_TYPE_WARN_LU: {

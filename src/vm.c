@@ -27,7 +27,7 @@ static void idle_loop() {
 
 // VM の初期状態を設定する共通処理
 static struct vcpu_struct *prepare_vm() {
-	struct vcpu_struct *vm = current_cpu_core()->current_vm;
+	struct vcpu_struct *vm = current_cpu_core()->current_vcpu;
 
 	// VM の切り替え前に必ずロックしているので、まずそれを解除する
 	release_lock(&vm->lock);
@@ -97,7 +97,7 @@ static void init_vm_console(struct vcpu_struct *vm) {
 }
 
 void increment_current_pc(int ilen) {
-	struct pt_regs *regs = vm_pt_regs(current_cpu_core()->current_vm);
+	struct pt_regs *regs = vm_pt_regs(current_cpu_core()->current_vcpu);
 	regs->pc += ilen;
 }
 
@@ -123,7 +123,7 @@ static struct vcpu_struct *create_vm() {
 	}
 
 	// vm->flags = 0;
-	// vm->priority = current_cpu_core()->current_vm->priority;
+	// vm->priority = current_cpu_core()->current_vcpu->priority;
 	// vm->counter = vm->priority;
 	vm->state = VM_RUNNABLE;
 
