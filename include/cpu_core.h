@@ -6,8 +6,8 @@
 #define NUMBER_OF_CPU_CORES 4
 
 struct cpu_core_struct {
-    unsigned long id;               // この CPU コアの ID
-    struct vcpu_struct *current_vm;   // この CPU コアが実行している VM
+    unsigned long id;                   // この CPU コアの ID
+    struct vcpu_struct *current_vcpu;   // この CPU コアが実行している vCPU
 
     // この CPU コアが実行しているハイパーバイザ(EL2)のコンテキスト
     struct vcpu_struct scheduler_context;

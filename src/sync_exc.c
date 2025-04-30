@@ -94,7 +94,7 @@ static void handle_trap_system(unsigned long esr) {
 #define DEFINE_SYSREG_MSR(name, _op1, _crn, _crm, _op2) \
 	do { \
 		if (op1 == (_op1) && crn == (_crn) && crm == (_crm) && op2 == (_op2)) { \
-			current_cpu_core()->current_vm->cpu_sysregs.name = regs->regs[rt]; \
+			current_cpu_core()->current_vcpu->cpu_sysregs.name = regs->regs[rt]; \
 			goto sys_fin; \
 		} \
 	} while (0)
@@ -102,13 +102,13 @@ static void handle_trap_system(unsigned long esr) {
 #define DEFINE_SYSREG_MRS(name, _op1, _crn, _crm, _op2) \
 	do { \
 		if (op1 == (_op1) && crn == (_crn) && crm == (_crm) && op2 == (_op2)) { \
-			regs->regs[rt] = current_cpu_core()->current_vm->cpu_sysregs.name; \
+			regs->regs[rt] = current_cpu_core()->current_vcpu->cpu_sysregs.name; \
 			goto sys_fin; \
 		} \
 	} while (0)
 
 	// hypercall した VM のプロセス情報を取り出す
-	struct pt_regs *regs = vm_pt_regs(current_cpu_core()->current_vm);
+	struct pt_regs *regs = vm_pt_regs(current_cpu_core()->current_vcpu);
 
 	// ESR.ISS[24:0] instruction specific syndrome
 	// exception class に応じて使われ方が違う
@@ -189,7 +189,7 @@ void handle_sync_exception(unsigned long esr, unsigned long elr, unsigned long f
 	switch (eclass)
 	{
 	case ESR_EL2_EC_TRAP_WFX:
-		current_cpu_core()->current_vm->stat.wfx_trap_count++;
+		current_cpu_core()->current_vcpu->stat.wfx_trap_count++;
 		// ゲスト VM が WFI/WFE を実行したら VM を切り替える
 		handle_trap_wfx();
 		break;
@@ -197,7 +197,7 @@ void handle_sync_exception(unsigned long esr, unsigned long elr, unsigned long f
 		WARN("TRAP_FP_REG is not implemented.");
 		break;
 	case ESR_EL2_EC_TRAP_SYSTEM:
-		current_cpu_core()->current_vm->stat.sysregs_trap_count++;
+		current_cpu_core()->current_vcpu->stat.sysregs_trap_count++;
 		handle_trap_system(esr);
 		break;
 	case ESR_EL2_EC_TRAP_SVE:
@@ -222,6 +222,6 @@ void handle_sync_exception(unsigned long esr, unsigned long elr, unsigned long f
 
 // EL1 からのハイパーコールの処理
 void handle_sync_exception_hvc64(unsigned long hvc_nr, unsigned long a0, unsigned long a1, unsigned long a2, unsigned long a3) {
-	current_cpu_core()->current_vm->stat.hvc_trap_count++;
+	current_cpu_core()->current_vcpu->stat.hvc_trap_count++;
 	hypercall(hvc_nr, a0, a1, a2, a3);
 }
