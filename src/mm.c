@@ -121,6 +121,9 @@ unsigned long map_stage2_table(unsigned long *table, unsigned long shift, unsign
 	return table[index] & PAGE_MASK;
 }
 
+// todo: 二段階アドレス変換は VM で1つだけ必要で、vCPU ごとに設定する必要はない
+//       実際 vcpu は必要なくて、すべて vcpu->vm の内容を参照している
+//       引数を vm に変えればいい
 // vm のアドレス空間(VTTBR_EL2)のアドレス ipa に、指定されたページ page を割り当てる
 // ハイパーバイザが管理するメモリマッピングは、IPA->PA のみ
 void map_stage2_page(struct vm_struct *vm, unsigned long ipa, unsigned long page, unsigned long flags) {

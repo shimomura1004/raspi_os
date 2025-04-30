@@ -199,8 +199,10 @@ static void bcm2837_initialize(struct vm_struct *vm) {
 
     state->systimer.last_physical_count = get_physical_systimer_count();
 
+    // todo: vcpu ではなく vm の設定
     vm->board_data = state;
 
+    // todo: 二段階アドレス変換は VM で1つだけ必要で、vCPU ごとに設定する必要はない
     // stage2 のデバイスのメモリマッピング(MMIO ページの準備)
     unsigned long begin = DEVICE_BASE;
     unsigned long end = PHYS_MEMORY_SIZE - SECTION_SIZE;

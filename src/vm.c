@@ -113,6 +113,7 @@ static struct vm_struct *create_vm() {
 	struct pt_regs *childregs = vm_pt_regs(vm);
 
 	if (!vm) {
+		WARN("Failed to allocate page for vCPU");
 		return NULL;
 	}
 
@@ -150,6 +151,7 @@ static struct vm_struct *create_vm() {
 	return vm;
 }
 
+// todo: create_vm_with_loader と同様の修正を加える
 // 指定された CPU コア用の IDLE VM を作る
 int create_idle_vm(unsigned long cpuid) {
 	struct vm_struct *vm = create_vm();
