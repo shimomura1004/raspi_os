@@ -127,13 +127,7 @@ static struct vcpu_struct *create_vcpu() {
 	// vcpu->counter = vcpu->priority;
 	vcpu->state = VCPU_RUNNABLE;
 
-	// todo: vcpu ではなく vm への設定なので別の場所に移す
-	// このプロセス(vCPU)で再現するハードウェア(BCM2837)を初期化
-	vcpu->vm->board_ops = &bcm2837_board_ops;
-	if (HAVE_FUNC(vcpu->vm->board_ops, initialize)) {
-		vcpu->vm->board_ops->initialize(vcpu);
-	}
-
+	// システムレジスタ、汎用レジスタの初期化
 	prepare_initial_sysregs();
 	memcpy(&vcpu->cpu_sysregs, &initial_sysregs, sizeof(struct cpu_sysregs));
 
@@ -150,72 +144,116 @@ static struct vcpu_struct *create_vcpu() {
 	// 特に問題はない(ゲスト OS 自体は自由に自分で確保したスタックを使える)
 	vcpu->cpu_context.sp = (unsigned long)childregs;
 
-	// todo: vcpu ではなく vm への設定なので別の場所に移す
-	init_vm_console(vcpu);
-
 	return vcpu;
 }
 
-// todo: create_vm_with_loader と同様の修正を加える
-// 指定された CPU コア用の IDLE VM を作る
-int create_idle_vm(unsigned long cpuid) {
-	struct vcpu_struct *vcpu = create_vcpu();
-	if (!vcpu) {
+// 指定された CPU コア用の IDLE VM を作る(create_vm_with_loader と同様の処理を行う)
+int create_idle_vm() {
+	// todo: idle VM はなくしたい…
+	unsigned long page = allocate_page();
+	if (!page) {
+		WARN("Failed to allocate page for idle VM");
 		return -1;
 	}
+	struct vm_struct2 *idle_vm = (struct vm_struct2 *)page;
 
-	// switch_from_kthread 内で x19 のアドレスにジャンプする
-	vcpu->cpu_context.x19 = (unsigned long)load_vm_text_from_memory;
-	vcpu->cpu_context.x20 = (unsigned long)idle_loop;
-	vcpu->vm->name = "IDLE";
+	idle_vm->name = "IDLE";
+	init_vm_console(idle_vm);
 
-	// IDLE VM は CPU ID をそのまま VMID にする
-	int vmid = cpuid;
+	int vmid = 0;
+	vms2[vmid] = idle_vm;
+	idle_vm->vmid = vmid;
+	
+	for (int i=0; i < NUMBER_OF_PCPUS; i++) {
+		struct vcpu_struct *vcpu = create_vcpu();
+		if (!vcpu) {
+			return -1;
+		}
 
-	// 新たに作った vm_struct 構造体のアドレスを vcpus 配列に入れておく
-	// これでそのうち今作った VM に処理が切り替わり、switch_from_kthread から実行開始される
-	vcpus[vmid] = vcpu;
-	vcpu->vm->vmid = vmid;
+		vcpu->cpu_context.x19 = (unsigned long)load_vm_text_from_memory;
+		vcpu->cpu_context.x20 = (unsigned long)idle_loop;
+
+		vcpu->vm = idle_vm;
+
+		int vcpuid = i;
+printf("%dth vcpu created\n", vcpuid);
+		vcpus[vcpuid] = vcpu;
+	}
 
 	return vmid;
 }
 
+// todo:
+// ここで vcpus にエントリを追加している
+// ひとつの VM に複数の vCPU を割当てるなら、ここで対応が必要
+// つまり、ここで必要なだけの vCPU を作成する
+// vCPU でメモリ空間は共通だから、OS テキストを複数回ロードする必要はない
+// 今は作った vCPU が最初に動くときにロードしているので、このままだと複数回ロードしてしまう
+// また vcpu の管理領域は各 vcpu に固有でいいが、vm の管理領域は共通にしないといけない
+// vcpu の管理領域は、この関数の先頭の create_vcpu で確保されている
+
 // 指定されたローダで VM を作る
 int create_vm_with_loader(loader_func_t loader, void *arg) {
-	// todo: ここでループして vcpu を複数作るようにする
-	struct vcpu_struct *vcpu = create_vcpu();
-	if (!vcpu) {
+	// vCPU に共通の VM の管理用構造体を確保する
+	unsigned long page = allocate_page();
+	if (!page) {
+		WARN("Failed to allocate page for VM");
 		return -1;
 	}
+	struct vm_struct2 *vm = (struct vm_struct2 *)page;
+
+	// VM の初期化
+	vm->loader_args = *(struct loader_args *)arg;	// ローダの引数をコピー
+	vm->name = "VM";
+	init_vm_console(vm);
+	init_lock(&vm->lock, "vm_lock");
+
+	// VM を管理リストに登録
+	int vmid = current_number_of_vms++;
+	vms2[vmid] = vm;
+	vm->vmid = vmid;
 
 	// todo: vcpu->vm に値を設定している部分は vcpu ではなく vm への設定なので、
 	//       ループの中には入れず、1回だけ初期化するようにする
 	//       create_vcpu 内でも vcpu->vm に値を設定しているのでそちらも修正する
 	//       vcpu->vm が指す先は別途1回だけ page_alloc しておく必要がある
 
-	// ローダの引数をコピー
-	vcpu->vm->loader_args = *(struct loader_args *)arg;
+	// todo: いったんすべての vm で2コア固定とする
+	// todo: vCPU の作りすぎをチェックしていない
+	for (int i=0; i < 1; i++) {
+		// 必要なだけ vCPU を準備
+		// todo: create_vcpu 内で vm に対する処理を実行しているので取り出してループの外に置く
+		struct vcpu_struct *vcpu = create_vcpu();
+		if (!vcpu) {
+			// todo: 途中で失敗した場合は、既に作った vCPU を削除しないといけない
+			return -1;
+		}
 
-	// switch_from_kthread 内で x19 のアドレスにジャンプする
-	vcpu->cpu_context.x19 = (unsigned long)load_vm_text_from_file;
-	vcpu->cpu_context.x20 = (unsigned long)loader;
-	vcpu->cpu_context.x21 = (unsigned long)&vcpu->vm->loader_args;
-	vcpu->vm->name = "VM";
+		// vCPU が担当する vm を登録
+		vcpu->vm = vm;
+		init_lock(&vcpu->lock, "vcpu_lock");
 
-	// todo:
-	// ここで vcpus にエントリを追加している
-	// ひとつの VM に複数の vCPU を割当てるなら、ここで対応が必要
-	// つまり、ここで必要なだけの vCPU を作成する
-	// vCPU でメモリ空間は共通だから、OS テキストを複数回ロードする必要はない
-	// 今は作った vCPU が最初に動くときにロードしているので、このままだと複数回ロードしてしまう
-	// また vcpu の管理領域は各 vcpu に固有でいいが、vm の管理領域は共通にしないといけない
-	// vcpu の管理領域は、この関数の先頭の create_vcpu で確保されている
+		// todo: これだと全コアがテキストをロードしてしまう
+		// switch_from_kthread 内で x19 のアドレスにジャンプする
+		vcpu->cpu_context.x19 = (unsigned long)load_vm_text_from_file;
+		vcpu->cpu_context.x20 = (unsigned long)loader;
+		vcpu->cpu_context.x21 = (unsigned long)&vm->loader_args;
 
-	// todo: 修正必要(VM 数 != VCPU 数)
-	// 今動いている VM 数を増やし、その連番をそのまま PID とする
-	int vmid = current_number_of_vcpus++;
-	vcpus[vmid] = vcpu;
-	vcpu->vm->vmid = vmid;
+		// todo: ループの外に出す、いったん初回のみ実行することにして回避
+		// この VM で再現するハードウェア(BCM2837)を初期化
+		if (i == 0) {
+			vm->board_ops = &bcm2837_board_ops;
+			if (HAVE_FUNC(vm->board_ops, initialize)) {
+				vm->board_ops->initialize(vcpu);
+			}
+		}
+
+		// 新たに作った vcpu_struct 構造体のアドレスを vcpus 配列に入れておく
+		// これでそのうち今作った vCPU に処理が切り替わり、switch_from_kthread から実行開始される
+		int vcpuid = current_number_of_vcpus++;
+printf("%dth vcpu created\n", vcpuid);
+		vcpus[vcpuid] = vcpu;
+	}
 
 	return vmid;
 }

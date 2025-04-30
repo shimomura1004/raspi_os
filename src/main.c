@@ -84,8 +84,8 @@ static void initialize_cpu_core(unsigned long cpuid) {
 	// CPU コア構造体の初期化
 	init_cpu_core_struct(cpuid);
 
-	// CPU コアごとの idle vm を作成
-	create_idle_vm(cpuid);
+	// // CPU コアごとの idle vm を作成
+	// create_idle_vm(cpuid);
 
 	// VBAR_EL2 レジスタに割込みベクタのアドレスを設定する
 	// 各 CPU コアで呼び出す必要がある
@@ -168,7 +168,10 @@ void hypervisor_main(unsigned long cpuid)
 	if (cpuid == 0) {
 		// ハイパーバイザの初期化とゲストのロードを実施
 		initialize_hypervisor();
-		INFO("raspvisor initialized");
+		INFO("Raspvisor initialized");
+
+		create_idle_vm(cpuid);
+		INFO("Idle VM and idle vCPUs are created");
 
 		prepare_guest_vms();
 		INFO("guest VMs are prepared");
@@ -176,7 +179,7 @@ void hypervisor_main(unsigned long cpuid)
 		initialized_flag = 1;
 	}
 
-	INFO("CPU%d runs IDLE process", cpuid);
+	INFO("CPU%d runs IDLE vCPU", cpuid);
 
 	scheduler(cpuid);
 }
