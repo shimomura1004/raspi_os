@@ -121,6 +121,7 @@ static struct vm_struct *create_vm() {
 	// vm->counter = vm->priority;
 	vm->state = VM_RUNNABLE;
 
+	// todo: vcpu ではなく vm への設定なので別の場所に移す
 	// このプロセス(vm)で再現するハードウェア(BCM2837)を初期化
 	vm->board_ops = &bcm2837_board_ops;
 	if (HAVE_FUNC(vm->board_ops, initialize)) {
@@ -143,6 +144,7 @@ static struct vm_struct *create_vm() {
 	// 特に問題はない(ゲスト OS 自体は自由に自分で確保したスタックを使える)
 	vm->cpu_context.sp = (unsigned long)childregs;
 
+	// todo: vcpu ではなく vm への設定なので別の場所に移す
 	init_vm_console(vm);
 
 	return vm;
@@ -181,6 +183,7 @@ int create_vm_with_loader(loader_func_t loader, void *arg) {
 
 	// todo: vcpu->vm に値を設定している部分は vcpu ではなく vm への設定なので、
 	//       ループの中には入れず、1回だけ初期化するようにする
+	//       create_vcpu 内でも vcpu->vm に値を設定しているのでそちらも修正する
 	//       vcpu->vm が指す先は別途1回だけ page_alloc しておく必要がある
 
 	// ローダの引数をコピー
