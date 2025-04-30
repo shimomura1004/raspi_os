@@ -19,7 +19,7 @@ void push_disable_irq() {
     int old = is_interrupt_enabled();
     disable_irq();
 
-    struct cpu_core_struct *cpu = &cpus[get_cpuid()];
+    struct pcpu_struct *cpu = &cpus[get_cpuid()];
     if (cpu->number_of_off == 0) {
         cpu->interrupt_enable = old;
     }
@@ -27,7 +27,7 @@ void push_disable_irq() {
 }
 
 void pop_disable_irq() {
-    struct cpu_core_struct *cpu = &cpus[get_cpuid()];
+    struct pcpu_struct *cpu = &cpus[get_cpuid()];
 
     if (is_interrupt_enabled()) {
         PANIC("interruptible");

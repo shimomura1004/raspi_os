@@ -5,7 +5,7 @@
 
 #define NUMBER_OF_PCPUS 4
 
-struct cpu_core_struct {
+struct pcpu_struct {
     unsigned long id;                   // この CPU コアの ID
     struct vcpu_struct *current_vcpu;   // この CPU コアが実行している vCPU
 
@@ -19,7 +19,7 @@ struct cpu_core_struct {
 };
 
 void init_cpu_core_struct(unsigned long cpuid);
-struct cpu_core_struct *current_cpu_core();
-struct cpu_core_struct *cpu_core(unsigned long cpuid);
+struct pcpu_struct *current_cpu_core();
+struct pcpu_struct *cpu_core(unsigned long cpuid);
 
 #endif

@@ -78,9 +78,8 @@ struct loader_args vmm_elf_args = {
 	.filename = "VMM.ELF",
 };
 
-// todo: 各 pCPU コアで必要な処理、にしたほうがよい(initialize_pcpu とする)
-// 各 CPU コアで必要な初期化処理
-static void initialize_cpu_core(unsigned long cpuid) {
+// 各 pCPU で必要な初期化処理
+static void initialize_pcpu(unsigned long cpuid) {
 	// CPU コア構造体の初期化
 	init_cpu_core_struct(cpuid);
 
@@ -162,7 +161,7 @@ static void prepare_guest_vms() {
 void hypervisor_main(unsigned long cpuid)
 {
 	// 実行中の CPU コアを初期化
-	initialize_cpu_core(cpuid);
+	initialize_pcpu(cpuid);
 
 	// CPU 0 がハイパーバイザの初期化を実施
 	if (cpuid == 0) {

@@ -139,7 +139,7 @@ void show_vm_list() {
 
 // EL2 から EL1 に遷移し、VM を復帰させる
 static void schedule(struct vcpu_struct *vcpu) {
-	struct cpu_core_struct *cpu_core = current_cpu_core();
+	struct pcpu_struct *cpu_core = current_cpu_core();
 
 	vcpu->state = VCPU_RUNNING;
 	cpu_core->current_vcpu = vcpu;
@@ -200,7 +200,7 @@ void scheduler(unsigned long cpuid) {
 
 // CPU 時間を手放し VM を切り替える
 void yield() {
-	struct cpu_core_struct *cpu_core = current_cpu_core();
+	struct pcpu_struct *cpu_core = current_cpu_core();
 	struct vcpu_struct *vcpu = cpu_core->current_vcpu;
 
 	// ロックを取ってから idle_vm に切り替える

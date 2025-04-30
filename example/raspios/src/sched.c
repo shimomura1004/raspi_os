@@ -5,7 +5,7 @@
 #include "mm.h"
 #include "spinlock.h"
 
-struct cpu_core_struct cpus[NR_CPUS];
+struct pcpu_struct cpus[NR_CPUS];
 
 static struct task_struct init_task0 = INIT_TASK;
 static struct task_struct init_task1 = INIT_TASK;
