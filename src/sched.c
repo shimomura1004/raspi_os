@@ -167,6 +167,11 @@ void scheduler(unsigned long cpuid) {
 		for (int i = NUMBER_OF_CPU_CORES; i < NUMBER_OF_VMS; i++) {
 			vm = vms[i];
 
+			// そもそも VM がない場合はスキップ
+			if (!vm) {
+				continue;
+			}
+
 			acquire_lock(&vm->lock);
 
 			// RUNNABLE 状態の VM を探す
