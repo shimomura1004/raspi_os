@@ -192,6 +192,9 @@ const struct bcm2837_state initial_state = {
 #define ADDR_IN_AUX(a)      (AUX_IRQ <= (a) && (a) <= AUX_MU_BAUD_REG)
 #define ADDR_IN_SYSTIMER(a) (TIMER_CS <= (a) && (a) < TIMER_C3)
 
+// todo: vcpu ではなく vm だけを引数に取れば十分な関数が多数ある
+//       ただし一気に変更すると変更量が大きくなるので、いったん vcpu を取るまま機能実装
+//       そのあと vm を取るように変更する
 static void bcm2837_initialize(struct vm_struct *vm) {
     struct bcm2837_state *state = (struct bcm2837_state *)allocate_page();
 
