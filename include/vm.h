@@ -16,7 +16,7 @@
 
 // 第二、第三引数はどちらも出力引数
 typedef int (*loader_func_t)(void *, unsigned long *, unsigned long *);
-struct pt_regs *vm_pt_regs(struct vcpu_struct *);
+struct pt_regs *vcpu_pt_regs(struct vcpu_struct *);
 
 int create_idle_vm(unsigned long cpuid);
 int create_vm_with_loader(loader_func_t, void *);

@@ -19,7 +19,7 @@ enum VM_STATE {
 
 struct board_ops;
 
-extern struct vcpu_struct *vms[NUMBER_OF_VMS];
+extern struct vcpu_struct *vcpus[NUMBER_OF_VMS];
 extern int current_number_of_vms;
 
 // 汎用レジスタ
