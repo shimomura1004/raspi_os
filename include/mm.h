@@ -53,11 +53,11 @@ void mm_init();
 
 unsigned long get_free_page();
 void free_page(void *p);
-void map_stage2_page(struct vm_struct *vm, unsigned long ipa,
+void map_stage2_page(struct vcpu_struct *vm, unsigned long ipa,
                      unsigned long page, unsigned long flags);
 unsigned long allocate_page();
-unsigned long allocate_vm_page(struct vm_struct *vm, unsigned long ipa);
-void set_vm_page_notaccessable(struct vm_struct *vm, unsigned long va);
+unsigned long allocate_vm_page(struct vcpu_struct *vm, unsigned long ipa);
+void set_vm_page_notaccessable(struct vcpu_struct *vm, unsigned long va);
 
 int handle_mem_abort(unsigned long addr, unsigned long esr);
 
