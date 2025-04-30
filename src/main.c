@@ -81,7 +81,7 @@ struct loader_args vmm_elf_args = {
 // 各 pCPU で必要な初期化処理
 static void initialize_pcpu(unsigned long cpuid) {
 	// CPU コア構造体の初期化
-	init_cpu_core_struct(cpuid);
+	init_pcpu_struct(cpuid);
 
 	// // CPU コアごとの idle vm を作成
 	// create_idle_vm(cpuid);

@@ -18,8 +18,8 @@ struct pcpu_struct {
     int interrupt_enable;
 };
 
-void init_cpu_core_struct(unsigned long cpuid);
-struct pcpu_struct *current_cpu_core();
-struct pcpu_struct *cpu_core(unsigned long cpuid);
+void init_pcpu_struct(unsigned long cpuid);
+struct pcpu_struct *current_pcpu();
+struct pcpu_struct *pcpu_of(unsigned long cpuid);
 
 #endif

@@ -72,7 +72,7 @@ int load_file_to_memory(struct vcpu_struct *vcpu, const char *name, unsigned lon
 // todo: 丸ごと elf.c に移す？
 int elf_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
     struct loader_args *loader_args = (struct loader_args *)args;
-    struct vcpu_struct *vcpu = current_cpu_core()->current_vcpu;
+    struct vcpu_struct *vcpu = current_pcpu()->current_vcpu;
 
     INFO("Loading requested file(%s)", loader_args->filename);
 
@@ -173,7 +173,7 @@ int elf_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
 
 int raw_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
     struct loader_args *loader_args = (struct loader_args *)args;
-    struct vcpu_struct *vcpu = current_cpu_core()->current_vcpu;
+    struct vcpu_struct *vcpu = current_pcpu()->current_vcpu;
 
     if (load_file_to_memory(vcpu, loader_args->filename, loader_args->loader_addr) < 0) {
         return -1;

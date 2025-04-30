@@ -49,7 +49,7 @@ void exit_vm(){
 	// todo: リソースを解放する(コンソールとかメモリページとか)
 
 	// 実行中の VM のstate を zombie にする(=スケジューリング対象から外れる)
-	current_cpu_core()->current_vcpu->state = VCPU_ZOMBIE;
+	current_pcpu()->current_vcpu->state = VCPU_ZOMBIE;
 
 	yield();
 }
@@ -61,7 +61,7 @@ void set_cpu_sysregs(struct vcpu_struct *vcpu) {
 
 // ハイパーバイザでの処理を終えて VM に処理を戻すときに kernel_exit から呼ばれる
 void vm_entering_work() {
-	struct vcpu_struct *vcpu = current_cpu_core()->current_vcpu;
+	struct vcpu_struct *vcpu = current_pcpu()->current_vcpu;
 
 	if (HAVE_FUNC(vcpu->vm->board_ops, entering_vm)) {
 		vcpu->vm->board_ops->entering_vm(vcpu);
@@ -85,7 +85,7 @@ void vm_entering_work() {
 
 // VM での処理を抜けてハイパーバイザに処理に入るときに kernel_entry から呼ばれる
 void vm_leaving_work() {
-	struct vcpu_struct *vcpu = current_cpu_core()->current_vcpu;
+	struct vcpu_struct *vcpu = current_pcpu()->current_vcpu;
 
 	// 今のレジスタの値を控える
 	save_sysregs(&vcpu->cpu_sysregs);
@@ -107,7 +107,7 @@ const char *vm_state_str[] = {
 
 int find_cpu_which_runs(struct vcpu_struct *vcpu) {
 	for (int i = 0; i < NUMBER_OF_PCPUS; i++) {
-		if (cpu_core(i)->current_vcpu == vcpu) {
+		if (pcpu_of(i)->current_vcpu == vcpu) {
 			return i;
 		}
 	}
@@ -139,17 +139,17 @@ void show_vm_list() {
 
 // EL2 から EL1 に遷移し、VM を復帰させる
 static void schedule(struct vcpu_struct *vcpu) {
-	struct pcpu_struct *cpu_core = current_cpu_core();
+	struct pcpu_struct *pcpu = current_pcpu();
 
 	vcpu->state = VCPU_RUNNING;
-	cpu_core->current_vcpu = vcpu;
+	pcpu->current_vcpu = vcpu;
 
 	// しばらく vcpu を実行する
-	cpu_switch_to(&cpu_core->scheduler_context, vcpu);
+	cpu_switch_to(&pcpu->scheduler_context, vcpu);
 
 	// ここに戻ってきたら、今まで動いていた VM を停止させる
-	vcpu->state = vcpu->state == VCPU_ZOMBIE ? VCPU_ZOMBIE : VCPU_RUNNABLE;
-	cpu_core->current_vcpu = NULL;
+	vcpu->state = (vcpu->state == VCPU_ZOMBIE) ? VCPU_ZOMBIE : VCPU_RUNNABLE;
+	pcpu->current_vcpu = NULL;
 }
 
 // 各コア専用に用意された idle vcpu で実行され、タイマ割込みが発生するとここに帰ってくる
@@ -200,19 +200,19 @@ void scheduler(unsigned long cpuid) {
 
 // CPU 時間を手放し VM を切り替える
 void yield() {
-	struct pcpu_struct *cpu_core = current_cpu_core();
-	struct vcpu_struct *vcpu = cpu_core->current_vcpu;
+	struct pcpu_struct *pcpu = current_pcpu();
+	struct vcpu_struct *vcpu = pcpu->current_vcpu;
 
 	// ロックを取ってから idle_vm に切り替える
 	acquire_lock(&vcpu->lock);
 
 	// 割込みの有効・無効状態は CPU の状態ではなくこのスレッドの状態なので、退避・復帰させる必要がある
-	int interrupt_enable = current_cpu_core()->interrupt_enable;
+	int interrupt_enable = current_pcpu()->interrupt_enable;
 
 	// スケジューラに復帰
-	cpu_switch_to(vcpu, &cpu_core->scheduler_context);
+	cpu_switch_to(vcpu, &pcpu->scheduler_context);
 
-	current_cpu_core()->interrupt_enable = interrupt_enable;
+	current_pcpu()->interrupt_enable = interrupt_enable;
 
 	// また戻ってきたらロックを解放する
 	release_lock(&vcpu->lock);
