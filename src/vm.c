@@ -102,10 +102,14 @@ static struct vm_struct *create_vm() {
 	struct vm_struct *vm;
 
 	// 新たなページを確保
+	// このページはハイパーバイザが使う管理用(ゲストから復帰してきたときのスタック領域を含む)
+	// allocate_page は確保したページをゼロクリアして返す
+	// vcpu 構造体の初期化はやっていないが、ゼロクリアされているので結果的に問題ない
+	// todo: 明示的な初期化処理としたほうがよい
 	unsigned long page = allocate_page();
-	// ページの先頭に vm_struct を置く
+	// ページの先頭に vm_struct を置く(ゲストの管理用データ置き場)
 	vm = (struct vm_struct *) page;
-	// ページの末尾を pt_regs 用の領域とする
+	// ページの末尾を pt_regs 用の領域とする(ゲストのレジスタ保存用)
 	struct pt_regs *childregs = vm_pt_regs(vm);
 
 	if (!vm) {
@@ -169,10 +173,15 @@ int create_idle_vm(unsigned long cpuid) {
 
 // 指定されたローダで VM を作る
 int create_vm_with_loader(loader_func_t loader, void *arg) {
+	// todo: ここでループして vcpu を複数作るようにする
 	struct vm_struct *vm = create_vm();
 	if (!vm) {
 		return -1;
 	}
+
+	// todo: vcpu->vm に値を設定している部分は vcpu ではなく vm への設定なので、
+	//       ループの中には入れず、1回だけ初期化するようにする
+	//       vcpu->vm が指す先は別途1回だけ page_alloc しておく必要がある
 
 	// ローダの引数をコピー
 	vm->loader_args = *(struct loader_args *)arg;
