@@ -3,7 +3,7 @@
 
 #include "vm.h"
 
-#define NUMBER_OF_CPU_CORES 4
+#define NUMBER_OF_PCPU 4
 
 struct cpu_core_struct {
     unsigned long id;                   // この CPU コアの ID

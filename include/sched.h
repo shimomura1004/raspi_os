@@ -11,10 +11,10 @@
 #define THREAD_SIZE     4096
 #define NUMBER_OF_VMS   64
 
-enum VM_STATE {
-    VM_RUNNING = 0,
-    VM_RUNNABLE,
-    VM_ZOMBIE,
+enum VCPU_STATE {
+    VCPU_RUNNING = 0,
+    VCPU_RUNNABLE,
+    VCPU_ZOMBIE,
 };
 
 struct board_ops;
@@ -158,7 +158,7 @@ struct vcpu_struct {
     // THREAD_CPU_CONTEXT がアセンブラでのオフセット
     struct cpu_context cpu_context;	    // CPU 状態(汎用レジスタ)
     struct cpu_sysregs cpu_sysregs;     // CPU 状態(システムレジスタ)
-    long state;                         // VM の状態(VM_RUNNING, VM_ZOMBIE)
+    long state;                         // VM の状態(VCPU_RUNNING, VCPU_ZOMBIE)
 
     long vmid;                          // VMID
     const char *name;                   // VM の表示名

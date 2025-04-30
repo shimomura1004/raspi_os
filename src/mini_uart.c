@@ -73,7 +73,7 @@ void handle_uart_irq(void) {
             uart_forwarded_vm = received - '0';
             printf("\nswitched to %d\n", uart_forwarded_vm);
             vcpu = vcpus[uart_forwarded_vm];
-            if (vcpu->state == VM_RUNNING || vcpu->state == VM_RUNNABLE) {
+            if (vcpu->state == VCPU_RUNNING || vcpu->state == VCPU_RUNNABLE) {
                 flush_vm_console(vcpu);
             }
         }
@@ -94,7 +94,7 @@ void handle_uart_irq(void) {
 enqueue_char:
         vcpu = vcpus[uart_forwarded_vm];
         // もし VM が終了してしまっていたら無視する
-        if (vcpu->state == VM_RUNNING ||  vcpu->state == VM_RUNNABLE) {
+        if (vcpu->state == VCPU_RUNNING ||  vcpu->state == VCPU_RUNNABLE) {
             enqueue_fifo(vcpu->console.in_fifo, received);
         }
     }

@@ -125,7 +125,7 @@ static struct vcpu_struct *create_vcpu() {
 	// vcpu->flags = 0;
 	// vcpu->priority = current_cpu_core()->current_vcpu->priority;
 	// vcpu->counter = vcpu->priority;
-	vcpu->state = VM_RUNNABLE;
+	vcpu->state = VCPU_RUNNABLE;
 
 	// todo: vcpu ではなく vm への設定なので別の場所に移す
 	// このプロセス(vm)で再現するハードウェア(BCM2837)を初期化

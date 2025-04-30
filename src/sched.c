@@ -12,8 +12,8 @@
 // todo: 直接触らせないようにする
 struct vcpu_struct *vcpus[NUMBER_OF_VMS];
 
-// 現在実行中の VM の数(idle_vms があるので初期値は NUMBER_OF_CPU_CORES)
-int current_number_of_vms = NUMBER_OF_CPU_CORES;
+// 現在実行中の VM の数(idle_vms があるので初期値は NUMBER_OF_PCPU)
+int current_number_of_vms = NUMBER_OF_PCPU;
 
 void set_cpu_virtual_interrupt(struct vcpu_struct *vcpu) {
 	// もし current の VM に対して irq が発生していたら、仮想割込みを設定する
@@ -44,7 +44,7 @@ void exit_vm(){
 	// todo: リソースを解放する(コンソールとかメモリページとか)
 
 	// 実行中の VM のstate を zombie にする(=スケジューリング対象から外れる)
-	current_cpu_core()->current_vcpu->state = VM_ZOMBIE;
+	current_cpu_core()->current_vcpu->state = VCPU_ZOMBIE;
 
 	yield();
 }
@@ -101,7 +101,7 @@ const char *vm_state_str[] = {
 };
 
 int find_cpu_which_runs(struct vcpu_struct *vcpu) {
-	for (int i = 0; i < NUMBER_OF_CPU_CORES; i++) {
+	for (int i = 0; i < NUMBER_OF_PCPU; i++) {
 		if (cpu_core(i)->current_vcpu == vcpu) {
 			return i;
 		}
@@ -119,7 +119,7 @@ void show_vm_list() {
                is_uart_forwarded_vm(vcpus[i]) ? '*' : ' ',
 			   vcpu->vmid,
 			   // CPUID は1桁のみ対応
-			   (cpuid < 0 || vcpu->state == VM_ZOMBIE? '-' : '0' + cpuid),
+			   (cpuid < 0 || vcpu->state == VCPU_ZOMBIE? '-' : '0' + cpuid),
 			   vcpu->name ? vcpu->name : "",
                vm_state_str[vcpu->state],
 			   vcpu->mm.vm_pages_count,
@@ -136,14 +136,14 @@ void show_vm_list() {
 static void schedule(struct vcpu_struct *vcpu) {
 	struct cpu_core_struct *cpu_core = current_cpu_core();
 
-	vcpu->state = VM_RUNNING;
+	vcpu->state = VCPU_RUNNING;
 	cpu_core->current_vcpu = vcpu;
 
 	// しばらく vcpu を実行する
 	cpu_switch_to(&cpu_core->scheduler_context, vcpu);
 
 	// ここに戻ってきたら、今まで動いていた VM を停止させる
-	vcpu->state = vcpu->state == VM_ZOMBIE ? VM_ZOMBIE : VM_RUNNABLE;
+	vcpu->state = vcpu->state == VCPU_ZOMBIE ? VCPU_ZOMBIE : VCPU_RUNNABLE;
 	cpu_core->current_vcpu = NULL;
 }
 
@@ -164,7 +164,7 @@ void scheduler(unsigned long cpuid) {
 
 		// 単純なラウンドロビンで vCPU に CPU 時間を割り当てる
 		// 先頭の vCPU は idle vCPU なので飛ばす
-		for (int i = NUMBER_OF_CPU_CORES; i < NUMBER_OF_VMS; i++) {
+		for (int i = NUMBER_OF_PCPU; i < NUMBER_OF_VMS; i++) {
 			vcpu = vcpus[i];
 
 			// そもそも VM がない場合はスキップ
@@ -175,7 +175,7 @@ void scheduler(unsigned long cpuid) {
 			acquire_lock(&vcpu->lock);
 
 			// RUNNABLE 状態の vCPU を探す
-			if (vcpu && vcpu->state == VM_RUNNABLE) {
+			if (vcpu && vcpu->state == VCPU_RUNNABLE) {
 				found = 1;
 				schedule(vcpu);
 			}
