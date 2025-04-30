@@ -21,7 +21,7 @@
 volatile unsigned long initialized_flag = 0;
 
 // todo: どこか適切な場所に移す
-struct spinlock log_lock;
+struct spinlock log_lock = {0, "log_lock", -1};
 
 // // todo: 他の種類の OS のロード
 // // この情報は、あとから VM にコンテキストスイッチしたときに参照される
@@ -78,6 +78,7 @@ struct loader_args vmm_elf_args = {
 	.filename = "VMM.ELF",
 };
 
+// todo: 各 pCPU コアで必要な処理、にしたほうがよい(initialize_pcpu とする)
 // 各 CPU コアで必要な初期化処理
 static void initialize_cpu_core(unsigned long cpuid) {
 	// CPU コア構造体の初期化
@@ -121,7 +122,7 @@ static void initialize_hypervisor() {
 // todo: このへんは dom0 相当のゲストで実装すべき
 static void prepare_guest_vms() {
 	if (create_vm_with_loader(elf_binary_loader, &vmm_elf_args) < 0) {
-		printf("error while starting VMM");
+		printf("error while starting VMM\n");
 	}
 
 	// if (create_vm_with_loader(raw_binary_loader, &echo_bin_args) < 0) {

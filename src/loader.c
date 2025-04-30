@@ -10,7 +10,7 @@
 #include "cpu_core.h"
 
 // todo: 初期化処理を呼んで初期化するようにする
-struct spinlock loader_lock = {0, 0, -1};
+struct spinlock loader_lock = {0, "loader", -1};
 
 // 指定された EL2 のメモリ上のプログラムコードを VM のメモリにロードする
 // ハイパーバイザに埋め込まれた EL1 コードを VM にコピーするために使う
@@ -73,6 +73,8 @@ int load_file_to_memory(struct vm_struct *vm, const char *name, unsigned long va
 int elf_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
     struct loader_args *loader_args = (struct loader_args *)args;
     struct vm_struct *vm = current_cpu_core()->current_vm;
+
+    INFO("Loading requested file(%s)", loader_args->filename);
 
     struct fat32_fs hfat;
     if (fat32_get_handle(&hfat) < 0) {
