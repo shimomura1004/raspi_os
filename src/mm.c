@@ -29,14 +29,14 @@ unsigned long allocate_page() {
 
 // VM で使うためのページを確保してマッピングし、ハイパーバイザ上の仮想アドレスを返す
 // つまり、ハイパーバイザ上でこのアドレスに書き込むことで、確保したメモリにアクセスできるということ
-unsigned long allocate_vm_page(struct vcpu_struct *vm, unsigned long ipa) {
+unsigned long allocate_vm_page(struct vcpu_struct *vcpu, unsigned long ipa) {
 	// 未使用ページを探す、page は仮想アドレスではなくオフセット
 	unsigned long page = get_free_page();
 	if (page == 0) {
 		return 0;
 	}
 	// 新たに確保したページをこの VM のアドレス空間にマッピングする
-	map_stage2_page(vm, ipa, page, MMU_STAGE2_PAGE_FLAGS);
+	map_stage2_page(vcpu, ipa, page, MMU_STAGE2_PAGE_FLAGS);
 	// INFO("VTTBR0_EL2(VMID %d): IPA 0x%lx(0x%lx in full) -> PA 0x%lx (allocate_vm_page)",
 	// 	 current_cpu_core()->current_vcpu->vmid, ipa & 0xffffffffffff, ipa, page);
 
@@ -44,8 +44,8 @@ unsigned long allocate_vm_page(struct vcpu_struct *vm, unsigned long ipa) {
 	return page + VA_START;
 }
 
-void set_vm_page_notaccessable(struct vcpu_struct *vm, unsigned long va) {
-	map_stage2_page(vm, va, 0, MMU_STAGE2_MMIO_FLAGS);
+void set_vm_page_notaccessable(struct vcpu_struct *vcpu, unsigned long va) {
+	map_stage2_page(vcpu, va, 0, MMU_STAGE2_MMIO_FLAGS);
 // if (current_cpu_core()->current_vcpu->vmid != 0)INFO("VA 0x%lx -> IPA 0x%lx -> PA 0x%lx (set_vm_page_notaccessable)", va, get_ipa(va), 0);
 }
 
@@ -126,18 +126,18 @@ unsigned long map_stage2_table(unsigned long *table, unsigned long shift, unsign
 //       引数を vm に変えればいい
 // vm のアドレス空間(VTTBR_EL2)のアドレス ipa に、指定されたページ page を割り当てる
 // ハイパーバイザが管理するメモリマッピングは、IPA->PA のみ
-void map_stage2_page(struct vcpu_struct *vm, unsigned long ipa, unsigned long page, unsigned long flags) {
+void map_stage2_page(struct vcpu_struct *vcpu, unsigned long ipa, unsigned long page, unsigned long flags) {
 	// 最上位のページテーブル
 	unsigned long lv1_table;
 
 	// stage2 変換用の VTTBR_EL2 に設定するテーブルを作る
-	if (!vm->mm.first_table) {
+	if (!vcpu->mm.first_table) {
 		// ページテーブルがなかったら作る
-		vm->mm.first_table = get_free_page();
+		vcpu->mm.first_table = get_free_page();
 		// 新しくページを確保したのでカウントアップする
-		vm->mm.kernel_pages_count++;
+		vcpu->mm.kernel_pages_count++;
 	}
-	lv1_table = vm->mm.first_table;
+	lv1_table = vcpu->mm.first_table;
 
 	// 新しくテーブルが追加されたかを示すフラグ
 	int new_table;
@@ -145,17 +145,17 @@ void map_stage2_page(struct vcpu_struct *vm, unsigned long ipa, unsigned long pa
 	unsigned long lv2_table = map_stage2_table((unsigned long *)(lv1_table + VA_START), LV1_SHIFT, ipa, &new_table);
 	if (new_table) {
 		// もし新たにページが確保されていたらカウントアップする
-		vm->mm.kernel_pages_count++;
+		vcpu->mm.kernel_pages_count++;
 	}
 	// Level 2 のテーブル(lv2_table)から対応するエントリ(lv3_table)を探す
 	unsigned long lv3_table = map_stage2_table((unsigned long *)(lv2_table + VA_START) , LV2_SHIFT, ipa, &new_table);
 	if (new_table) {
-		vm->mm.kernel_pages_count++;
+		vcpu->mm.kernel_pages_count++;
 	}
 	// Level 3 のテーブル(lv3_table)の対応するエントリを探してページを登録
 	map_stage2_table_entry((unsigned long *)(lv3_table + VA_START), ipa, page, flags);
 	// ユーザ空間用のページ数をカウントアップする　
-	vm->mm.vm_pages_count++;
+	vcpu->mm.vm_pages_count++;
 }
 
 // 指定されたゲストの仮想アドレスをゲストの物理アドレスに変換する
@@ -225,8 +225,8 @@ unsigned long get_pa_2nd(unsigned long va) {
 // ESR_EL2
 // https://developer.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/ESR-EL2--Exception-Syndrome-Register--EL2-?lang=en#fieldset_0-24_0
 int handle_mem_abort(unsigned long addr, unsigned long esr) {
-	struct vcpu_struct *vm = current_cpu_core()->current_vcpu;
-	struct pt_regs *regs = vm_pt_regs(vm);
+	struct vcpu_struct *vcpu = current_cpu_core()->current_vcpu;
+	struct pt_regs *regs = vcpu_pt_regs(vcpu);
 	unsigned int dfsc = esr & ISS_ABORT_DFSC_MASK;
 
 	if (dfsc >> 2 == 0x1) {
@@ -242,11 +242,11 @@ int handle_mem_abort(unsigned long addr, unsigned long esr) {
 		// IPA -> PA の変換を登録
 		// todo: ページ境界に合わないアドレスがくることがあるので応急処置
 		addr = addr / PAGE_SIZE * PAGE_SIZE;
-		map_stage2_page(vm, get_ipa(addr) & PAGE_MASK, page, MMU_STAGE2_PAGE_FLAGS);
+		map_stage2_page(vcpu, get_ipa(addr) & PAGE_MASK, page, MMU_STAGE2_PAGE_FLAGS);
 		// INFO("VTTBR0_EL2(VMID %d): IPA 0x%lx(0x%lx in full) -> PA 0x%lx (handle_mem_abort)",
 		// 	 current_cpu_core()->current_vcpu->vmid, get_ipa(addr) & 0xffffffffffff, addr, page);
 
-		vm->stat.pf_trap_count++;
+		vcpu->stat.pf_trap_count++;
 		return 0;
 	}
 	else if (dfsc >> 2 == 0x3) {
@@ -259,7 +259,7 @@ int handle_mem_abort(unsigned long addr, unsigned long esr) {
 		// VM からは直接 MMIO 領域に触れないように
 		// アクセス不可に設定してトラップできるようにしていると思われる
 
-		const struct board_ops *ops = vm->board_ops;
+		const struct board_ops *ops = vcpu->board_ops;
 		// (今のところは)アクセスサイズは 4byte 固定なので SAS は不要
 		//int sas = (esr >> 22) & 0x03;	// Syndrome access size
 		int srt = (esr >> 16) & 0x1f;	// Syndrome register transfer
@@ -268,18 +268,18 @@ int handle_mem_abort(unsigned long addr, unsigned long esr) {
 			// mmio を read しようとして例外が発生
 			if (HAVE_FUNC(ops, mmio_read)) {
 				// todo: なぜ IPA に変換する必要がある？
-				regs->regs[srt] = ops->mmio_read(vm, get_ipa(addr));
+				regs->regs[srt] = ops->mmio_read(vcpu, get_ipa(addr));
 			}
 		}
 		else {
 			// mmio を write しようとして例外が発生
 			if (HAVE_FUNC(ops, mmio_write)) {
-				ops->mmio_write(vm, get_ipa(addr), regs->regs[srt]);
+				ops->mmio_write(vcpu, get_ipa(addr), regs->regs[srt]);
 			}
 		}
 
 		increment_current_pc(4);
-		vm->stat.mmio_trap_count++;
+		vcpu->stat.mmio_trap_count++;
 		return 0;
 	}
 	return -1;

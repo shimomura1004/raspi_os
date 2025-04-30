@@ -195,7 +195,7 @@ const struct bcm2837_state initial_state = {
 // todo: vcpu ではなく vm だけを引数に取れば十分な関数が多数ある
 //       ただし一気に変更すると変更量が大きくなるので、いったん vcpu を取るまま機能実装
 //       そのあと vm を取るように変更する
-static void bcm2837_initialize(struct vcpu_struct *vm) {
+static void bcm2837_initialize(struct vcpu_struct *vcpu) {
     struct bcm2837_state *state = (struct bcm2837_state *)allocate_page();
 
     *state = initial_state;
@@ -203,14 +203,14 @@ static void bcm2837_initialize(struct vcpu_struct *vm) {
     state->systimer.last_physical_count = get_physical_systimer_count();
 
     // todo: vcpu ではなく vm の設定
-    vm->board_data = state;
+    vcpu->board_data = state;
 
     // todo: 二段階アドレス変換は VM で1つだけ必要で、vCPU ごとに設定する必要はない
     // stage2 のデバイスのメモリマッピング(MMIO ページの準備)
     unsigned long begin = DEVICE_BASE;
     unsigned long end = PHYS_MEMORY_SIZE - SECTION_SIZE;
     for (; begin < end; begin += PAGE_SIZE) {
-        set_vm_page_notaccessable(vm, begin);
+        set_vm_page_notaccessable(vcpu, begin);
     }
 }
 
@@ -244,16 +244,16 @@ static void bcm2837_initialize(struct vcpu_struct *vm) {
 // GPU pending 2 register (IRQ pending register?)
 //   [31:0] IRQ pending source 63:32 (See IRQ table above)
 
-static unsigned long handle_aux_read(struct vcpu_struct *vm, unsigned long addr);
+static unsigned long handle_aux_read(struct vcpu_struct *vcpu, unsigned long addr);
 #define BIT(v, n) ((v) & (1 << (n)))
-static unsigned long handle_intctrl_read(struct vcpu_struct *vm, unsigned long addr) {
-    struct bcm2837_state *state = (struct bcm2837_state *)vm->board_data;
+static unsigned long handle_intctrl_read(struct vcpu_struct *vcpu, unsigned long addr) {
+    struct bcm2837_state *state = (struct bcm2837_state *)vcpu->board_data;
 
     switch (addr) {
     case IRQ_BASIC_PENDING: {
         // todo: 8,9 ビット目以外のフィールドの実装が必要
-        int pending1 = handle_intctrl_read(vm, IRQ_PENDING_1) != 0;
-        int pending2 = handle_intctrl_read(vm, IRQ_PENDING_2) != 0;
+        int pending1 = handle_intctrl_read(vcpu, IRQ_PENDING_1) != 0;
+        int pending2 = handle_intctrl_read(vcpu, IRQ_PENDING_2) != 0;
         // todo: ゲスト向けに mailbox を仮想化する
         return (pending1 << 8) | (pending2 << 9);
     }
@@ -269,7 +269,7 @@ static unsigned long handle_intctrl_read(struct vcpu_struct *vm, unsigned long a
         // UART の irq 番号は 57 なので、後半は 57-32 ビットに対応
         // AUXIRQ レジスタの0ビット目が UART
         unsigned long uart_int =
-            BIT(state->intctrl.irqs_1_enabled, (57 - 32)) && (handle_aux_read(vm, AUX_IRQ) &  0x01);
+            BIT(state->intctrl.irqs_1_enabled, (57 - 32)) && (handle_aux_read(vcpu, AUX_IRQ) &  0x01);
         return (uart_int << (57 - 32));
     }
     case FIQ_CONTROL:
@@ -291,8 +291,8 @@ static unsigned long handle_intctrl_read(struct vcpu_struct *vm, unsigned long a
     return 0;
 }
 
-static void handle_intctrl_write(struct vcpu_struct *vm, unsigned long addr, unsigned long val) {
-    struct bcm2837_state *state = (struct bcm2837_state *)vm->board_data;
+static void handle_intctrl_write(struct vcpu_struct *vcpu, unsigned long addr, unsigned long val) {
+    struct bcm2837_state *state = (struct bcm2837_state *)vcpu->board_data;
 
     // 書き込みができないレジスタもあるので handle_intctrl_read と一対一で対応しない
     switch (addr) {
@@ -322,8 +322,8 @@ static void handle_intctrl_write(struct vcpu_struct *vm, unsigned long addr, uns
 
 #define LCR_DLAB 0x80
 
-static unsigned long handle_aux_read(struct vcpu_struct *vm, unsigned long addr) {
-    struct bcm2837_state *state = (struct bcm2837_state *)vm->board_data;
+static unsigned long handle_aux_read(struct vcpu_struct *vcpu, unsigned long addr) {
+    struct bcm2837_state *state = (struct bcm2837_state *)vcpu->board_data;
 
     // todo: アドレスが AUX の範囲内で、無効なら return となっている
     //       アドレス範囲外 or 無効なら return が正しいのでは？
@@ -339,7 +339,7 @@ static unsigned long handle_aux_read(struct vcpu_struct *vm, unsigned long addr)
     case AUX_IRQ: {
         // 0 ビット目の UART だけ設定。1,2ビット目の SPI1,2 は未実装
         int mu_pending = (state->aux.aux_enables & 0x1) &&
-                          ~(handle_aux_read(vm, AUX_MU_IIR_REG) & 0x1);
+                          ~(handle_aux_read(vcpu, AUX_MU_IIR_REG) & 0x1);
         return mu_pending;
     }
     case AUX_ENABLES:
@@ -353,7 +353,7 @@ static unsigned long handle_aux_read(struct vcpu_struct *vm, unsigned long addr)
         }
         else {
             unsigned long data;
-            dequeue_fifo(vm->console.in_fifo, &data);
+            dequeue_fifo(vcpu->console.in_fifo, &data);
             return data & 0xff;
         }
     case AUX_MU_IER_REG:
@@ -365,8 +365,8 @@ static unsigned long handle_aux_read(struct vcpu_struct *vm, unsigned long addr)
             return state->aux.aux_mu_ier;
         }
     case AUX_MU_IIR_REG: {
-        int tx_int = (state->aux.aux_mu_ier & 0x2) && is_empty_fifo(vm->console.out_fifo);
-        int rx_int = (state->aux.aux_mu_ier & 0x1) && !is_empty_fifo(vm->console.in_fifo);
+        int tx_int = (state->aux.aux_mu_ier & 0x2) && is_empty_fifo(vcpu->console.out_fifo);
+        int rx_int = (state->aux.aux_mu_ier & 0x1) && !is_empty_fifo(vcpu->console.in_fifo);
         int int_id = (tx_int << 0) | (rx_int << 1);
         if (int_id == 0x3) {
             // 仕様上 tx/rx の両方の割込みありで返すことはないので tx だけ割込みありとする
@@ -380,10 +380,10 @@ static unsigned long handle_aux_read(struct vcpu_struct *vm, unsigned long addr)
     case AUX_MU_MCR_REG:
         return state->aux.aux_mu_mcr;
     case AUX_MU_LSR_REG: {
-        int dready = !is_empty_fifo(vm->console.in_fifo);
+        int dready = !is_empty_fifo(vcpu->console.in_fifo);
         int rx_overrun = state->aux.mu_rx_overrun;
-        int tx_empty = !is_full_fifo(vm->console.out_fifo);
-        int tx_idle = is_empty_fifo(vm->console.out_fifo);
+        int tx_empty = !is_full_fifo(vcpu->console.out_fifo);
+        int tx_idle = is_empty_fifo(vcpu->console.out_fifo);
         // overrun は LSR レジスタを読み込むとクリアされる仕様
         state->aux.mu_rx_overrun = 0;
         // レジスタの値を生成して返す
@@ -397,16 +397,16 @@ static unsigned long handle_aux_read(struct vcpu_struct *vm, unsigned long addr)
         return state->aux.aux_mu_cntl;
     case AUX_MU_STAT_REG: {
         #define MIN(a, b) ((a) < (b) ? (a) : (b))
-        int sym_avail = !is_empty_fifo(vm->console.in_fifo);
-        int space_avail = !is_full_fifo(vm->console.out_fifo);
-        int rx_idle = is_empty_fifo(vm->console.in_fifo);
-        int tx_idle = is_empty_fifo(vm->console.out_fifo);
+        int sym_avail = !is_empty_fifo(vcpu->console.in_fifo);
+        int space_avail = !is_full_fifo(vcpu->console.out_fifo);
+        int rx_idle = is_empty_fifo(vcpu->console.in_fifo);
+        int tx_idle = is_empty_fifo(vcpu->console.out_fifo);
         int rx_overrun = state->aux.mu_rx_overrun;
         int tx_full = !space_avail;
-        int tx_empty = is_empty_fifo(vm->console.out_fifo);
+        int tx_empty = is_empty_fifo(vcpu->console.out_fifo);
         int tx_done = rx_idle & tx_empty;
-        int rx_fill_level = MIN(used_of_fifo(vm->console.in_fifo), 8);
-        int tx_fill_level = MIN(used_of_fifo(vm->console.out_fifo), 8);
+        int rx_fill_level = MIN(used_of_fifo(vcpu->console.in_fifo), 8);
+        int tx_fill_level = MIN(used_of_fifo(vcpu->console.out_fifo), 8);
         return (sym_avail << 0) | (space_avail << 1) | (rx_idle << 2) | (tx_idle << 3) |
                (rx_overrun << 4) | (tx_full << 5) | (tx_empty << 8) | (tx_done << 9) |
                (rx_fill_level << 16) | (tx_fill_level << 24);
@@ -418,10 +418,10 @@ static unsigned long handle_aux_read(struct vcpu_struct *vm, unsigned long addr)
     return 0;
 }
 
-static void handle_aux_write(struct vcpu_struct *vm, unsigned long addr, unsigned long val) {
+static void handle_aux_write(struct vcpu_struct *vcpu, unsigned long addr, unsigned long val) {
     // vm->board_data に書き込んでも本物の UART のレジスタには反映されていない
     // 本物の UART 自体は常に有効になっていて、ハイパーバイザが board_data を見て処理している
-    struct bcm2837_state *state = (struct bcm2837_state *)vm->board_data;
+    struct bcm2837_state *state = (struct bcm2837_state *)vcpu->board_data;
 
     // // todo: aux が disable になると、ここにひっかかって enable にすることができないのでは？
     // if ((state->aux.aux_enables & 0x1) == 0 && ADDR_IN_AUX(addr)) {
@@ -455,7 +455,7 @@ static void handle_aux_write(struct vcpu_struct *vm, unsigned long addr, unsigne
             state->aux.aux_mu_baud = (state->aux.aux_mu_baud & 0xff00) | (val & 0xff);
         }
         else {
-            enqueue_fifo(vm->console.out_fifo, val & 0xff);
+            enqueue_fifo(vcpu->console.out_fifo, val & 0xff);
         }
         break;
     case AUX_MU_IER_REG:
@@ -469,10 +469,10 @@ static void handle_aux_write(struct vcpu_struct *vm, unsigned long addr, unsigne
         break;
     case AUX_MU_IIR_REG:
         if (val & 0x2) {
-            clear_fifo(vm->console.in_fifo);
+            clear_fifo(vcpu->console.in_fifo);
         }
         if (val & 0x4) {
-            clear_fifo(vm->console.out_fifo);
+            clear_fifo(vcpu->console.out_fifo);
         }
         break;
     case AUX_MU_LCR_REG:
@@ -499,8 +499,8 @@ static void handle_aux_write(struct vcpu_struct *vm, unsigned long addr, unsigne
 #define TO_PHYSICAL_COUNT(s, v) (v + (s)->systimer.offset)
 
 // VM からタイマカウントを読み取る(VM が実際に実行された時間だけを返す)
-static unsigned long handle_systimer_read(struct vcpu_struct *vm, unsigned long addr) {
-    struct bcm2837_state *state = (struct bcm2837_state *)vm->board_data;
+static unsigned long handle_systimer_read(struct vcpu_struct *vcpu, unsigned long addr) {
+    struct bcm2837_state *state = (struct bcm2837_state *)vcpu->board_data;
 
     switch (addr) {
     case TIMER_CS:
@@ -522,13 +522,13 @@ static unsigned long handle_systimer_read(struct vcpu_struct *vm, unsigned long 
     return 0;
 }
 
-static void handle_systimer_write(struct vcpu_struct *vm, unsigned long addr, unsigned long val) {
-    struct bcm2837_state *state = (struct bcm2837_state *)vm->board_data;
+static void handle_systimer_write(struct vcpu_struct *vcpu, unsigned long addr, unsigned long val) {
+    struct bcm2837_state *state = (struct bcm2837_state *)vcpu->board_data;
     // タイマカウンタは64ビット、比較は下位32ビットで行われる
     //   Each channel has an output compare register, which is compared against
     //   the 32 least significant bits of the free running counter values.
 
-    uint32_t current_clo = handle_systimer_read(vm, TIMER_CLO);
+    uint32_t current_clo = handle_systimer_read(vcpu, TIMER_CLO);
     // 次の発火までの時間が短すぎると通りこしてしまう
     const uint32_t min_expire = 10000;
 
@@ -559,29 +559,29 @@ static void handle_systimer_write(struct vcpu_struct *vm, unsigned long addr, un
 }
 
 // mmio 領域へのアクセスがあった場合、アドレスに応じてアクセスするデバイスを切りかえる
-static unsigned long bcm2837_mmio_read(struct vcpu_struct *vm, unsigned long addr) {
+static unsigned long bcm2837_mmio_read(struct vcpu_struct *vcpu, unsigned long addr) {
     if (ADDR_IN_INTCTRL(addr)) {
-        return handle_intctrl_read(vm, addr);
+        return handle_intctrl_read(vcpu, addr);
     }
     else if (ADDR_IN_AUX(addr)) {
-        return handle_aux_read(vm, addr);
+        return handle_aux_read(vcpu, addr);
     }
     else if (ADDR_IN_SYSTIMER(addr)) {
-        return handle_systimer_read(vm, addr);
+        return handle_systimer_read(vcpu, addr);
     }
 
     return 0;
 }
 
-static void bcm2837_mmio_write(struct vcpu_struct *vm, unsigned long addr, unsigned long val) {
+static void bcm2837_mmio_write(struct vcpu_struct *vcpu, unsigned long addr, unsigned long val) {
     if (ADDR_IN_INTCTRL(addr)) {
-        handle_intctrl_write(vm, addr, val);
+        handle_intctrl_write(vcpu, addr, val);
     }
     else if (ADDR_IN_AUX(addr)) {
-        handle_aux_write(vm, addr, val);
+        handle_aux_write(vcpu, addr, val);
     }
     else if (ADDR_IN_SYSTIMER(addr)) {
-        handle_systimer_write(vm, addr, val);
+        handle_systimer_write(vcpu, addr, val);
     }
 }
 
@@ -604,8 +604,8 @@ static int check_and_update_expiration(uint32_t *expire, uint64_t lapse) {
 }
 
 // ハイパーバイザでの処理を終えて VM に処理を戻すときに呼ばれる
-void bcm2837_entering_vm(struct vcpu_struct *vm) {
-    struct bcm2837_state *state = (struct bcm2837_state *)vm->board_data;
+void bcm2837_entering_vm(struct vcpu_struct *vcpu) {
+    struct bcm2837_state *state = (struct bcm2837_state *)vcpu->board_data;
 
     // update systimer's offset
     unsigned long current_physical_count = get_physical_systimer_count();
@@ -653,18 +653,18 @@ void bcm2837_entering_vm(struct vcpu_struct *vm) {
 }
 
 // VM での処理を抜けてハイパーバイザに処理に入るときに呼ばれる
-void bcm2837_leaving_vm(struct vcpu_struct *vm) {
-    struct bcm2837_state *state = (struct bcm2837_state *)vm->board_data;
+void bcm2837_leaving_vm(struct vcpu_struct *vcpu) {
+    struct bcm2837_state *state = (struct bcm2837_state *)vcpu->board_data;
     // VM が実行されていた最後のカウンタ値を保存しておく
     state->systimer.last_physical_count = get_physical_systimer_count();
 }
 
-static int bcm2837_is_irq_asserted(struct vcpu_struct *vm) {
-    return handle_intctrl_read(vm, IRQ_BASIC_PENDING) != 0;
+static int bcm2837_is_irq_asserted(struct vcpu_struct *vcpu) {
+    return handle_intctrl_read(vcpu, IRQ_BASIC_PENDING) != 0;
 }
 
-static int bcm2837_is_fiq_asserted(struct vcpu_struct *vm) {
-    struct bcm2837_state *state = (struct bcm2837_state *)vm->board_data;
+static int bcm2837_is_fiq_asserted(struct vcpu_struct *vcpu) {
+    struct bcm2837_state *state = (struct bcm2837_state *)vcpu->board_data;
 
     // FIQ が有効でない場合は常に 0 を返す
     if ((state->intctrl.fiq_control & 0x80) == 0) {
@@ -673,22 +673,22 @@ static int bcm2837_is_fiq_asserted(struct vcpu_struct *vm) {
 
     int source = state->intctrl.fiq_control & 0x7f;
     if (0 <= source && source <= 31) {
-        int pending = handle_intctrl_read(vm, IRQ_PENDING_1);
+        int pending = handle_intctrl_read(vcpu, IRQ_PENDING_1);
         return (pending & (1 << source)) != 0;
     }
     else if (32 <= source && source <=63) {
-        int pending = handle_intctrl_read(vm, IRQ_PENDING_2);
+        int pending = handle_intctrl_read(vcpu, IRQ_PENDING_2);
         return (pending & (1 << (source - 32))) != 0;
     }
     else if (64 <= source && source <= 71) {
-        int pending = handle_intctrl_read(vm, IRQ_BASIC_PENDING);
+        int pending = handle_intctrl_read(vcpu, IRQ_BASIC_PENDING);
         return (pending & (1 << (source - 64))) != 0;
     }
 
     return 0;
 }
 
-void bcm2837_debug(struct vcpu_struct *vm) {
+void bcm2837_debug(struct vcpu_struct *vcpu) {
 }
 
 const struct board_ops bcm2837_board_ops = {

@@ -10,13 +10,13 @@
 #include "irq.h"
 #include "loader.h"
 
-// 各スレッド用の領域の末尾に置かれた vm_struct へのポインタを返す
-struct pt_regs * vm_pt_regs(struct vcpu_struct *vm) {
-	unsigned long p = (unsigned long)vm + THREAD_SIZE - sizeof(struct pt_regs);
+// 各スレッド用の領域の末尾に置かれた vcpu_struct へのポインタを返す
+struct pt_regs * vcpu_pt_regs(struct vcpu_struct *vcpu) {
+	unsigned long p = (unsigned long)vcpu + THREAD_SIZE - sizeof(struct pt_regs);
 	return (struct pt_regs *)p;
 }
 
-// idle vm 用のなにもしないコード
+// idle vcpu 用のなにもしないコード
 static void idle_loop() {
 	while (1) {
 		// todo: CPU を無駄に使わないようにしたい
@@ -26,48 +26,48 @@ static void idle_loop() {
 }
 
 // VM の初期状態を設定する共通処理
-static struct vcpu_struct *prepare_vm() {
-	struct vcpu_struct *vm = current_cpu_core()->current_vcpu;
+static struct vcpu_struct *prepare_vcpu() {
+	struct vcpu_struct *vcpu = current_cpu_core()->current_vcpu;
 
 	// VM の切り替え前に必ずロックしているので、まずそれを解除する
-	release_lock(&vm->lock);
+	release_lock(&vcpu->lock);
 
 	// PSTATE の中身は SPSR レジスタに戻したうえで eret することで復元される
 	// ここで設定した regs->pstate は restore_sysregs で SPSR に戻される
 	// その後 kernel_exit で eret され実際のレジスタに復元される
-	struct pt_regs *regs = vm_pt_regs(vm);
+	struct pt_regs *regs = vcpu_pt_regs(vcpu);
 	regs->pstate = PSR_MODE_EL1h;	// EL を1、使用する SP を SP_EL1 にする
 	regs->pstate |= (0xf << 6);		// DAIF をすべて1にする、つまり全ての例外をマスクしている
 
-	set_cpu_sysregs(vm);
+	set_cpu_sysregs(vcpu);
 
-	return vm;
+	return vcpu;
 }
 
 // 指定したアドレスに格納されたテキストコードを VM 領域のアドレス 0 にコピーする
 static void load_vm_text_from_memory(unsigned long text) {
-	struct vcpu_struct *vm = prepare_vm();
-	struct pt_regs *regs = vm_pt_regs(vm);
+	struct vcpu_struct *vcpu = prepare_vcpu();
+	struct pt_regs *regs = vcpu_pt_regs(vcpu);
 
 	// コードをロードして PC/SP を設定
-	copy_code_to_memory(vm, 0, text, PAGE_SIZE);
+	copy_code_to_memory(vcpu, 0, text, PAGE_SIZE);
 	regs->pc = 0x0;
 	regs->sp = 0x100000;
 
-	INFO("%s enters EL1...", vm->name);
+	INFO("%s enters EL1...", vcpu->name);
 }
 
 // 指定されたローダを使い、ファイルからテキストコードをロードする
 static void load_vm_text_from_file(loader_func_t loader, void *arg) {
-	struct vcpu_struct *vm = prepare_vm();
-	struct pt_regs *regs = vm_pt_regs(vm);
+	struct vcpu_struct *vcpu = prepare_vcpu();
+	struct pt_regs *regs = vcpu_pt_regs(vcpu);
 
 	// コードをロードして PC/SP を設定(pc,sp は出力引数)
 	if (loader(arg, &regs->pc, &regs->sp) < 0) {
 		PANIC("failed to load");
 	}
 
-	INFO("%s enters EL1...", vm->name);
+	INFO("%s enters EL1...", vcpu->name);
 }
 
 static struct cpu_sysregs initial_sysregs;
@@ -91,20 +91,20 @@ static void prepare_initial_sysregs(void) {
 	is_first_call = 0;
 }
 
-static void init_vm_console(struct vcpu_struct *vm) {
-	vm->console.in_fifo = create_fifo();
-	vm->console.out_fifo = create_fifo();
+static void init_vm_console(struct vcpu_struct *vcpu) {
+	vcpu->console.in_fifo = create_fifo();
+	vcpu->console.out_fifo = create_fifo();
 }
 
 void increment_current_pc(int ilen) {
-	struct pt_regs *regs = vm_pt_regs(current_cpu_core()->current_vcpu);
+	struct pt_regs *regs = vcpu_pt_regs(current_cpu_core()->current_vcpu);
 	regs->pc += ilen;
 }
 
-// 空の VM 構造体を作成
-// あとでこの VM に CPU 時間が割当たるとロードなどが行われる
-static struct vcpu_struct *create_vm() {
-	struct vcpu_struct *vm;
+// 空の vCPU 構造体を作成
+// あとでこの vCPU に CPU 時間が割当たるとロードなどが行われる
+static struct vcpu_struct *create_vcpu() {
+	struct vcpu_struct *vcpu;
 
 	// 新たなページを確保
 	// このページはハイパーバイザが使う管理用(ゲストから復帰してきたときのスタック領域を含む)
@@ -112,33 +112,33 @@ static struct vcpu_struct *create_vm() {
 	// vcpu 構造体の初期化はやっていないが、ゼロクリアされているので結果的に問題ない
 	// todo: 明示的な初期化処理としたほうがよい
 	unsigned long page = allocate_page();
-	// ページの先頭に vm_struct を置く(ゲストの管理用データ置き場)
-	vm = (struct vcpu_struct *) page;
+	// ページの先頭に vcpu_struct を置く(ゲストの管理用データ置き場)
+	vcpu = (struct vcpu_struct *) page;
 	// ページの末尾を pt_regs 用の領域とする(ゲストのレジスタ保存用)
-	struct pt_regs *childregs = vm_pt_regs(vm);
+	struct pt_regs *childregs = vcpu_pt_regs(vcpu);
 
-	if (!vm) {
+	if (!vcpu) {
 		WARN("Failed to allocate page for vCPU");
 		return NULL;
 	}
 
-	// vm->flags = 0;
-	// vm->priority = current_cpu_core()->current_vcpu->priority;
-	// vm->counter = vm->priority;
-	vm->state = VM_RUNNABLE;
+	// vcpu->flags = 0;
+	// vcpu->priority = current_cpu_core()->current_vcpu->priority;
+	// vcpu->counter = vcpu->priority;
+	vcpu->state = VM_RUNNABLE;
 
 	// todo: vcpu ではなく vm への設定なので別の場所に移す
 	// このプロセス(vm)で再現するハードウェア(BCM2837)を初期化
-	vm->board_ops = &bcm2837_board_ops;
-	if (HAVE_FUNC(vm->board_ops, initialize)) {
-		vm->board_ops->initialize(vm);
+	vcpu->board_ops = &bcm2837_board_ops;
+	if (HAVE_FUNC(vcpu->board_ops, initialize)) {
+		vcpu->board_ops->initialize(vcpu);
 	}
 
 	prepare_initial_sysregs();
-	memcpy(&vm->cpu_sysregs, &initial_sysregs, sizeof(struct cpu_sysregs));
+	memcpy(&vcpu->cpu_sysregs, &initial_sysregs, sizeof(struct cpu_sysregs));
 
 	// el1 で動くゲスト OS カーネルは、最初は switch_from_kthread 関数から動き出す
-	vm->cpu_context.pc = (unsigned long)switch_from_kthread;
+	vcpu->cpu_context.pc = (unsigned long)switch_from_kthread;
 
 	// switch_from_kthread の中で kernel_exit が呼ばれる
 	// そのとき SP が指す先には退避したレジスタが格納されている必要がある
@@ -148,34 +148,34 @@ static struct vcpu_struct *create_vm() {
 	// (実際ゲスト OS の SP は loader_args 内で指定されている)
 	// よって、ゲストからハイパーバイザに戻った時の処理を1ページ分のスタックでやりきれるなら
 	// 特に問題はない(ゲスト OS 自体は自由に自分で確保したスタックを使える)
-	vm->cpu_context.sp = (unsigned long)childregs;
+	vcpu->cpu_context.sp = (unsigned long)childregs;
 
 	// todo: vcpu ではなく vm への設定なので別の場所に移す
-	init_vm_console(vm);
+	init_vm_console(vcpu);
 
-	return vm;
+	return vcpu;
 }
 
 // todo: create_vm_with_loader と同様の修正を加える
 // 指定された CPU コア用の IDLE VM を作る
 int create_idle_vm(unsigned long cpuid) {
-	struct vcpu_struct *vm = create_vm();
-	if (!vm) {
+	struct vcpu_struct *vcpu = create_vcpu();
+	if (!vcpu) {
 		return -1;
 	}
 
 	// switch_from_kthread 内で x19 のアドレスにジャンプする
-	vm->cpu_context.x19 = (unsigned long)load_vm_text_from_memory;
-	vm->cpu_context.x20 = (unsigned long)idle_loop;
-	vm->name = "IDLE";
+	vcpu->cpu_context.x19 = (unsigned long)load_vm_text_from_memory;
+	vcpu->cpu_context.x20 = (unsigned long)idle_loop;
+	vcpu->name = "IDLE";
 
 	// IDLE VM は CPU ID をそのまま VMID にする
 	int vmid = cpuid;
 
-	// 新たに作った vm_struct 構造体のアドレスを vms 配列に入れておく
+	// 新たに作った vm_struct 構造体のアドレスを vcpus 配列に入れておく
 	// これでそのうち今作った VM に処理が切り替わり、switch_from_kthread から実行開始される
-	vms[vmid] = vm;
-	vm->vmid = vmid;
+	vcpus[vmid] = vcpu;
+	vcpu->vmid = vmid;
 
 	return vmid;
 }
@@ -183,8 +183,8 @@ int create_idle_vm(unsigned long cpuid) {
 // 指定されたローダで VM を作る
 int create_vm_with_loader(loader_func_t loader, void *arg) {
 	// todo: ここでループして vcpu を複数作るようにする
-	struct vcpu_struct *vm = create_vm();
-	if (!vm) {
+	struct vcpu_struct *vcpu = create_vcpu();
+	if (!vcpu) {
 		return -1;
 	}
 
@@ -194,13 +194,13 @@ int create_vm_with_loader(loader_func_t loader, void *arg) {
 	//       vcpu->vm が指す先は別途1回だけ page_alloc しておく必要がある
 
 	// ローダの引数をコピー
-	vm->loader_args = *(struct loader_args *)arg;
+	vcpu->loader_args = *(struct loader_args *)arg;
 
 	// switch_from_kthread 内で x19 のアドレスにジャンプする
-	vm->cpu_context.x19 = (unsigned long)load_vm_text_from_file;
-	vm->cpu_context.x20 = (unsigned long)loader;
-	vm->cpu_context.x21 = (unsigned long)&vm->loader_args;
-	vm->name = "VM";
+	vcpu->cpu_context.x19 = (unsigned long)load_vm_text_from_file;
+	vcpu->cpu_context.x20 = (unsigned long)loader;
+	vcpu->cpu_context.x21 = (unsigned long)&vcpu->loader_args;
+	vcpu->name = "VM";
 
 	// todo:
 	// ここで vcpus にエントリを追加している
@@ -214,14 +214,14 @@ int create_vm_with_loader(loader_func_t loader, void *arg) {
 	// todo: 修正必要(VM 数 != VCPU 数)
 	// 今動いている VM 数を増やし、その連番をそのまま PID とする
 	int vmid = current_number_of_vms++;
-	vms[vmid] = vm;
-	vm->vmid = vmid;
+	vcpus[vmid] = vcpu;
+	vcpu->vmid = vmid;
 
 	return vmid;
 }
 
-void flush_vm_console(struct vcpu_struct *tsk) {
-	struct fifo *outfifo = tsk->console.out_fifo;
+void flush_vm_console(struct vcpu_struct *vcpu) {
+	struct fifo *outfifo = vcpu->console.out_fifo;
 	unsigned long val;
 	while (dequeue_fifo(outfifo, &val) == 0) {
 		printf("%c", val);

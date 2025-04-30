@@ -14,11 +14,11 @@ struct spinlock loader_lock = {0, "loader", -1};
 
 // 指定された EL2 のメモリ上のプログラムコードを VM のメモリにロードする
 // ハイパーバイザに埋め込まれた EL1 コードを VM にコピーするために使う
-void copy_code_to_memory(struct vcpu_struct *vm, unsigned long va, unsigned long from, unsigned long size) {
+void copy_code_to_memory(struct vcpu_struct *vcpu, unsigned long va, unsigned long from, unsigned long size) {
     unsigned long current_va = va & PAGE_MASK;
 
     while (size > 0) {
-        uint8_t *buf = (uint8_t *)allocate_vm_page(vm, current_va);
+        uint8_t *buf = (uint8_t *)allocate_vm_page(vcpu, current_va);
         int readsize = MIN(PAGE_SIZE, size);
         memcpy(buf, (void*)from, readsize);
 
@@ -28,7 +28,7 @@ void copy_code_to_memory(struct vcpu_struct *vm, unsigned long va, unsigned long
     }
 }
 
-int load_file_to_memory(struct vcpu_struct *vm, const char *name, unsigned long va) {
+int load_file_to_memory(struct vcpu_struct *vcpu, const char *name, unsigned long va) {
     // todo: ロックの単位が大きいのでもっと細分化する
     acquire_lock(&loader_lock);
 
@@ -49,7 +49,7 @@ int load_file_to_memory(struct vcpu_struct *vm, const char *name, unsigned long 
     unsigned long current_va = va & PAGE_MASK;
 
     while (remain > 0) {
-        uint8_t *buf = (uint8_t *)allocate_vm_page(vm, current_va);
+        uint8_t *buf = (uint8_t *)allocate_vm_page(vcpu, current_va);
         int readsize = MIN(PAGE_SIZE, remain);
         int actualsize = fat32_read(&file, buf, offset, readsize);
 
@@ -63,7 +63,7 @@ int load_file_to_memory(struct vcpu_struct *vm, const char *name, unsigned long 
         current_va += PAGE_SIZE;
     }
 
-    vm->name = name;
+    vcpu->name = name;
 
     release_lock(&loader_lock);
     return 0;
@@ -72,7 +72,7 @@ int load_file_to_memory(struct vcpu_struct *vm, const char *name, unsigned long 
 // todo: 丸ごと elf.c に移す？
 int elf_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
     struct loader_args *loader_args = (struct loader_args *)args;
-    struct vcpu_struct *vm = current_cpu_core()->current_vcpu;
+    struct vcpu_struct *vcpu = current_cpu_core()->current_vcpu;
 
     INFO("Loading requested file(%s)", loader_args->filename);
 
@@ -147,7 +147,7 @@ int elf_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
             // コピー先となるゲストのメモリ空間にページを確保する
             // allocate_vm_page の中の map_stage2_page で stage2 テーブルを更新している
             // todo: 中途半端なアドレスな場合、うまく動かないかも
-            uint8_t *vm_buf = (uint8_t *)allocate_vm_page(vm, virtual_addr);
+            uint8_t *vm_buf = (uint8_t *)allocate_vm_page(vcpu, virtual_addr);
 
             // コピー元のデータをハイパーバイザのメモリ空間に読み込む
             int actualsize = fat32_read(&file, vm_buf, offset, PAGE_SIZE);
@@ -165,7 +165,7 @@ int elf_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
 
     *sp = loader_args->sp;
     INFO("pc: 0x%lx in 48bit, sp: 0x%lx(0x%lx in 48bit)", *pc & 0xffffffffffff, *sp, *sp & 0xffffffffffff);
-    vm->name = loader_args->filename;
+    vcpu->name = loader_args->filename;
 
     free_page(buf);
     return 0;
@@ -173,9 +173,9 @@ int elf_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
 
 int raw_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
     struct loader_args *loader_args = (struct loader_args *)args;
-    struct vcpu_struct *vm = current_cpu_core()->current_vcpu;
+    struct vcpu_struct *vcpu = current_cpu_core()->current_vcpu;
 
-    if (load_file_to_memory(vm, loader_args->filename, loader_args->loader_addr) < 0) {
+    if (load_file_to_memory(vcpu, loader_args->filename, loader_args->loader_addr) < 0) {
         return -1;
     }
 
