@@ -28,7 +28,9 @@ _start:
 	and	x0, x0,#0xFF		// Check processor id
 	cbz	x0, el3_entry		// Hang for all non-primary CPU
 
-// コア 2,3 は無限ループさせて止める
+// コア 1,2,3 は無限ループさせて止める
+//cmp x0, #1
+//b.eq sleep
 //cmp x0, #2
 //b.eq sleep
 //cmp x0, #3

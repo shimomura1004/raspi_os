@@ -91,6 +91,11 @@ static void prepare_initial_sysregs(void) {
 	is_first_call = 0;
 }
 
+static void init_vm_console(struct vm_struct *vm) {
+	vm->console.in_fifo = create_fifo();
+	vm->console.out_fifo = create_fifo();
+}
+
 void increment_current_pc(int ilen) {
 	struct pt_regs *regs = vm_pt_regs(current_cpu_core()->current_vm);
 	regs->pc += ilen;
@@ -213,11 +218,6 @@ int create_vm_with_loader(loader_func_t loader, void *arg) {
 	vm->vmid = vmid;
 
 	return vmid;
-}
-
-void init_vm_console(struct vm_struct *tsk) {
-	tsk->console.in_fifo = create_fifo();
-	tsk->console.out_fifo = create_fifo();
 }
 
 void flush_vm_console(struct vm_struct *tsk) {
