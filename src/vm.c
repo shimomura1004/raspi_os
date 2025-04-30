@@ -62,7 +62,7 @@ static void load_vm_text_from_file(loader_func_t loader, void *arg) {
 	struct vm_struct *vm = prepare_vm();
 	struct pt_regs *regs = vm_pt_regs(vm);
 
-	// コードをロードして PC/SP を設定
+	// コードをロードして PC/SP を設定(pc,sp は出力引数)
 	if (loader(arg, &regs->pc, &regs->sp) < 0) {
 		PANIC("failed to load");
 	}
@@ -131,6 +131,12 @@ static struct vm_struct *create_vm() {
 
 	// switch_from_kthread の中で kernel_exit が呼ばれる
 	// そのとき SP が指す先には退避したレジスタが格納されている必要がある
+	// SP レジスタは EL によってバンクされており、このスタックポインタはあくまで
+	// ハイパーバイザ(EL2)が処理するときに使うもの(SP_EL2)である
+	// ゲスト OS の SP は SP_EL1 もしくは SP_EL0 であり、別になっている
+	// (実際ゲスト OS の SP は loader_args 内で指定されている)
+	// よって、ゲストからハイパーバイザに戻った時の処理を1ページ分のスタックでやりきれるなら
+	// 特に問題はない(ゲスト OS 自体は自由に自分で確保したスタックを使える)
 	vm->cpu_context.sp = (unsigned long)childregs;
 
 	init_vm_console(vm);
@@ -177,6 +183,16 @@ int create_vm_with_loader(loader_func_t loader, void *arg) {
 	vm->cpu_context.x21 = (unsigned long)&vm->loader_args;
 	vm->name = "VM";
 
+	// todo:
+	// ここで vcpus にエントリを追加している
+	// ひとつの VM に複数の vCPU を割当てるなら、ここで対応が必要
+	// つまり、ここで必要なだけの vCPU を作成する
+	// vCPU でメモリ空間は共通だから、OS テキストを複数回ロードする必要はない
+	// 今は作った vCPU が最初に動くときにロードしているので、このままだと複数回ロードしてしまう
+	// また vcpu の管理領域は各 vcpu に固有でいいが、vm の管理領域は共通にしないといけない
+	// vcpu の管理領域は、この関数の先頭の create_vcpu で確保されている
+
+	// todo: 修正必要(VM 数 != VCPU 数)
 	// 今動いている VM 数を増やし、その連番をそのまま PID とする
 	int vmid = current_number_of_vms++;
 	vms[vmid] = vm;
