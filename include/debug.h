@@ -31,13 +31,14 @@ extern struct spinlock log_lock;
     acquire_lock(&log_lock); \
     unsigned long UNIQUE_PREFIX##cpuid = get_cpuid(); \
     struct vcpu_struct *UNIQUE_PREFIX##vcpu = current_pcpu()->current_vcpu; \
+    printf("<pCPU:%d>", UNIQUE_PREFIX##cpuid); \
     if (UNIQUE_PREFIX##vcpu) { \
-        printf("<cpu:%d>[vmid:%d] %s: ", UNIQUE_PREFIX##cpuid, UNIQUE_PREFIX##vcpu->vm->vmid, level); \
+        printf("[VM:%d]", UNIQUE_PREFIX##vcpu->vm->vmid); \
+        if (UNIQUE_PREFIX##vcpu->vm) { \
+            printf("(vCPU:%d)", UNIQUE_PREFIX##vcpu->vm->vmid); \
+        } \
     } \
-    else { \
-        printf("<cpu:%d> %s: ", UNIQUE_PREFIX##cpuid, level); \
-    } \
-    printf(fmt "\n", ##__VA_ARGS__); \
+    printf(" %s: " fmt "\n", level, ##__VA_ARGS__); \
     release_lock(&log_lock); \
 } while (0)
 
