@@ -99,13 +99,14 @@ void vm_leaving_work() {
 	}
 }
 
-const char *vm_state_str[] = {
+static const char *vm_state_str[] = {
 	"RUNNING",
 	"RUNNABLE",
 	"ZOMBIE",
 };
 
-int find_cpu_which_runs(struct vcpu_struct *vcpu) {
+// vCPU を実行している pCPU のインデックス(id)を返す
+static int find_pcpu_which_runs(struct vcpu_struct *vcpu) {
 	for (int i = 0; i < NUMBER_OF_PCPUS; i++) {
 		if (pcpu_of(i)->current_vcpu == vcpu) {
 			return i;
@@ -114,26 +115,77 @@ int find_cpu_which_runs(struct vcpu_struct *vcpu) {
 	return -1;
 }
 
+// `start_index` 以降の vCPU で、`vm` を実行している vCPU のインデックス(id)を返す
+static int find_vcpu_which_runs(struct vm_struct2 *vm, int start_index) {
+	for (; start_index < current_number_of_vcpus; start_index++) {
+		if (vcpus[start_index]->vm == vm) {
+			return start_index;
+		}
+	}
+	return -1;
+}
+
+// todo: 各種 stat は vCPU ごとに計測したほうがいいかもしれない
+static void show_vcpu_list(struct vm_struct2 *vm) {
+	// todo: vcpu の index ではなく vm 内の cpuid を表示するべき
+	for (int vcpu_idx = 0; (vcpu_idx = find_vcpu_which_runs(vm, vcpu_idx)) >= 0; vcpu_idx++) {
+		struct vcpu_struct *vcpu = vcpus[vcpu_idx];
+		int pcpu_idx = find_pcpu_which_runs(vcpu);
+        if (pcpu_idx >= 0) {
+            printf("%c %4s %12s %4d %4d 0x%08x %8s\n",
+                /* %c   */ ' ',
+                /* %4s  */ "",
+                /* %12s */ "",
+                /* %4d  */ vcpu_idx,
+                /* %4d  */ pcpu_idx,
+                /* %8x  */ vcpu_pt_regs(vcpu)->pc,
+                /* %8s  */ vm_state_str[vcpu->state]);
+        }
+        else {
+            printf("%c %4s %12s %4d    %c 0x%08x %8s\n",
+                /* %c   */ ' ',
+                /* %4s  */ "",
+                /* %12s */ "",
+                /* %4d  */ vcpu_idx,
+                /* %4d  */ '-',
+                /* %8x  */ vcpu_pt_regs(vcpu)->pc,
+                /* %8s  */ vm_state_str[vcpu->state]);
+        }
+    }
+}
+
 void show_vm_list() {
-    printf("  %4s %3s %12s %8s %7s %9s %7s %7s %7s %7s %7s\n",
-		   "vmid", "cpu", "name", "state", "pages", "saved-pc", "wfx", "hvc", "sysregs", "pf", "mmio");
-    for (int i = 0; i < current_number_of_vcpus; i++) {
-        struct vcpu_struct *vcpu = vcpus[i];
-		int cpuid = find_cpu_which_runs(vcpu);
-        printf("%c %4d   %c %12s %8s %7d %9x %7d %7d %7d %7d %7d\n",
-               is_uart_forwarded_vm(vcpus[i]->vm) ? '*' : ' ',
-			   vcpu->vm->vmid,
-			   // CPUID は1桁のみ対応
-			   (cpuid < 0 || vcpu->state == VCPU_ZOMBIE? '-' : '0' + cpuid),
-			   vcpu->vm->name ? vcpu->vm->name : "",
-               vm_state_str[vcpu->state],
-			   vcpu->vm->mm.vm_pages_count,
-			   vcpu_pt_regs(vcpu)->pc,
-               vcpu->vm->stat.wfx_trap_count,
-			   vcpu->vm->stat.hvc_trap_count,
-               vcpu->vm->stat.sysregs_trap_count,
-			   vcpu->vm->stat.pf_trap_count,
-               vcpu->vm->stat.mmio_trap_count);
+    printf("%c %4s %12s %4s %4s %10s %8s %7s %7s %7s %7s %7s %7s\n",
+		   /* %c   */ ' ',
+		   /* %4s  */ "VMID",
+		   /* %12s */ "Name",
+		   /* %4s  */ "vCPU",
+           /* %4s  */ "pCPU",
+		   /* %10s */ "Saved-PC",
+		   /* %8s  */ "State",
+		   /* %7s  */ "Pages",
+		   /* %7s  */ "WFX",
+		   /* %7s  */ "HVC",
+		   /* %7s  */ "SysRegs",
+		   /* %7s  */ "PF",
+		   /* %7s  */ "MMIO");
+	for (int i = 0; i < current_number_of_vms; i++) {
+        struct vm_struct2 *vm = vms2[i];
+        printf("%c %4d %12s %4s %4s %10s %8s %7d %7d %7d %7d %7d %7d\n",
+               /* %c   */ is_uart_forwarded_vm(vm) ? '*' : ' ',
+			   /* %4d  */ vm->vmid,
+			   /* %12s */ vm->name ? vm->name : "",
+			   /* %4s  */ "",
+			   /* %4s  */ "",
+			   /* %10s */ "",
+			   /* %8s  */ "",
+			   /* %7d  */ vm->mm.vm_pages_count,
+               /* %7d  */ vm->stat.wfx_trap_count,
+			   /* %7d  */ vm->stat.hvc_trap_count,
+               /* %7d  */ vm->stat.sysregs_trap_count,
+			   /* %7d  */ vm->stat.pf_trap_count,
+               /* %7d  */ vm->stat.mmio_trap_count);
+		show_vcpu_list(vm);
     }
 }
 
