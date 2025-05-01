@@ -178,7 +178,7 @@ void hypervisor_main(unsigned long cpuid)
 		initialized_flag = 1;
 	}
 
-	INFO("CPU%d runs IDLE vCPU", cpuid);
+	INFO("CPU%d start running", cpuid);
 
 	scheduler(cpuid);
 }
