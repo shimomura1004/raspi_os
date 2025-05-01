@@ -1,5 +1,6 @@
 #include "fifo.h"
 #include "mm.h"
+#include "debug.h"
 
 #define FIFO_SIZE 256   // warning: DO NOT exceed page size
 
@@ -14,17 +15,32 @@ struct fifo {
 
 int is_empty_fifo(struct fifo *fifo)
 {
+    if (!fifo) {
+        WARN("Try to check a NULL FIFO");
+        return -1;
+    }
+
     return fifo->used == 0;
 }
 
 int is_full_fifo(struct fifo *fifo)
 {
+    if (!fifo) {
+        WARN("Try to check a NULL FIFO");
+        return -1;
+    }
+
     return fifo->used == FIFO_SIZE;
 }
 
 struct fifo *create_fifo()
 {
     struct fifo *fifo = (struct fifo *)allocate_page();
+    if (!fifo) {
+        WARN("Failed to allocate page for FIFO");
+        return 0;
+    }
+
     fifo->head = 0;
     fifo->tail = 0;
     fifo->used = 0;
@@ -34,6 +50,11 @@ struct fifo *create_fifo()
 
 void clear_fifo(struct fifo *fifo)
 {
+    if (!fifo) {
+        WARN("Try to clear a NULL FIFO");
+        return;
+    }
+
     fifo->head = 0;
     fifo->tail = 0;
     fifo->used = 0;
@@ -41,6 +62,11 @@ void clear_fifo(struct fifo *fifo)
 
 int enqueue_fifo(struct fifo *fifo, unsigned long val)
 {
+    if (!fifo) {
+        WARN("Try to enqueue into a NULL FIFO");
+        return -1;
+    }
+
     if (is_full_fifo(fifo)) {
         return -1;
     }
@@ -54,6 +80,11 @@ int enqueue_fifo(struct fifo *fifo, unsigned long val)
 
 int dequeue_fifo(struct fifo *fifo, unsigned long *val)
 {
+    if (!fifo) {
+        WARN("Try to dequeue from a NULL FIFO");
+        return -1;
+    }
+
     if (is_empty_fifo(fifo)) {
         return -1;
     }
@@ -70,5 +101,10 @@ int dequeue_fifo(struct fifo *fifo, unsigned long *val)
 
 int used_of_fifo(struct fifo *fifo)
 {
+    if (!fifo) {
+        WARN("Try to get used size of a NULL FIFO");
+        return -1;
+    }
+
     return fifo->used;
 }
