@@ -38,7 +38,7 @@ unsigned long allocate_vm_page(struct vcpu_struct *vcpu, unsigned long ipa) {
 	// 新たに確保したページをこの VM のアドレス空間にマッピングする
 	map_stage2_page(vcpu, ipa, page, MMU_STAGE2_PAGE_FLAGS);
 	// INFO("VTTBR0_EL2(VMID %d): IPA 0x%lx(0x%lx in full) -> PA 0x%lx (allocate_vm_page)",
-	// 	 current_pcpu()->current_vcpu->vmid, ipa & 0xffffffffffff, ipa, page);
+	//	 vcpu->vm->vmid, ipa & 0xffffffffffff, ipa, page);
 
 	// 新たに確保したページの仮想アドレスを返す(リニアマッピングなのでオフセットを足すだけ)
 	return page + VA_START;
@@ -46,7 +46,7 @@ unsigned long allocate_vm_page(struct vcpu_struct *vcpu, unsigned long ipa) {
 
 void set_vm_page_notaccessable(struct vcpu_struct *vcpu, unsigned long va) {
 	map_stage2_page(vcpu, va, 0, MMU_STAGE2_MMIO_FLAGS);
-// if (current_pcpu()->current_vcpu->vmid != 0)INFO("VA 0x%lx -> IPA 0x%lx -> PA 0x%lx (set_vm_page_notaccessable)", va, get_ipa(va), 0);
+// if (vcpu->vmid != 0)INFO("VA 0x%lx -> IPA 0x%lx -> PA 0x%lx (set_vm_page_notaccessable)", va, get_ipa(va), 0);
 }
 
 // 未使用のページを探してその場所(DRAM 内のオフセット)を返す
@@ -244,7 +244,7 @@ int handle_mem_abort(unsigned long addr, unsigned long esr) {
 		addr = addr / PAGE_SIZE * PAGE_SIZE;
 		map_stage2_page(vcpu, get_ipa(addr) & PAGE_MASK, page, MMU_STAGE2_PAGE_FLAGS);
 		// INFO("VTTBR0_EL2(VMID %d): IPA 0x%lx(0x%lx in full) -> PA 0x%lx (handle_mem_abort)",
-		// 	 current_pcpu()->current_vcpu->vmid, get_ipa(addr) & 0xffffffffffff, addr, page);
+		// 	 vcpu->vmid, get_ipa(addr) & 0xffffffffffff, addr, page);
 
 		vcpu->vm->stat.pf_trap_count++;
 		return 0;
