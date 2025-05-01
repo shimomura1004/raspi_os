@@ -24,15 +24,18 @@
 // todo: debug.c 的なソースを用意して隠蔽する
 extern struct spinlock log_lock;
 
+// プリントしたい変数がここで定義している変数名と重複すると正しく動かない
+#define UNIQUE_PREFIX raspisor_debug_
+
 #define _LOG_COMMON(level, fmt, ...) do { \
     acquire_lock(&log_lock); \
-    unsigned long cpuid = get_cpuid(); \
-    struct vcpu_struct *vcpu = current_pcpu()->current_vcpu; \
-    if (vcpu) { \
-        printf("<cpu:%d>[vmid:%d] %s: ", cpuid, vcpu->vm->vmid, level); \
+    unsigned long UNIQUE_PREFIX##cpuid = get_cpuid(); \
+    struct vcpu_struct *UNIQUE_PREFIX##vcpu = current_pcpu()->current_vcpu; \
+    if (UNIQUE_PREFIX##vcpu) { \
+        printf("<cpu:%d>[vmid:%d] %s: ", UNIQUE_PREFIX##cpuid, UNIQUE_PREFIX##vcpu->vm->vmid, level); \
     } \
     else { \
-        printf("<cpu:%d> %s: ", cpuid, level); \
+        printf("<cpu:%d> %s: ", UNIQUE_PREFIX##cpuid, level); \
     } \
     printf(fmt "\n", ##__VA_ARGS__); \
     release_lock(&log_lock); \
@@ -59,8 +62,8 @@ extern struct spinlock log_lock;
 // panic 後も割り込みが入ると普通に動いてしまうので割り込みを禁止する
 #define PANIC(fmt, ...) do { \
     _LOG_COMMON("PANIC", fmt, ##__VA_ARGS__); \
-    struct vcpu_struct *vm = current_pcpu()->current_vcpu; \
-    if (vm) { \
+    struct vcpu_struct *UNIQUE_PREFIX##vcpu = current_pcpu()->current_vcpu; \
+    if (UNIQUE_PREFIX##vcpu) { \
         exit_vm(); \
     } \
     else { \
