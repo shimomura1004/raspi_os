@@ -27,9 +27,9 @@ extern struct spinlock log_lock;
 #define _LOG_COMMON(level, fmt, ...) do { \
     acquire_lock(&log_lock); \
     unsigned long cpuid = get_cpuid(); \
-    struct vcpu_struct *vm = current_pcpu()->current_vcpu; \
-    if (vm) { \
-        printf("<cpu:%d>[vmid:%d] %s: ", cpuid, vm->vm->vmid, level); \
+    struct vcpu_struct *vcpu = current_pcpu()->current_vcpu; \
+    if (vcpu) { \
+        printf("<cpu:%d>[vmid:%d] %s: ", cpuid, vcpu->vm->vmid, level); \
     } \
     else { \
         printf("<cpu:%d> %s: ", cpuid, level); \
