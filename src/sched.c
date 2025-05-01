@@ -146,7 +146,7 @@ static void show_vcpu_list(struct vm_struct2 *vm) {
                 /* %c   */ ' ',
                 /* %4s  */ "",
                 /* %12s */ "",
-                /* %4d  */ vcpu_idx,
+                /* %4d  */ vcpu->vcpu_id,
                 /* %4d  */ '-',
                 /* %8x  */ vcpu_pt_regs(vcpu)->pc,
                 /* %8s  */ vm_state_str[vcpu->state]);
