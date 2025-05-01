@@ -9,7 +9,7 @@ void hypercall(unsigned long hvc_nr, unsigned long a0, unsigned long a1, unsigne
 
     switch (hvc_nr) {
 	case HYPERCALL_TYPE_WARN_LU: {
-		WARN("HVC #%lu", hvc_nr);
+		WARN("HVC #%lu(%lu)", hvc_nr, a0);
 		break;
     }
 	case HYPERCALL_TYPE_INFO_LX: {
