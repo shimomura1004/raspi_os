@@ -69,8 +69,8 @@ void vm_entering_work() {
 
 	// VM 処理に復帰するとき、コンソールがこの VM に紐づいていたら
 	// キューに入っていた値を全部出力する
-	if (is_uart_forwarded_vm(vcpu)) {
-		flush_vm_console(vcpu);
+	if (is_uart_forwarded_vm(vcpu->vm)) {
+		flush_vm_console(vcpu->vm);
 	}
 
 	// todo: entering_vm, flush, set_cpu_sysregs, set_cpu_virtual_interrupt の正しい呼び出し順がわからない
@@ -94,8 +94,8 @@ void vm_leaving_work() {
 		vcpu->vm->board_ops->leaving_vm(vcpu);
 	}
 
-	if (is_uart_forwarded_vm(vcpu)) {
-		flush_vm_console(vcpu);
+	if (is_uart_forwarded_vm(vcpu->vm)) {
+		flush_vm_console(vcpu->vm);
 	}
 }
 
@@ -121,7 +121,7 @@ void show_vm_list() {
         struct vcpu_struct *vcpu = vcpus[i];
 		int cpuid = find_cpu_which_runs(vcpu);
         printf("%c %4d   %c %12s %8s %7d %9x %7d %7d %7d %7d %7d\n",
-               is_uart_forwarded_vm(vcpus[i]) ? '*' : ' ',
+               is_uart_forwarded_vm(vcpus[i]->vm) ? '*' : ' ',
 			   vcpu->vm->vmid,
 			   // CPUID は1桁のみ対応
 			   (cpuid < 0 || vcpu->state == VCPU_ZOMBIE? '-' : '0' + cpuid),

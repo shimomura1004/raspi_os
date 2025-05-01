@@ -21,8 +21,8 @@ struct pt_regs *vcpu_pt_regs(struct vcpu_struct *);
 int create_idle_vm();
 int create_vm_with_loader(loader_func_t, void *);
 
-int is_uart_forwarded_vm(struct vcpu_struct *);
-void flush_vm_console(struct vcpu_struct *);
+int is_uart_forwarded_vm(struct vm_struct2 *);
+void flush_vm_console(struct vm_struct2 *);
 void increment_current_pc(int);
 
 // PSTATE

@@ -262,8 +262,8 @@ printf("%dth vcpu created\n", vcpuid);
 	return vmid;
 }
 
-void flush_vm_console(struct vcpu_struct *vcpu) {
-	struct fifo *outfifo = vcpu->vm->console.out_fifo;
+void flush_vm_console(struct vm_struct2 *vm) {
+	struct fifo *outfifo = vm->console.out_fifo;
 	unsigned long val;
 	while (dequeue_fifo(outfifo, &val) == 0) {
 		printf("%c", val);

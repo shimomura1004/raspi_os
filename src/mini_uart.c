@@ -47,8 +47,8 @@ char uart_recv(void) {
 // UART から入力されたデータを送り込む先の VM の番号(0 のときはホスト)
 static int uart_forwarded_vm = 0;
 
-int is_uart_forwarded_vm(struct vcpu_struct *vcpu) {
-    return vcpu->vm->vmid == uart_forwarded_vm;
+int is_uart_forwarded_vm(struct vm_struct2 *vm) {
+    return vm->vmid == uart_forwarded_vm;
 }
 
 void uart_send_string(char *str) {
@@ -63,7 +63,7 @@ void handle_uart_irq(void) {
     static int is_escaped = 0;
 
     char received = get32(AUX_MU_IO_REG) & 0xff;
-    struct vcpu_struct *vcpu;
+    struct vm_struct2 *vm;
 
     if (is_escaped) {
         is_escaped = 0;
@@ -72,9 +72,9 @@ void handle_uart_irq(void) {
             // VM を切り替えるのではなく、単に UART 入力の送り先を変えるだけ
             uart_forwarded_vm = received - '0';
             printf("\nswitched to %d\n", uart_forwarded_vm);
-            vcpu = vcpus[uart_forwarded_vm];
-            if (vcpu->state == VCPU_RUNNING || vcpu->state == VCPU_RUNNABLE) {
-                flush_vm_console(vcpu);
+            vm = vms2[uart_forwarded_vm];
+            if (vm) {
+                flush_vm_console(vm);
             }
         }
         else if (received == 'l') {
@@ -92,10 +92,10 @@ void handle_uart_irq(void) {
     }
     else {
 enqueue_char:
-        vcpu = vcpus[uart_forwarded_vm];
-        // もし VM が終了してしまっていたら無視する
-        if (vcpu->state == VCPU_RUNNING ||  vcpu->state == VCPU_RUNNABLE) {
-            enqueue_fifo(vcpu->vm->console.in_fifo, received);
+        vm = vms2[uart_forwarded_vm];
+        // もし VM が動いていたらキューに入れておく
+        if (vm) {
+            enqueue_fifo(vm->console.in_fifo, received);
         }
     }
 }

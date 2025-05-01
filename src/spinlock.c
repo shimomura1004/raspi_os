@@ -55,7 +55,6 @@ void init_lock(struct spinlock *lock, char *name) {
 }
 
 void acquire_lock(struct spinlock *lock) {
-printf("%d acquiring %s: 0x%x\n", get_cpuid(), lock->name, lock);
     // ロック中は割込みを禁止しておかないとデッドロックする可能性がある
     push_disable_irq();
 
@@ -70,7 +69,6 @@ printf("%d acquiring %s: 0x%x\n", get_cpuid(), lock->name, lock);
 }
 
 void release_lock(struct spinlock *lock) {
-printf("%d releasing %s\n", get_cpuid(), lock->name);
     if (!holding(lock)) {
         PANIC("release: not locked");
     }
