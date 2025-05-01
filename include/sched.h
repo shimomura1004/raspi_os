@@ -176,6 +176,12 @@ struct vcpu_struct {
     struct cpu_sysregs cpu_sysregs;     // CPU 状態(システムレジスタ)
     long state;                         // VM の状態(VCPU_RUNNING, VCPU_ZOMBIE)
     unsigned long vcpu_id;              // VM の ID
+
+    // 排他制御時に割込みを禁止するとき、何回割込み禁止が要求されたかを保持する
+    // 全員が割込み禁止を解除したら、本当に割込みを許可する
+    int number_of_off;
+    int interrupt_enable;
+
     struct spinlock lock;               // この VM の構造体の情報を変更するときに取るロック
 
     struct vm_struct2 *vm;              // この vCPU が実行している VM

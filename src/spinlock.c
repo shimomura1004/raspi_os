@@ -26,10 +26,10 @@ void push_disable_irq() {
     disable_irq();
 
     struct pcpu_struct *cpu = current_pcpu();
-    if (cpu->number_of_off == 0) {
-        cpu->interrupt_enable = old;
+    if (cpu->current_vcpu->number_of_off == 0) {
+        cpu->current_vcpu->interrupt_enable = old;
     }
-    cpu->number_of_off++;
+    cpu->current_vcpu->number_of_off++;
 }
 
 void pop_disable_irq() {
@@ -38,12 +38,12 @@ void pop_disable_irq() {
     if (is_interrupt_enabled()) {
         PANIC("interruptible");
     }
-    if (cpu->number_of_off <= 0) {
+    if (cpu->current_vcpu->number_of_off <= 0) {
         PANIC("number_of_off is 0");
     }
 
-    cpu->number_of_off--;
-    if (cpu->number_of_off == 0 && cpu->interrupt_enable) {
+    cpu->current_vcpu->number_of_off--;
+    if (cpu->current_vcpu->number_of_off == 0 && cpu->current_vcpu->interrupt_enable) {
         enable_irq();
     }
 }

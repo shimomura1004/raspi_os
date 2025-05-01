@@ -207,12 +207,12 @@ void yield() {
 	acquire_lock(&vcpu->lock);
 
 	// 割込みの有効・無効状態は CPU の状態ではなくこのスレッドの状態なので、退避・復帰させる必要がある
-	int interrupt_enable = current_pcpu()->interrupt_enable;
+	int interrupt_enable = current_pcpu()->current_vcpu->interrupt_enable;
 
 	// スケジューラに復帰
 	cpu_switch_to(vcpu, &pcpu->scheduler_context);
 
-	current_pcpu()->interrupt_enable = interrupt_enable;
+	current_pcpu()->current_vcpu->interrupt_enable = interrupt_enable;
 
 	// また戻ってきたらロックを解放する
 	release_lock(&vcpu->lock);

@@ -127,6 +127,10 @@ static struct vcpu_struct *create_vcpu() {
 	// vcpu->counter = vcpu->priority;
 	vcpu->state = VCPU_RUNNABLE;
 
+	// todo: 最初に pCPU が割当たるときに releaselock するから 1 にしたが、いいのか？
+	vcpu->interrupt_enable = 1;
+	vcpu->number_of_off = 1;
+
 	// システムレジスタ、汎用レジスタの初期化
 	prepare_initial_sysregs();
 	memcpy(&vcpu->cpu_sysregs, &initial_sysregs, sizeof(struct cpu_sysregs));
