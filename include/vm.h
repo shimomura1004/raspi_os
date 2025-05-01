@@ -15,7 +15,7 @@
 #define PSR_MODE_EL3h 0x0000000d	// 0b1101: EL3 with SP_EL3 (EL3h)
 
 // 第二、第三引数はどちらも出力引数
-typedef int (*loader_func_t)(void *, unsigned long *, unsigned long *);
+typedef int (*loader_func_t)(void *, unsigned long *, unsigned long *, struct vcpu_struct *);
 struct pt_regs *vcpu_pt_regs(struct vcpu_struct *);
 
 int create_idle_vm();

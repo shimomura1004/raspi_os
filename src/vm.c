@@ -61,17 +61,27 @@ static void load_vm_text_from_memory(unsigned long text) {
 	INFO("%s enters EL1...", vcpu->vm->name);
 }
 
-// 指定されたローダを使い、ファイルからテキストコードをロードする
-static void load_vm_text_from_file(loader_func_t loader, void *arg) {
-	struct vcpu_struct *vcpu = prepare_vcpu();
-	struct pt_regs *regs = vcpu_pt_regs(vcpu);
+// // 指定されたローダを使い、ファイルからテキストコードをロードする
+// static void load_vm_text_from_file(loader_func_t loader, void *arg, unsigned long *pc, unsigned long *sp) {
+// 	// struct vcpu_struct *vcpu = prepare_vcpu();
+// 	// struct pt_regs *regs = vcpu_pt_regs(vcpu);
 
-	// todo: ここで cpuid を見て1回だけロードするようにしないといけない
-	//       elf を読まないと pc/sp が設定できないが…
-	// コードをロードして PC/SP を設定(pc,sp は出力引数)
-	if (loader(arg, &regs->pc, &regs->sp) < 0) {
-		PANIC("failed to load");
-	}
+// 	// todo: ここで cpuid を見て1回だけロードするようにしないといけない
+// 	//       elf を読まないと pc/sp が設定できないが…
+// 	// コードをロードして PC/SP を設定(pc,sp は出力引数)
+// 	if (loader(arg, pc, sp) < 0) {
+// 		PANIC("failed to load");
+// 	}
+
+// 	// vCPU の CPU ID を設定
+// // printf("vCPU ID: 0x%lx\n", 0x80000000 | vcpu->vcpu_id);
+// 	set_vmpidr_el2(0x80000000 | vcpu->vcpu_id);
+
+// 	INFO("%s enters EL1...", vcpu->vm->name);
+// }
+
+static void tmp_prepare() {
+	struct vcpu_struct *vcpu = prepare_vcpu();
 
 	// vCPU の CPU ID を設定
 // printf("vCPU ID: 0x%lx\n", 0x80000000 | vcpu->vcpu_id);
@@ -136,9 +146,7 @@ static struct vcpu_struct *create_vcpu(unsigned long vcpuid) {
 	// vcpu->priority = current_pcpu()->current_vcpu->priority;
 	// vcpu->counter = vcpu->priority;
 	vcpu->state = VCPU_RUNNABLE;
-printf("*** vcpuid:%d\n", vcpuid);
 	vcpu->vcpu_id = vcpuid;
-	vcpu->cpu_sysregs.mpidr_el1 = 0x80000000 | vcpuid;
 
 	// todo: 最初に pCPU が割当たるときに releaselock するから 1 にしたが、いいのか？
 	vcpu->interrupt_enable = 1;
@@ -147,6 +155,10 @@ printf("*** vcpuid:%d\n", vcpuid);
 	// システムレジスタ、汎用レジスタの初期化
 	prepare_initial_sysregs();
 	memcpy(&vcpu->cpu_sysregs, &initial_sysregs, sizeof(struct cpu_sysregs));
+
+	// vCPU の CPU ID を設定
+	vcpu->cpu_sysregs.mpidr_el1 = 0x80000000 | vcpuid;
+	set_vmpidr_el2(0x80000000 | vcpuid);
 
 	// el1 で動くゲスト OS カーネルは、最初は switch_from_kthread 関数から動き出す
 	vcpu->cpu_context.pc = (unsigned long)switch_from_kthread;
@@ -208,6 +220,8 @@ int create_idle_vm() {
 // また vcpu の管理領域は各 vcpu に固有でいいが、vm の管理領域は共通にしないといけない
 // vcpu の管理領域は、この関数の先頭の create_vcpu で確保されている
 
+// todo: リファクタリング必要
+
 // 指定されたローダで VM を作る
 int create_vm_with_loader(loader_func_t loader, void *arg) {
 	// vCPU に共通の VM の管理用構造体を確保する
@@ -234,9 +248,12 @@ int create_vm_with_loader(loader_func_t loader, void *arg) {
 	//       create_vcpu 内でも vcpu->vm に値を設定しているのでそちらも修正する
 	//       vcpu->vm が指す先は別途1回だけ page_alloc しておく必要がある
 
+	unsigned long pc;
+	unsigned long sp;
+
 	// todo: いったんすべての vm で2コア固定とする
 	// todo: vCPU の作りすぎをチェックしていない
-	for (int i=0; i < 2; i++) {
+	for (int i = 0; i < 2; i++) {
 		// 必要なだけ vCPU を準備
 		// todo: create_vcpu 内で vm に対する処理を実行しているので取り出してループの外に置く
 		struct vcpu_struct *vcpu = create_vcpu(i);
@@ -249,12 +266,27 @@ int create_vm_with_loader(loader_func_t loader, void *arg) {
 		vcpu->vm = vm;
 		init_lock(&vcpu->lock, "vcpu_lock");
 
+		if (i == 0) {
+			// ロードは1回だけ実施
+
+			// VM のテキストをロードして PC/SP を取得
+			if (loader(arg, &pc, &sp, vcpu) < 0) {
+				PANIC("failed to load");
+			}
+		}
+
+		// vCPU の PC/SP を設定
+		struct pt_regs *regs = vcpu_pt_regs(vcpu);
+		regs->pc = pc;
+		regs->sp = sp;
+
 		// todo: これだと全コアがテキストをロードしてしまう
 		//       ロードは別に非同期でやる必要はないのでは？
 		// switch_from_kthread 内で x19 のアドレスにジャンプする
-		vcpu->cpu_context.x19 = (unsigned long)load_vm_text_from_file;
-		vcpu->cpu_context.x20 = (unsigned long)loader;
-		vcpu->cpu_context.x21 = (unsigned long)&vm->loader_args;
+		// vcpu->cpu_context.x19 = (unsigned long)load_vm_text_from_file;
+		// vcpu->cpu_context.x20 = (unsigned long)loader;
+		// vcpu->cpu_context.x21 = (unsigned long)&vm->loader_args;
+		vcpu->cpu_context.x19 = (unsigned long)tmp_prepare;
 
 		// todo: ループの外に出す、いったん初回のみ実行することにして回避
 		// この VM で再現するハードウェア(BCM2837)を初期化

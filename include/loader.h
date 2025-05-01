@@ -10,8 +10,9 @@ struct loader_args {
     char filename[MAX_FILE_PATH];
 };
 
-int elf_binary_loader(void *, unsigned long *, unsigned long *);
-int raw_binary_loader(void *, unsigned long *, unsigned long *);
+struct vcpu_struct;
+int elf_binary_loader(void *, unsigned long *, unsigned long *, struct vcpu_struct *);
+int raw_binary_loader(void *, unsigned long *, unsigned long *, struct vcpu_struct *);
 
 struct vcpu_struct;
 void copy_code_to_memory(struct vcpu_struct *vm, unsigned long va, unsigned long from, unsigned long size);
