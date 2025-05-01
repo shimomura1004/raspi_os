@@ -54,6 +54,10 @@ static void load_vm_text_from_memory(unsigned long text) {
 	regs->pc = 0x0;
 	regs->sp = 0x100000;
 
+	// vCPU の CPU ID を設定
+// printf("vCPU ID: 0x%lx\n", 0x80000000 | vcpu->vcpu_id);
+	set_vmpidr_el2(0x80000000 | vcpu->vcpu_id);
+
 	INFO("%s enters EL1...", vcpu->vm->name);
 }
 
@@ -62,10 +66,16 @@ static void load_vm_text_from_file(loader_func_t loader, void *arg) {
 	struct vcpu_struct *vcpu = prepare_vcpu();
 	struct pt_regs *regs = vcpu_pt_regs(vcpu);
 
+	// todo: ここで cpuid を見て1回だけロードするようにしないといけない
+	//       elf を読まないと pc/sp が設定できないが…
 	// コードをロードして PC/SP を設定(pc,sp は出力引数)
 	if (loader(arg, &regs->pc, &regs->sp) < 0) {
 		PANIC("failed to load");
 	}
+
+	// vCPU の CPU ID を設定
+// printf("vCPU ID: 0x%lx\n", 0x80000000 | vcpu->vcpu_id);
+	set_vmpidr_el2(0x80000000 | vcpu->vcpu_id);
 
 	INFO("%s enters EL1...", vcpu->vm->name);
 }
@@ -103,7 +113,7 @@ void increment_current_pc(int ilen) {
 
 // 空の vCPU 構造体を作成
 // あとでこの vCPU に CPU 時間が割当たるとロードなどが行われる
-static struct vcpu_struct *create_vcpu() {
+static struct vcpu_struct *create_vcpu(unsigned long vcpuid) {
 	struct vcpu_struct *vcpu;
 
 	// 新たなページを確保
@@ -126,6 +136,9 @@ static struct vcpu_struct *create_vcpu() {
 	// vcpu->priority = current_pcpu()->current_vcpu->priority;
 	// vcpu->counter = vcpu->priority;
 	vcpu->state = VCPU_RUNNABLE;
+printf("*** vcpuid:%d\n", vcpuid);
+	vcpu->vcpu_id = vcpuid;
+	vcpu->cpu_sysregs.mpidr_el1 = 0x80000000 | vcpuid;
 
 	// todo: 最初に pCPU が割当たるときに releaselock するから 1 にしたが、いいのか？
 	vcpu->interrupt_enable = 1;
@@ -169,7 +182,7 @@ int create_idle_vm() {
 	idle_vm->vmid = vmid;
 	
 	for (int i=0; i < NUMBER_OF_PCPUS; i++) {
-		struct vcpu_struct *vcpu = create_vcpu();
+		struct vcpu_struct *vcpu = create_vcpu(i);
 		if (!vcpu) {
 			return -1;
 		}
@@ -180,7 +193,6 @@ int create_idle_vm() {
 		vcpu->vm = idle_vm;
 
 		int vcpuid = i;
-printf("%dth vcpu created\n", vcpuid);
 		vcpus[vcpuid] = vcpu;
 	}
 
@@ -224,10 +236,10 @@ int create_vm_with_loader(loader_func_t loader, void *arg) {
 
 	// todo: いったんすべての vm で2コア固定とする
 	// todo: vCPU の作りすぎをチェックしていない
-	for (int i=0; i < 1; i++) {
+	for (int i=0; i < 2; i++) {
 		// 必要なだけ vCPU を準備
 		// todo: create_vcpu 内で vm に対する処理を実行しているので取り出してループの外に置く
-		struct vcpu_struct *vcpu = create_vcpu();
+		struct vcpu_struct *vcpu = create_vcpu(i);
 		if (!vcpu) {
 			// todo: 途中で失敗した場合は、既に作った vCPU を削除しないといけない
 			return -1;
@@ -238,6 +250,7 @@ int create_vm_with_loader(loader_func_t loader, void *arg) {
 		init_lock(&vcpu->lock, "vcpu_lock");
 
 		// todo: これだと全コアがテキストをロードしてしまう
+		//       ロードは別に非同期でやる必要はないのでは？
 		// switch_from_kthread 内で x19 のアドレスにジャンプする
 		vcpu->cpu_context.x19 = (unsigned long)load_vm_text_from_file;
 		vcpu->cpu_context.x20 = (unsigned long)loader;
@@ -255,7 +268,6 @@ int create_vm_with_loader(loader_func_t loader, void *arg) {
 		// 新たに作った vcpu_struct 構造体のアドレスを vcpus 配列に入れておく
 		// これでそのうち今作った vCPU に処理が切り替わり、switch_from_kthread から実行開始される
 		int vcpuid = current_number_of_vcpus++;
-printf("%dth vcpu created\n", vcpuid);
 		vcpus[vcpuid] = vcpu;
 	}
 

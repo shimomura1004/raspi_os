@@ -240,12 +240,11 @@ el01_sync_hvc64:
 // x19 には指定された関数のポインタが、x20 には引数が入っている
 .globl switch_from_kthread
 switch_from_kthread:
-	// x19 (task.c: prepare_vm)に無条件分岐する
-	//   void prepare_vm(loader_func_t loader, void *arg)
-	// task.c: create_vm で以下のように準備されている
-	// 	 p->cpu_context.x19 = (unsigned long)prepare_vm;
+	// x19 (vm.c:load_vm_text_from_file)に無条件分岐する
+	// vm.c: create_vm で以下のように準備されている
+	// 	 p->cpu_context.x19 = (unsigned long)load_vm_text_from_file;
 	//   p->cpu_context.x20 = (unsigned long)loader;
-	//   p->cpu_context.x21 = (unsigned long)arg;
+	//   p->cpu_context.x21 = (unsigned long)&vm->loader_args;
 
 	// x23 は kenel_exit のときに spsr に書き戻され eret の戻りアドレスに使われる
 	// todo: VM 初期化時は x22,x23 は無効値が入っている

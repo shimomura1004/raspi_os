@@ -136,7 +136,7 @@ static void show_vcpu_list(struct vm_struct2 *vm) {
                 /* %c   */ ' ',
                 /* %4s  */ "",
                 /* %12s */ "",
-                /* %4d  */ vcpu_idx,
+                /* %4d  */ vcpu->vcpu_id,
                 /* %4d  */ pcpu_idx,
                 /* %8x  */ vcpu_pt_regs(vcpu)->pc,
                 /* %8s  */ vm_state_str[vcpu->state]);
@@ -198,6 +198,12 @@ static void schedule(struct vcpu_struct *vcpu) {
 
 	// しばらく vcpu を実行する
 	cpu_switch_to(&pcpu->scheduler_context, vcpu);
+
+    // 仮想 CPU ID をセット
+    // 本来は MT ビットを見て Aff0 がスレッド ID か CPU ID かを判断しなくてはいけないが、
+    // get_cpuid も含めて Aff0 が CPU ID であることを前提にしているので、ここでは無視する
+// INFO("vCPU ID: 0x%lx", 0x80000000 | vcpu->vcpu_id);
+    set_vmpidr_el2(0x80000000 | vcpu->vcpu_id);
 
 	// ここに戻ってきたら、今まで動いていた VM を停止させる
 	vcpu->state = (vcpu->state == VCPU_ZOMBIE) ? VCPU_ZOMBIE : VCPU_RUNNABLE;

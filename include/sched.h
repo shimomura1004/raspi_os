@@ -175,6 +175,7 @@ struct vcpu_struct {
     struct cpu_context cpu_context;	    // CPU 状態(汎用レジスタ)
     struct cpu_sysregs cpu_sysregs;     // CPU 状態(システムレジスタ)
     long state;                         // VM の状態(VCPU_RUNNING, VCPU_ZOMBIE)
+    // todo: sysregs に vmpidr があるから、不要かもしれない
     unsigned long vcpu_id;              // VM の ID
 
     // 排他制御時に割込みを禁止するとき、何回割込み禁止が要求されたかを保持する
