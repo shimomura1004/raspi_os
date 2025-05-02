@@ -31,14 +31,14 @@ extern struct spinlock log_lock;
     acquire_lock(&log_lock); \
     unsigned long UNIQUE_PREFIX##cpuid = get_cpuid(); \
     struct vcpu_struct *UNIQUE_PREFIX##vcpu = current_pcpu()->current_vcpu; \
-    printf("<pCPU:%d>", UNIQUE_PREFIX##cpuid); \
+    printf("%15s <pCPU:%d>", level, UNIQUE_PREFIX##cpuid); \
     if (UNIQUE_PREFIX##vcpu) { \
         printf("[VM:%d]", UNIQUE_PREFIX##vcpu->vm->vmid); \
         if (UNIQUE_PREFIX##vcpu->vm) { \
             printf("(vCPU:%d)", UNIQUE_PREFIX##vcpu->vm->vmid); \
         } \
     } \
-    printf(" %s: " fmt "\n", level, ##__VA_ARGS__); \
+    printf(" " fmt "\n", ##__VA_ARGS__); \
     release_lock(&log_lock); \
 } while (0)
 
@@ -62,7 +62,7 @@ extern struct spinlock log_lock;
 
 // panic 後も割り込みが入ると普通に動いてしまうので割り込みを禁止する
 #define PANIC(fmt, ...) do { \
-    _LOG_COMMON("PANIC", fmt, ##__VA_ARGS__); \
+    _LOG_COMMON("\x1b[31m" "PANIC" "\x1b[39m", fmt, ##__VA_ARGS__); \
     struct vcpu_struct *UNIQUE_PREFIX##vcpu = current_pcpu()->current_vcpu; \
     if (UNIQUE_PREFIX##vcpu) { \
         exit_vm(); \
