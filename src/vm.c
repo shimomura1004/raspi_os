@@ -26,8 +26,12 @@ static void idle_loop() {
 }
 
 // vCPU の初期状態を設定する共通処理(vCPU に切り替え後に呼ばれる)
-static struct vcpu_struct *prepare_vcpu() {
+static void start_vcpu() {
 	struct vcpu_struct *vcpu = current_pcpu()->current_vcpu;
+
+	if (!vcpu) {
+		PANIC("vCPU is NULL");
+	}
 
 	// vCPU の切り替え前に必ずロックしているので、まずそれを解除する
 	release_lock(&vcpu->lock);
@@ -40,18 +44,6 @@ static struct vcpu_struct *prepare_vcpu() {
 	regs->pstate |= (0xf << 6);		// DAIF をすべて1にする、つまり全ての例外をマスクしている
 
 	set_cpu_sysregs(vcpu);
-
-	return vcpu;
-}
-
-// (vCPU に切り替え後に呼ばれる)
-static void tmp_prepare() {
-	struct vcpu_struct *vcpu = prepare_vcpu();
-
-	// todo: これも含めて prepare_vcpu でやったほうがよい
-	// vCPU の CPU ID を設定
-// printf("vCPU ID: 0x%lx\n", 0x80000000 | vcpu->vcpu_id);
-	set_vmpidr_el2(0x80000000 | vcpu->vcpu_id);
 
 	INFO("%s enters EL1...", vcpu->vm->name);
 }
@@ -92,7 +84,6 @@ void increment_current_pc(int ilen) {
 static struct vcpu_struct *create_vcpu(unsigned long vcpuid) {
 	struct vcpu_struct *vcpu;
 
-	// 新たなページを確保
 	// このページはハイパーバイザが使う管理用(ゲストから復帰してきたときのスタック領域を含む)
 	// allocate_page は確保したページをゼロクリアして返す
 	// vcpu 構造体の初期化はやっていないが、ゼロクリアされているので結果的に問題ない
@@ -118,7 +109,7 @@ static struct vcpu_struct *create_vcpu(unsigned long vcpuid) {
 	vcpu->interrupt_enable = 1;
 	vcpu->number_of_off = 1;
 
-	// システムレジスタ、汎用レジスタの初期化
+	// EL1 に復帰するときにシステムレジスタ、汎用レジスタに書き戻される値の初期化
 	prepare_initial_sysregs();
 	memcpy(&vcpu->cpu_sysregs, &initial_sysregs, sizeof(struct cpu_sysregs));
 
@@ -182,7 +173,7 @@ int create_idle_vm() {
 		regs->pc = pc;
 		regs->sp = sp;
 
-		idle_vcpu->cpu_context.x19 = (unsigned long)tmp_prepare;
+		idle_vcpu->cpu_context.x19 = (unsigned long)start_vcpu;
 
 		int vcpuid = i;
 		vcpus[vcpuid] = idle_vcpu;
@@ -262,7 +253,7 @@ int create_vm_with_loader(loader_func_t loader, void *arg) {
 		regs->pc = pc;
 		regs->sp = sp;
 
-		vcpu->cpu_context.x19 = (unsigned long)tmp_prepare;
+		vcpu->cpu_context.x19 = (unsigned long)start_vcpu;
 
 		// todo: ループの外に出す、いったん初回のみ実行することにして回避
 		// この VM で再現するハードウェア(BCM2837)を初期化
