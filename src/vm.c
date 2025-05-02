@@ -44,42 +44,6 @@ static struct vcpu_struct *prepare_vcpu() {
 	return vcpu;
 }
 
-// 指定したアドレスに格納されたテキストコードを VM 領域のアドレス 0 にコピーする
-static void load_vm_text_from_memory(unsigned long text) {
-	struct vcpu_struct *vcpu = prepare_vcpu();
-	struct pt_regs *regs = vcpu_pt_regs(vcpu);
-
-	// コードをロードして PC/SP を設定
-	copy_code_to_memory(vcpu, 0, text, PAGE_SIZE);
-	regs->pc = 0x0;
-	regs->sp = 0x100000;
-
-	// vCPU の CPU ID を設定
-// printf("vCPU ID: 0x%lx\n", 0x80000000 | vcpu->vcpu_id);
-	set_vmpidr_el2(0x80000000 | vcpu->vcpu_id);
-
-	INFO("%s enters EL1...", vcpu->vm->name);
-}
-
-// // 指定されたローダを使い、ファイルからテキストコードをロードする
-// static void load_vm_text_from_file(loader_func_t loader, void *arg, unsigned long *pc, unsigned long *sp) {
-// 	// struct vcpu_struct *vcpu = prepare_vcpu();
-// 	// struct pt_regs *regs = vcpu_pt_regs(vcpu);
-
-// 	// todo: ここで cpuid を見て1回だけロードするようにしないといけない
-// 	//       elf を読まないと pc/sp が設定できないが…
-// 	// コードをロードして PC/SP を設定(pc,sp は出力引数)
-// 	if (loader(arg, pc, sp) < 0) {
-// 		PANIC("failed to load");
-// 	}
-
-// 	// vCPU の CPU ID を設定
-// // printf("vCPU ID: 0x%lx\n", 0x80000000 | vcpu->vcpu_id);
-// 	set_vmpidr_el2(0x80000000 | vcpu->vcpu_id);
-
-// 	INFO("%s enters EL1...", vcpu->vm->name);
-// }
-
 // (vCPU に切り替え後に呼ばれる)
 static void tmp_prepare() {
 	struct vcpu_struct *vcpu = prepare_vcpu();
@@ -190,24 +154,38 @@ int create_idle_vm() {
 
 	idle_vm->name = "IDLE";
 	init_vm_console(idle_vm);
+	init_lock(&idle_vm->lock, "idle_vm_lock");
 
 	int vmid = 0;
 	vms2[vmid] = idle_vm;
 	idle_vm->vmid = vmid;
 	
+	unsigned long pc = 0x0;
+	unsigned long sp = 0x100000;
+
 	for (int i=0; i < NUMBER_OF_PCPUS; i++) {
-		struct vcpu_struct *vcpu = create_vcpu(i);
-		if (!vcpu) {
+		struct vcpu_struct *idle_vcpu = create_vcpu(i);
+		if (!idle_vcpu) {
+			WARN("Failed to allocate page for vCPU");
 			return -1;
 		}
 
-		vcpu->cpu_context.x19 = (unsigned long)load_vm_text_from_memory;
-		vcpu->cpu_context.x20 = (unsigned long)idle_loop;
+		idle_vcpu->vm = idle_vm;
+		init_lock(&idle_vcpu->lock, "vcpu_lock");
 
-		vcpu->vm = idle_vm;
+		if (i == 0) {
+			// 指定したアドレスに格納されたテキストコードを VM 領域のアドレス 0 にコピーする
+			copy_code_to_memory(idle_vcpu, 0, (unsigned long)idle_loop, PAGE_SIZE);
+		}
+
+		struct pt_regs *regs = vcpu_pt_regs(idle_vcpu);
+		regs->pc = pc;
+		regs->sp = sp;
+
+		idle_vcpu->cpu_context.x19 = (unsigned long)tmp_prepare;
 
 		int vcpuid = i;
-		vcpus[vcpuid] = vcpu;
+		vcpus[vcpuid] = idle_vcpu;
 	}
 
 	return vmid;
@@ -271,8 +249,9 @@ int create_vm_with_loader(loader_func_t loader, void *arg) {
 
 		if (i == 0) {
 			// ロードは1回だけ実施
+			// todo: ループの外に出したい
 
-			// VM のテキストをロードして PC/SP を取得
+			// 指定されたローダを使ってファイルからテキストコードをロードし、PC/SP を取得
 			if (loader(arg, &pc, &sp, vcpu) < 0) {
 				PANIC("failed to load");
 			}
@@ -283,12 +262,6 @@ int create_vm_with_loader(loader_func_t loader, void *arg) {
 		regs->pc = pc;
 		regs->sp = sp;
 
-		// todo: これだと全コアがテキストをロードしてしまう
-		//       ロードは別に非同期でやる必要はないのでは？
-		// switch_from_kthread 内で x19 のアドレスにジャンプする
-		// vcpu->cpu_context.x19 = (unsigned long)load_vm_text_from_file;
-		// vcpu->cpu_context.x20 = (unsigned long)loader;
-		// vcpu->cpu_context.x21 = (unsigned long)&vm->loader_args;
 		vcpu->cpu_context.x19 = (unsigned long)tmp_prepare;
 
 		// todo: ループの外に出す、いったん初回のみ実行することにして回避
