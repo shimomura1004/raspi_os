@@ -33,10 +33,10 @@ extern struct spinlock log_lock;
     struct vcpu_struct *UNIQUE_PREFIX##vcpu = current_pcpu()->current_vcpu; \
     printf("%15s <pCPU:%d>", level, UNIQUE_PREFIX##cpuid); \
     if (UNIQUE_PREFIX##vcpu) { \
-        printf("[VM:%d]", UNIQUE_PREFIX##vcpu->vm->vmid); \
         if (UNIQUE_PREFIX##vcpu->vm) { \
-            printf("(vCPU:%d)", UNIQUE_PREFIX##vcpu->vm->vmid); \
+            printf("[VM:%d]", UNIQUE_PREFIX##vcpu->vm->vmid); \
         } \
+        printf("(vCPU:%d)", UNIQUE_PREFIX##vcpu->vcpu_id); \
     } \
     printf(" " fmt "\n", ##__VA_ARGS__); \
     release_lock(&log_lock); \
