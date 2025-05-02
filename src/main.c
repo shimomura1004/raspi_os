@@ -178,7 +178,7 @@ void hypervisor_main(unsigned long cpuid)
 		initialized_flag = 1;
 	}
 
-	INFO("CPU%d start running", cpuid);
+	INFO("pCPU%d start running", cpuid);
 
 	scheduler(cpuid);
 }

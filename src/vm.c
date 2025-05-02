@@ -25,7 +25,7 @@ static void idle_loop() {
 	}
 }
 
-// vCPU の初期状態を設定する共通処理
+// vCPU の初期状態を設定する共通処理(vCPU に切り替え後に呼ばれる)
 static struct vcpu_struct *prepare_vcpu() {
 	struct vcpu_struct *vcpu = current_pcpu()->current_vcpu;
 
@@ -80,9 +80,11 @@ static void load_vm_text_from_memory(unsigned long text) {
 // 	INFO("%s enters EL1...", vcpu->vm->name);
 // }
 
+// (vCPU に切り替え後に呼ばれる)
 static void tmp_prepare() {
 	struct vcpu_struct *vcpu = prepare_vcpu();
 
+	// todo: これも含めて prepare_vcpu でやったほうがよい
 	// vCPU の CPU ID を設定
 // printf("vCPU ID: 0x%lx\n", 0x80000000 | vcpu->vcpu_id);
 	set_vmpidr_el2(0x80000000 | vcpu->vcpu_id);
@@ -259,6 +261,7 @@ int create_vm_with_loader(loader_func_t loader, void *arg) {
 		struct vcpu_struct *vcpu = create_vcpu(i);
 		if (!vcpu) {
 			// todo: 途中で失敗した場合は、既に作った vCPU を削除しないといけない
+			WARN("Failed to allocate page for vCPU");
 			return -1;
 		}
 
