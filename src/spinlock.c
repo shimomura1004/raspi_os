@@ -26,6 +26,12 @@ static void push_disable_irq() {
     disable_irq();
 
     struct pcpu_struct *cpu = current_pcpu();
+
+    if (!cpu->current_vcpu) {
+        // ハイパーバイザ自身がロックを取った場合
+        return;
+    }
+
     if (cpu->current_vcpu->number_of_off == 0) {
         cpu->current_vcpu->interrupt_enable = old;
     }
@@ -38,6 +44,12 @@ static void pop_disable_irq() {
     if (is_interrupt_enabled()) {
         PANIC("interruptible");
     }
+
+    if (!cpu->current_vcpu) {
+        // ハイパーバイザ自身がロックを解放した場合
+        return;
+    }
+            
     if (cpu->current_vcpu->number_of_off <= 0) {
         PANIC("number_of_off is 0");
     }
