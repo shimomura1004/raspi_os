@@ -63,6 +63,12 @@ void set_cpu_sysregs(struct vcpu_struct *vcpu) {
 void vm_entering_work() {
 	struct vcpu_struct *vcpu = current_pcpu()->current_vcpu;
 
+	if (!vcpu) {
+		// todo: ハイパーバイザ(EL2)が動いているときに割込みが発生し、そのあと復帰すると起こる
+		WARN("vCPU is NULL while entering to VM");
+		return;
+	}
+
 	if (HAVE_FUNC(vcpu->vm->board_ops, entering_vm)) {
 		vcpu->vm->board_ops->entering_vm(vcpu);
 	}
@@ -86,6 +92,12 @@ void vm_entering_work() {
 // VM での処理を抜けてハイパーバイザに処理に入るときに kernel_entry から呼ばれる
 void vm_leaving_work() {
 	struct vcpu_struct *vcpu = current_pcpu()->current_vcpu;
+
+    if (!vcpu) {
+		// todo: ハイパーバイザ(EL2)が動いているときに割込みが発生すると起こる
+		WARN("vCPU is NULL while leaving from VM");
+        return;
+    }
 
 	// 今のレジスタの値を控える
 	save_sysregs(&vcpu->cpu_sysregs);
