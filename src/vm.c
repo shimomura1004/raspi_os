@@ -246,7 +246,8 @@ int create_vm_with_loader(loader_func_t loader, void *arg) {
 
 			// 指定されたローダを使ってファイルからテキストコードをロードし、PC/SP を取得
 			if (loader(arg, &pc, &sp, vcpu) < 0) {
-				PANIC("failed to load");
+				WARN("Failed to load VM image");
+				return -1;
 			}
 		}
 
