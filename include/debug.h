@@ -69,7 +69,7 @@ extern struct spinlock log_lock;
     } \
     else { \
         disable_irq(); \
-        err_hang(); \
+        while(1); \
     } \
 } while(0)
 

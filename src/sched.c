@@ -51,6 +51,9 @@ void exit_vm(){
 	// 実行中の VM のstate を zombie にする(=スケジューリング対象から外れる)
 	current_pcpu()->current_vcpu->state = VCPU_ZOMBIE;
 
+	// todo: VM 終了が正しく実装できていないので、ここで停止させる
+	while(1);
+
 	yield();
 }
 
