@@ -189,7 +189,8 @@ void show_vm_list() {
         printf("%c %4d %12s %4s %4s %10s %8s %7d %7d %7d %7d %7d %7d\n",
                /* %c   */ is_uart_forwarded_vm(vm) ? '*' : ' ',
 			   /* %4d  */ vm->vmid,
-			   /* %12s */ vm->name ? vm->name : "",
+			   // todo: vm->name を使いたい
+			   /* %12s */ vm->name ? vm->loader_args.filename : "",
 			   /* %4s  */ "",
 			   /* %4s  */ "",
 			   /* %10s */ "",
