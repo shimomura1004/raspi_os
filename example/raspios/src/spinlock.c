@@ -15,7 +15,7 @@ static int holding(struct spinlock *lock) {
 
 // 多重で CPU 割込みを禁止するときに使う、割込み禁止関数
 // push された数と同じだけ pop しないと割込みが有効にならない
-void push_disable_irq() {
+static void push_disable_irq() {
     int old = is_interrupt_enabled();
     disable_irq();
 
@@ -26,7 +26,7 @@ void push_disable_irq() {
     cpu->number_of_off++;
 }
 
-void pop_disable_irq() {
+static void pop_disable_irq() {
     struct pcpu_struct *cpu = &cpus[get_cpuid()];
 
     if (is_interrupt_enabled()) {
