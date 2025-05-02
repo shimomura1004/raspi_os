@@ -16,7 +16,7 @@ extern void _spinlock_acquire(unsigned long *);
 extern void _spinlock_release(unsigned long *);
 
 static int holding(struct spinlock *lock) {
-    return lock->locked && lock->cpuid == get_cpuid();
+    return lock && lock->locked && lock->cpuid == get_cpuid();
 }
 
 // 多重で CPU 割込みを禁止するときに使う、割込み禁止関数
@@ -55,6 +55,10 @@ void init_lock(struct spinlock *lock, char *name) {
 }
 
 void acquire_lock(struct spinlock *lock) {
+    if (!lock) {
+        PANIC("acquire: lock is NULL");
+    }
+
     // ロック中は割込みを禁止しておかないとデッドロックする可能性がある
     push_disable_irq();
 
@@ -69,6 +73,10 @@ void acquire_lock(struct spinlock *lock) {
 }
 
 void release_lock(struct spinlock *lock) {
+    if (!lock) {
+        PANIC("release: lock is NULL");
+    }
+
     if (!holding(lock)) {
         PANIC("release: not locked (%s)", lock->name);
     }
