@@ -60,7 +60,7 @@ void acquire_lock(struct spinlock *lock) {
 
     unsigned long cpuid = get_cpuid();
     if (holding(lock)) {
-        PANIC("acquire: already locked by myself(cpu: %d)", cpuid);
+        PANIC("acquire: already locked by myself(%s)", lock->name);
     }
 
     // サポートされるなら __sync_lock_test_and_set を使うほうがいい
@@ -70,7 +70,7 @@ void acquire_lock(struct spinlock *lock) {
 
 void release_lock(struct spinlock *lock) {
     if (!holding(lock)) {
-        PANIC("release: not locked");
+        PANIC("release: not locked (%s)", lock->name);
     }
 
     lock->cpuid = -1;
