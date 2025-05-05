@@ -15,7 +15,8 @@
 #define TASK_RUNNING				0
 #define TASK_ZOMBIE				1
 
-#define PF_KTHREAD		            	0x00000002	
+#define PF_KTHREAD				0x00000002	
+
 
 extern struct task_struct *current;
 extern struct task_struct * task[NR_TASKS];
@@ -37,14 +38,29 @@ struct cpu_context {
 	unsigned long pc;
 };
 
+#define MAX_PROCESS_PAGES			16	
+
+struct user_page {
+	unsigned long phys_addr;
+	unsigned long virt_addr;
+};
+
+struct mm_struct {
+	unsigned long pgd;
+	int user_pages_count;
+	struct user_page user_pages[MAX_PROCESS_PAGES];
+	int kernel_pages_count;
+	unsigned long kernel_pages[MAX_PROCESS_PAGES];
+};
+
 struct task_struct {
 	struct cpu_context cpu_context;
 	long state;	
 	long counter;
 	long priority;
 	long preempt_count;
-	unsigned long stack;
 	unsigned long flags;
+	struct mm_struct mm;
 };
 
 extern void sched_init(void);
@@ -52,14 +68,14 @@ extern void schedule(void);
 extern void timer_tick(void);
 extern void preempt_disable(void);
 extern void preempt_enable(void);
-extern void switch_to(struct task_struct * next, int index);
+extern void switch_to(struct task_struct* next);
 extern void cpu_switch_to(struct task_struct* prev, struct task_struct* next);
 extern void exit_process(void);
 
 #define INIT_TASK \
-/*cpu_context*/	{ {0,0,0,0,0,0,0,0,0,0,0,0,0}, \
-/* state etc */	0,0,1, 0, 0, PF_KTHREAD \
+/*cpu_context*/ { { 0,0,0,0,0,0,0,0,0,0,0,0,0}, \
+/* state etc */	 0,0,15, 0, PF_KTHREAD, \
+/* mm */ { 0, 0, {{0}}, 0, {0}} \
 }
-
 #endif
 #endif

@@ -1,23 +1,20 @@
 #include "mm.h"
 #include "sched.h"
-#include "printf.h"
 #include "fork.h"
-#include "entry.h"
 #include "utils.h"
+#include "entry.h"
 
-int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg, unsigned long stack)
+int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg)
 {
 	preempt_disable();
 	struct task_struct *p;
 
-	p = (struct task_struct *) get_free_page();
-	if (!p) {
-		return -1;
-	}
-
+	unsigned long page = allocate_kernel_page();
+	p = (struct task_struct *) page;
 	struct pt_regs *childregs = task_pt_regs(p);
-	memzero((unsigned long)childregs, sizeof(struct pt_regs));
-	memzero((unsigned long)&p->cpu_context, sizeof(struct cpu_context));
+
+	if (!p)
+		return -1;
 
 	if (clone_flags & PF_KTHREAD) {
 		p->cpu_context.x19 = fn;
@@ -26,8 +23,7 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg,
 		struct pt_regs * cur_regs = task_pt_regs(current);
 		*childregs = *cur_regs;
 		childregs->regs[0] = 0;
-		childregs->sp = stack + PAGE_SIZE;
-		p->stack = stack;
+		copy_virt_memory(p);
 	}
 	p->flags = clone_flags;
 	p->priority = current->priority;
@@ -38,28 +34,30 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg,
 	p->cpu_context.pc = (unsigned long)ret_from_fork;
 	p->cpu_context.sp = (unsigned long)childregs;
 	int pid = nr_tasks++;
-	task[pid] = p;
+	task[pid] = p;	
+
 	preempt_enable();
 	return pid;
 }
 
 
-int move_to_user_mode(unsigned long pc)
+int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 {
 	struct pt_regs *regs = task_pt_regs(current);
-	memzero((unsigned long)regs, sizeof(*regs));
-	regs->pc = pc;
 	regs->pstate = PSR_MODE_EL0t;
-	unsigned long stack = get_free_page(); //allocate new user stack
-	if (!stack) {
+	regs->pc = pc;
+	regs->sp = 2 *  PAGE_SIZE;  
+	unsigned long code_page = allocate_user_page(current, 0);
+	if (code_page == 0)	{
 		return -1;
 	}
-	regs->sp = stack + PAGE_SIZE;
-	current->stack = stack;
+	memcpy(code_page, start, size);
+	set_pgd(current->mm.pgd);
 	return 0;
 }
 
-struct pt_regs * task_pt_regs(struct task_struct *tsk){
+struct pt_regs * task_pt_regs(struct task_struct *tsk)
+{
 	unsigned long p = (unsigned long)tsk + THREAD_SIZE - sizeof(struct pt_regs);
 	return (struct pt_regs *)p;
 }
