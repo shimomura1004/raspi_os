@@ -64,6 +64,7 @@ void acquire_lock(struct spinlock *lock) {
         PANIC("acquire: already locked by myself(cpu: %d)", cpuid);
     }
 
+    // サポートされるなら __sync_lock_test_and_set を使うほうがいい
     _spinlock_acquire(&lock->locked);
     lock->cpuid = cpuid;
 }
