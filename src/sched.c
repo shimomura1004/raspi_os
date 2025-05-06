@@ -233,6 +233,43 @@ static void schedule(struct vcpu_struct *vcpu) {
 	pcpu->current_vcpu = NULL;                      // この pCPU は vCPU を実行していない
 }
 
+// CPU 時間を手放し VM を切り替える
+void yield() {
+	struct pcpu_struct *pcpu = current_pcpu();
+	struct vcpu_struct *vcpu = pcpu->current_vcpu;
+
+    // ハイパーバイザ実行中に yield される可能性はある
+    if (!vcpu) {
+        // todo: この場合、たとえばタイマ発火は無視されたことになる
+        INFO("Yield while EL2");
+        return;
+    }
+
+	// ロックを取ってから idle_vm に切り替える
+	acquire_lock(&vcpu->lock);
+
+    // vCPU を停止するので、ステータスを更新
+	// 割込みの有効・無効状態は CPU の状態ではなくこのスレッドの状態なので、退避・復帰させる必要がある
+	vcpu->state = VCPU_RUNNABLE;    // この vCPU は、実行可能か、終了済み
+    pcpu->current_vcpu = NULL;      // この pCPU は vCPU を実行していない
+    // int interrupt_enable = vcpu->interrupt_enable;
+
+    // スケジューラに復帰する(しばらくここには帰ってこない)
+	cpu_switch_to(vcpu, &pcpu->scheduler_context);
+    // ここに帰ってきたということは、おそらく schedule されて vCPU に戻ってきた
+
+	// 復帰後に vcpu が別の pcpu で実行されるかもしれないので、pcpu を再取得する
+	pcpu = current_pcpu();
+
+    // vCPU を実行するので、ステータスを更新
+	vcpu->state = VCPU_RUNNING;                 // この vCPU は今実行中
+	pcpu->current_vcpu = vcpu;                  // この pCPU はこの vCPU を実行中
+    // vcpu->interrupt_enable = interrupt_enable;  // 割込みの有効・無効状態を復帰させる
+
+	// また戻ってきたらロックを解放する
+	release_lock(&vcpu->lock);
+}
+
 // 各コア専用に用意された idle vcpu で実行され、タイマ割込みが発生するとここに帰ってくる
 // 切り替える前に必ず VM のロックを取り、切り替え終わったらすぐにロックを解放する
 // todo: 割込みを無効にしないといけないタイミングがありそう
@@ -278,41 +315,4 @@ void scheduler(unsigned long cpuid) {
 			release_lock(&vcpu->lock);
 		}
 	}
-}
-
-// CPU 時間を手放し VM を切り替える
-void yield() {
-	struct pcpu_struct *pcpu = current_pcpu();
-	struct vcpu_struct *vcpu = pcpu->current_vcpu;
-
-    // ハイパーバイザ実行中に yield される可能性はある
-    if (!vcpu) {
-        // todo: この場合、たとえばタイマ発火は無視されたことになる
-        INFO("Yield while EL2");
-        return;
-    }
-
-	// ロックを取ってから idle_vm に切り替える
-	acquire_lock(&vcpu->lock);
-
-    // vCPU を停止するので、ステータスを更新
-	// 割込みの有効・無効状態は CPU の状態ではなくこのスレッドの状態なので、退避・復帰させる必要がある
-	vcpu->state = VCPU_RUNNABLE;    // この vCPU は、実行可能か、終了済み
-    pcpu->current_vcpu = NULL;      // この pCPU は vCPU を実行していない
-    // int interrupt_enable = vcpu->interrupt_enable;
-
-    // スケジューラに復帰する(しばらくここには帰ってこない)
-	cpu_switch_to(vcpu, &pcpu->scheduler_context);
-    // ここに帰ってきたということは、おそらく schedule されて vCPU に戻ってきた
-
-	// 復帰後に vcpu が別の pcpu で実行されるかもしれないので、pcpu を再取得する
-	pcpu = current_pcpu();
-
-    // vCPU を実行するので、ステータスを更新
-	vcpu->state = VCPU_RUNNING;                 // この vCPU は今実行中
-	pcpu->current_vcpu = vcpu;                  // この pCPU はこの vCPU を実行中
-    // vcpu->interrupt_enable = interrupt_enable;  // 割込みの有効・無効状態を復帰させる
-
-	// また戻ってきたらロックを解放する
-	release_lock(&vcpu->lock);
 }
