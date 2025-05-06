@@ -224,7 +224,10 @@ static void schedule(struct vcpu_struct *vcpu) {
 	cpu_switch_to(&pcpu->scheduler_context, vcpu);
     // ここに帰ってきたということは、おそらく yield されて scheduler に戻ってきた
 
-    // vCPU を停止するので、ステータスを更新
+	// 復帰後に vcpu が別の pcpu で実行されるかもしれないので、pcpu を再取得する
+	pcpu = current_pcpu();
+
+	// vCPU を停止するので、ステータスを更新
 	vcpu->state = (vcpu->state == VCPU_ZOMBIE) ?    // この vCPU は、実行可能か、終了済み
                     VCPU_ZOMBIE : VCPU_RUNNABLE;
 	pcpu->current_vcpu = NULL;                      // この pCPU は vCPU を実行していない
@@ -301,6 +304,9 @@ void yield() {
     // スケジューラに復帰する(しばらくここには帰ってこない)
 	cpu_switch_to(vcpu, &pcpu->scheduler_context);
     // ここに帰ってきたということは、おそらく schedule されて vCPU に戻ってきた
+
+	// 復帰後に vcpu が別の pcpu で実行されるかもしれないので、pcpu を再取得する
+	pcpu = current_pcpu();
 
     // vCPU を実行するので、ステータスを更新
 	vcpu->state = VCPU_RUNNING;                 // この vCPU は今実行中
