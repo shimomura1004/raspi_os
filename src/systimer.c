@@ -25,13 +25,14 @@ void handle_systimer1_irq() {
 	// 割込みをクリア
 	put32(TIMER_CS, TIMER_CS_M1);
 
-	// CPU0 の VM 切り替え
-	timer_tick();
-
 	// CPU0 以外のコアに mbox 割込みを送ってタスクを切り替えさせる
 	put32(MBOX_CORE1_SET_0, 0x1);
 	put32(MBOX_CORE2_SET_0, 0x1);
 	put32(MBOX_CORE3_SET_0, 0x1);
+
+	// CPU0 の VM 切り替え
+	// このあと yield してしばらく帰ってこなくなるので最後に timer_tick() を呼ぶ
+	timer_tick();
 }
 
 // VM の割込み用
