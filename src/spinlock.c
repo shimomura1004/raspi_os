@@ -15,6 +15,16 @@
 extern void _spinlock_acquire(unsigned long *);
 extern void _spinlock_release(unsigned long *);
 
+static struct vcpu_struct *find_vm_that_has_lock(struct spinlock *lock) {
+    for (int i=0; i < NUMBER_OF_VCPUS; i++) {
+        struct vcpu_struct *vcpu = vcpus[i];
+        if (vcpu && &vcpu->lock == lock) {
+            return vcpu;
+        }
+    }
+    return NULL;
+}
+
 static int holding(struct spinlock *lock) {
     return lock && lock->locked && lock->cpuid == get_cpuid();
 }
@@ -49,8 +59,13 @@ static void pop_disable_irq() {
         // ハイパーバイザ自身がロックを解放した場合
         return;
     }
-            
+    
+    // todo: pCPU が3個以上になると急激に発生しやすくなる
+    //       vm 1つに vCPU が何個あるかはあまり関係がなさそう
     if (cpu->current_vcpu->number_of_off <= 0) {
+        // show_vm_list();
+        struct vcpu_struct *vcpu = find_vm_that_has_lock(&cpu->current_vcpu->lock);
+        WARN("vcpu: 0x%lx", vcpu);
         PANIC("number_of_off is 0");
     }
 

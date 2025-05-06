@@ -42,6 +42,7 @@ void set_cpu_virtual_interrupt(struct vcpu_struct *vcpu) {
 
 // タイマが発火すると呼ばれ、VM 切り替えを行う
 void timer_tick() {
+	DEBUG("TICK");
 	yield();
 }
 
@@ -220,9 +221,11 @@ static void schedule(struct vcpu_struct *vcpu) {
     // get_cpuid も含めて Aff0 が CPU ID であることを前提にしているので、ここでは無視する
     // set_vmpidr_el2(0x80000000 | vcpu->vcpu_id);
 
+	DEBUG("Schedule from hv: vcpu=%d(0x%lx), lock=%d, pcpu=%d", vcpu->vcpu_id, vcpu, vcpu->lock.locked, pcpu->id);
 	// vcpu を実行する(しばらくここには帰ってこない)
 	cpu_switch_to(&pcpu->scheduler_context, vcpu);
     // ここに帰ってきたということは、おそらく yield されて scheduler に戻ってきた
+	DEBUG("Return to hv: vcpu=%d(0x%lx), lock=%d, pcpu=%d", vcpu->vcpu_id, vcpu, vcpu->lock.locked, pcpu->id);
 
 	// 復帰後に vcpu が別の pcpu で実行されるかもしれないので、pcpu を再取得する
 	pcpu = current_pcpu();
@@ -233,7 +236,9 @@ static void schedule(struct vcpu_struct *vcpu) {
 	pcpu->current_vcpu = NULL;                      // この pCPU は vCPU を実行していない
 }
 
-// CPU 時間を手放し VM を切り替える
+// todo: タイマで yield を呼び出すと、次回復帰時にそこから再開してしまうのでは
+//       特に問題ない？
+// VM が CPU 時間を手放しハイパーバイザに切り替える
 void yield() {
 	struct pcpu_struct *pcpu = current_pcpu();
 	struct vcpu_struct *vcpu = pcpu->current_vcpu;
@@ -254,9 +259,13 @@ void yield() {
     pcpu->current_vcpu = NULL;      // この pCPU は vCPU を実行していない
     // int interrupt_enable = vcpu->interrupt_enable;
 
-    // スケジューラに復帰する(しばらくここには帰ってこない)
+	DEBUG("Yield to hv: vcpu=%d(0x%lx), lock=%d, pcpu=%d", vcpu->vcpu_id, vcpu, vcpu->lock.locked, pcpu->id);
+
+	// スケジューラに復帰する(しばらくここには帰ってこない)
 	cpu_switch_to(vcpu, &pcpu->scheduler_context);
     // ここに帰ってきたということは、おそらく schedule されて vCPU に戻ってきた
+
+	DEBUG("Return from hv to yield: vcpu=%d(0x%lx), lock=%d, pcpu=%d", vcpu->vcpu_id, vcpu, vcpu->lock.locked, pcpu->id);
 
 	// 復帰後に vcpu が別の pcpu で実行されるかもしれないので、pcpu を再取得する
 	pcpu = current_pcpu();
@@ -278,6 +287,9 @@ void scheduler(unsigned long cpuid) {
 	struct vcpu_struct *vcpu;
 	int found;
 
+	// todo: 割込みを有効にした直後に、既に発生していた割込みが発生する
+	//       その結果 vm_exit が実行されるが、まだ vm を実行していないので warn となっている
+	//       先に idle vcpu に切り替えてから割込みを有効にするという方法を取る？
 	// この CPU コアの割込みを有効化
 	enable_irq();
 

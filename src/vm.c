@@ -133,6 +133,7 @@ static struct vcpu_struct *create_vcpu(unsigned long vcpuid) {
 	return vcpu;
 }
 
+// todo: idle vcpu はなくすことができるかも (pcpu_struct の scheduler_context を使う)
 // 指定された CPU コア用の IDLE VM を作る(create_vm_with_loader と同様の処理を行う)
 int create_idle_vm() {
 	// todo: idle VM はなくしたい…
