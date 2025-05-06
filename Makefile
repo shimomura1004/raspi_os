@@ -2,8 +2,13 @@
 
 ARMGNU ?= aarch64-linux-gnu
 
+# ログレベルの設定(デフォルトはINFO)
+# make 時に変更する場合は make LOG_LEVEL=LOG_LEVEL_DEBUG などとする
+LOG_LEVEL ?= LOG_LEVEL_INFO
+
 COPS = -Wall -nostdlib -nostartfiles -ffreestanding -Iinclude -mgeneral-regs-only
 COPS += -g -O0
+COPS += -DLOG_LEVEL=$(LOG_LEVEL)
 ASMOPS = -Iinclude -g
 
 BUILD_DIR = build

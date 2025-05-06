@@ -9,6 +9,19 @@
 #include "irq.h"
 #include "cpu_core.h"
 
+// ログレベルの定義
+#define LOG_LEVEL_NONE  0
+#define LOG_LEVEL_PANIC 1
+#define LOG_LEVEL_WARN  2
+#define LOG_LEVEL_INFO  3
+#define LOG_LEVEL_DEBUG 4
+
+// デフォルトのログレベル（コンパイル時に上書き可能）
+#ifndef LOG_LEVEL
+#define LOG_LEVEL LOG_LEVEL_INFO  // デフォルトは警告まで表示
+#endif
+
+// todo: debug.c 的なソースを用意して隠蔽する
 extern struct spinlock log_lock;
 
 #define _LOG_COMMON(level, fmt, ...) do { \
@@ -25,8 +38,23 @@ extern struct spinlock log_lock;
     release_lock(&log_lock); \
 } while (0)
 
-#define INFO(fmt, ...) _LOG_COMMON("INFO", fmt, ##__VA_ARGS__)
-#define WARN(fmt, ...) _LOG_COMMON("WARN", fmt, ##__VA_ARGS__)
+#if LOG_LEVEL >= LOG_LEVEL_DEBUG
+#define DEBUG(fmt, ...) _LOG_COMMON("\x1b[39m" "DEBUG" "\x1b[39m", fmt, ##__VA_ARGS__)
+#else
+#define DEBUG(fmt, ...) do {} while(0)
+#endif
+
+#if LOG_LEVEL >= LOG_LEVEL_INFO
+#define INFO(fmt, ...)  _LOG_COMMON("\x1b[36m" "INFO" "\x1b[39m", fmt, ##__VA_ARGS__)
+#else
+#define DEBUG(fmt, ...) do {} while(0)
+#endif
+
+#if LOG_LEVEL >= LOG_LEVEL_WARN
+#define WARN(fmt, ...)  _LOG_COMMON("\x1b[33m" "WARN" "\x1b[39m", fmt, ##__VA_ARGS__)
+#else
+#define DEBUG(fmt, ...) do {} while(0)
+#endif
 
 // panic 後も割り込みが入ると普通に動いてしまうので割り込みを禁止する
 #define PANIC(fmt, ...) do { \
