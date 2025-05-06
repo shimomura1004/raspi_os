@@ -233,7 +233,7 @@ static void schedule(struct vcpu_struct *vcpu) {
 	// vCPU を停止するので、ステータスを更新
 	vcpu->state = (vcpu->state == VCPU_ZOMBIE) ?    // この vCPU は、実行可能か、終了済み
                     VCPU_ZOMBIE : VCPU_RUNNABLE;
-	pcpu->current_vcpu = NULL;                      // この pCPU は vCPU を実行していない
+	pcpu->current_vcpu = &pcpu->scheduler_context;  // この pCPU は HV(スケジューラ)を実行している
 }
 
 // todo: タイマで yield を呼び出すと、次回復帰時にそこから再開してしまうのでは
@@ -255,8 +255,8 @@ void yield() {
 
     // vCPU を停止するので、ステータスを更新
 	// 割込みの有効・無効状態は CPU の状態ではなくこのスレッドの状態なので、退避・復帰させる必要がある
-	vcpu->state = VCPU_RUNNABLE;    // この vCPU は、実行可能か、終了済み
-    pcpu->current_vcpu = NULL;      // この pCPU は vCPU を実行していない
+	//vcpu->state = VCPU_RUNNABLE;    					// この vCPU は、実行可能か、終了済み
+    //pcpu->current_vcpu = &pcpu->scheduler_context;    // この pCPU は HV(スケジューラ)を実行している
     // int interrupt_enable = vcpu->interrupt_enable;
 
 	DEBUG("Yield to hv: vcpu=%d(0x%lx), lock=%d, pcpu=%d", vcpu->vcpu_id, vcpu, vcpu->lock.locked, pcpu->id);
@@ -291,7 +291,15 @@ void scheduler(unsigned long cpuid) {
 	//       その結果 vm_exit が実行されるが、まだ vm を実行していないので warn となっている
 	//       先に idle vcpu に切り替えてから割込みを有効にするという方法を取る？
 	// この CPU コアの割込みを有効化
-	enable_irq();
+	// enable_irq();
+
+	// 最初に idle vcpu に切り替え
+	vcpu = vcpus[cpuid];
+	acquire_lock(&vcpu->lock);
+	vcpu->interrupt_enable = 1;
+	vcpu->number_of_off = 1;
+	schedule(vcpu);
+	release_lock(&vcpu->lock);
 
     // todo: 割込みをどうするか考える、ただしタスクスイッチは禁止しないといけない
 	//       scheduler 実行中は割込み禁止でいいのでは

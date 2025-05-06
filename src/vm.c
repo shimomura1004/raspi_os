@@ -163,6 +163,8 @@ int create_idle_vm() {
 		}
 
 		idle_vcpu->vm = idle_vm;
+		idle_vcpu->vcpu_id = i;
+		idle_vcpu->state = VCPU_RUNNABLE;
 		init_lock(&idle_vcpu->lock, "vcpu_lock");
 
 		if (i == 0) {

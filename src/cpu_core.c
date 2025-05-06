@@ -10,7 +10,7 @@ void init_pcpu_struct(unsigned long cpuid) {
     pcpus[cpuid].id = cpuid;
 
     struct vcpu_struct *sched_context = &pcpus[cpuid].scheduler_context;
-    sched_context->number_of_off = 0;
+    sched_context->number_of_off = 1;
     sched_context->interrupt_enable = 1;
     sched_context->vm = NULL;
     init_lock(&sched_context->lock, "scheduler_context");
