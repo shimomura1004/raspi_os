@@ -250,10 +250,10 @@ switch_from_kthread:
 	// x23 は kenel_exit のときに spsr に書き戻され eret の戻りアドレスに使われる
 	// todo: VM 初期化時は x22,x23 は無効値が入っている
 	//       この処理は VM 初期化時にしか呼ばれないので、mov しても意味ないはず
-	mov	x0, x20
+	mov x0, x20
 	mov x1, x21
-	mov x3, x22
-	mov x4, x23
+	mov x2, x22
+	mov x3, x23
 	blr	x19
 	kernel_exit
 
