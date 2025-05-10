@@ -3,7 +3,7 @@
 
 #include "sched.h"
 
-struct raw_binary_loader_args {
+struct loader_args {
     unsigned long loader_addr;
     unsigned long entry_point;
     unsigned long sp;

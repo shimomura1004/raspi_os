@@ -71,7 +71,7 @@ int load_file_to_memory(struct vm_struct *vm, const char *name, unsigned long va
 
 // todo: 丸ごと elf.c に移す？
 int elf_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
-    struct raw_binary_loader_args *loader_args = (struct raw_binary_loader_args *)args;
+    struct loader_args *loader_args = (struct loader_args *)args;
     struct vm_struct *vm = current_cpu_core()->current_vm;
 
     struct fat32_fs hfat;
@@ -170,7 +170,7 @@ int elf_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
 }
 
 int raw_binary_loader(void *args, unsigned long *pc, unsigned long *sp) {
-    struct raw_binary_loader_args *loader_args = (struct raw_binary_loader_args *)args;
+    struct loader_args *loader_args = (struct loader_args *)args;
     struct vm_struct *vm = current_cpu_core()->current_vm;
 
     if (load_file_to_memory(vm, loader_args->filename, loader_args->loader_addr) < 0) {

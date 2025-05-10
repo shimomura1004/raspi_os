@@ -7,13 +7,13 @@
 
 void new_vm();
 
-struct raw_binary_loader_args vm_args = {
+struct loader_args vm_args = {
 	.loader_addr = 0x0,
 	.entry_point = 0x0,
 	.sp = 0x100000,
 	.filename = "",
 };
-struct raw_binary_loader_args *vm_args_p = &vm_args;
+struct loader_args *vm_args_p = &vm_args;
 
 int strncmp(char *a, char *b, int n) {
 	for (int i=0; i < n; i++) {
