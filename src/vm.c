@@ -113,9 +113,9 @@ static struct vm_struct *create_vm() {
 	}
 
 	vm->flags = 0;
-	vm->priority = current_cpu_core()->current_vm->priority;
+	// vm->priority = current_cpu_core()->current_vm->priority;
 	vm->state = VM_RUNNABLE;
-	vm->counter = vm->priority;
+	// vm->counter = vm->priority;
 
 	// このプロセス(vm)で再現するハードウェア(BCM2837)を初期化
 	vm->board_ops = &bcm2837_board_ops;
