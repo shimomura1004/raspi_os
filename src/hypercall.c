@@ -35,19 +35,9 @@ void hypercall(unsigned long hvc_nr, unsigned long a0, unsigned long a1, unsigne
 	}
 
 	case HYPERCALL_TYPE_CREATE_VM_FROM_ELF: {
-		// VM が動くときに使うデータなのでスタック上にとってはいけない
-		// todo: 同時に複数の OS が起動すると競合するため、専用のヒープ領域に確保するべき
-		static char filename[128];
-
-		// todo: 何個も起動すると再利用されてしまう
-		static struct loader_args args;
-
-		// ゲストのメモリに依存しないようハイパーバイザ側にコピー
-		args = *(struct loader_args *)get_pa_2nd(a0);
-
-		// 文字列ポインタはネストしてアドレス変換が必要、変換しつつ static 変数上にコピーする
-		memcpy(&filename, (const char *)get_pa_2nd((unsigned long)args.filename), 128);
-		args.filename = filename;
+		// 最初にこの VM に CPU 時間が割当たったタイミングで arg が使用される
+		// よってゲストのメモリに依存しないようハイパーバイザ側にコピーしておく
+		struct loader_args args = *(struct loader_args *)get_pa_2nd(a0);
 
 		INFO("Prepare VM(%s) by hypercall", args.filename);
         int vmid = create_vm_with_loader(elf_binary_loader, &args);
