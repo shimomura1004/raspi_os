@@ -67,6 +67,8 @@ kernel8.img: $(SRC_DIR)/linker.ld $(OBJ_FILES)
 	$(ARMGNU)-ld -Map kernel8.map -T $(SRC_DIR)/linker.ld -o $(BUILD_DIR)/kernel8.elf  $(OBJ_FILES)
 	$(ARMGNU)-objcopy $(BUILD_DIR)/kernel8.elf -O binary kernel8.img
 
+# elf バイナリを逆アセンブルする
+#  aarch64-linux-gnu-objdump -D example/raspios/build/kernel8.elf
 # raw binary である kernel8.img を逆アセンブルする
 #  aarch64-linux-gnu-objdump -b binary --architecture=aarch64 -D kernel8.img
 # raw binary を elf に戻す
